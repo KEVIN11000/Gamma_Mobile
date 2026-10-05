@@ -10,10 +10,10 @@ Todo dentro de `GammaMobile/`. Prefijos: `E` entorno, `S` backend-spec, `M` móv
 - [ ] **M-02** CI GitHub Actions para Android (assembleDebug + test). *Aceptación:* YAML válido y comandos pasan localmente.
 
 ## Fase S — Especificación de backend (`backend-spec/`)
-- [ ] **S-01** `openapi.yaml` con todos los endpoints, esquemas y errores (Flask/WSGI, X-API-KEY). *Aceptación:* validador OpenAPI sin errores.
-- [ ] **S-02** `REQUISITOS.md`: por endpoint, reglas de negocio (IVA, abonos, simulación), cambios sobre el código actual (mocks, zona horaria, dashboard) y notas WSGI. *Aceptación:* cada endpoint de `openapi.yaml` tiene su sección.
-- [ ] **S-03** Fixtures JSON de éxito y error por endpoint (incluye `dashboard/summary` ampliado y avisos de la semana). *Aceptación:* pytest valida cada fixture contra `openapi.yaml`.
-- [ ] **S-04** `mock_server/` Flask mínimo que sirve las fixtures (incluye 401 sin key y respuesta lenta simulada). *Aceptación:* pytest con test client: 200/401 correctos.
+- [x] **S-01** `openapi.yaml` con todos los endpoints, esquemas y errores (Flask/WSGI, X-API-KEY). *Aceptación:* validador OpenAPI sin errores.
+- [x] **S-02** `REQUISITOS.md`: por endpoint, reglas de negocio (IVA, abonos, simulación), cambios sobre el código actual (mocks, zona horaria, dashboard) y notas WSGI. *Aceptación:* cada endpoint de `openapi.yaml` tiene su sección.
+- [x] **S-03** Fixtures JSON de éxito y error por endpoint (incluye `dashboard/summary` ampliado y avisos de la semana). *Aceptación:* pytest valida cada fixture contra `openapi.yaml`.
+- [x] **S-04** `mock_server/` Flask mínimo que sirve las fixtures (incluye 401 sin key y respuesta lenta simulada). *Aceptación:* pytest con test client: 200/401 correctos.
 
 ## Fase A — Android Finanzas y Deudas
 - [ ] **M-03** Capa de red: `GammaApi`, interceptor key, `NetworkResult`, timeouts, Dispatcher limitado, 401. *Aceptación:* tests `MockWebServer` (200/401/500/timeout).

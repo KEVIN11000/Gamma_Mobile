@@ -27,20 +27,28 @@ fun DashboardScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Gamma Dashboard") }
+                title = { Text("Gamma Dashboard", fontWeight = FontWeight.Bold) },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background
+                )
             )
         },
         floatingActionButton = {
             Column(horizontalAlignment = Alignment.End) {
-                FloatingActionButton(
+                SmallFloatingActionButton(
                     onClick = onNuevoRecordatorio,
-                    modifier = Modifier.padding(bottom = 8.dp)
+                    modifier = Modifier.padding(bottom = 8.dp),
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer
                 ) {
-                    Icon(Icons.Default.Add, contentDescription = "Nuevo Recordatorio")
+                    Icon(androidx.compose.material.icons.Icons.Default.Notifications, contentDescription = "Nuevo Recordatorio")
                 }
-                FloatingActionButton(onClick = onNuevaTransaccion) {
-                    Icon(Icons.Default.Add, contentDescription = "Nueva Transacción")
-                }
+                ExtendedFloatingActionButton(
+                    onClick = onNuevaTransaccion,
+                    icon = { Icon(Icons.Default.Add, contentDescription = "Nueva Transacción") },
+                    text = { Text("Transacción") },
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                )
             }
         }
     ) { paddingValues ->
@@ -48,40 +56,85 @@ fun DashboardScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(16.dp)
+                .padding(horizontal = 16.dp)
         ) {
             // Tarjeta de Posición Financiera
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 16.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                    .padding(vertical = 16.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Margen Libre Disponible", style = MaterialTheme.typography.titleMedium)
+                Column(modifier = Modifier.padding(20.dp)) {
+                    Text("Margen Libre Disponible", style = MaterialTheme.typography.labelLarge)
+                    Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         formatGuaranies(summary.margenLibreDisponible),
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold
+                        style = MaterialTheme.typography.displaySmall,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.primary
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text("Saldo Acumulado: ${formatGuaranies(summary.saldoAcumulado)}")
-                    Text("Posición IVA: ${formatGuaranies(summary.posicionIva)} (${if (summary.esDebitoFiscal) "Débito" else "Crédito"})")
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column {
+                            Text("Saldo Acumulado", style = MaterialTheme.typography.labelMedium)
+                            Text(formatGuaranies(summary.saldoAcumulado), fontWeight = FontWeight.Bold)
+                        }
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text("Posición IVA", style = MaterialTheme.typography.labelMedium)
+                            val ivaColor = if (summary.esDebitoFiscal) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                            Text(
+                                "${formatGuaranies(summary.posicionIva)} (${if (summary.esDebitoFiscal) "Débito" else "Crédito"})", 
+                                fontWeight = FontWeight.Bold,
+                                color = ivaColor
+                            )
+                        }
+                    }
                 }
             }
 
             // Banner de Alertas Inminentes
-            Text("Alertas Inminentes", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 8.dp))
+            Text(
+                "Alertas Inminentes", 
+                style = MaterialTheme.typography.titleMedium, 
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(vertical = 8.dp)
+            )
             LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = PaddingValues(end = 16.dp)
             ) {
                 items(avisos) { aviso ->
                     Card(
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer,
+                            contentColor = MaterialTheme.colorScheme.onErrorContainer
+                        ),
+                        shape = MaterialTheme.shapes.medium
                     ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Text(aviso.titulo, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
-                            Text("Faltan ${aviso.diasRestantes} días", style = MaterialTheme.typography.bodySmall)
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = androidx.compose.material.icons.Icons.Default.Warning,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text(aviso.titulo, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                                Text("Faltan ${aviso.diasRestantes} días", style = MaterialTheme.typography.bodySmall)
+                            }
                         }
                     }
                 }

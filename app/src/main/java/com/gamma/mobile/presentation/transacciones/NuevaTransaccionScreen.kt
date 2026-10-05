@@ -4,6 +4,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,7 +26,15 @@ fun NuevaTransaccionScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Nueva Transacción") }
+                title = { Text("Nueva Transacción") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Volver"
+                        )
+                    }
+                }
             )
         }
     ) { paddingValues ->
@@ -57,7 +67,7 @@ fun NuevaTransaccionScreen(
 @Composable
 fun CargaAsistidaIA(onProcessIA: (String) -> Unit) {
     var frase by remember { mutableStateOf("") }
-    
+
     Column(modifier = Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
         OutlinedTextField(
             value = frase,

@@ -1,0 +1,111 @@
+openapi: 3.0.3
+info:
+  title: Gamma Mobile API
+  description: Backend for Frontend para la app Gamma Mobile (WSGI/Flask).
+  version: 1.0.0
+servers:
+  - url: /api/v1
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-KEY
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            detail:
+              type: string
+    DashboardSummary:
+      type: object
+      properties:
+        mes: { type: string }
+        ingresos: { type: integer }
+        gastos: { type: integer }
+        flujo_neto: { type: integer }
+        margen_libre: { type: integer }
+        saldo_acumulado: { type: integer }
+        posicion_iva: { type: integer }
+        es_debito_fiscal: { type: boolean }
+    Movimiento:
+      type: object
+      properties:
+        fecha: { type: string }
+        tipo_movimiento: { type: string, enum: [Ingreso, Gasto] }
+        proveedor_cliente: { type: string }
+        nro_factura: { type: string }
+        total: { type: integer }
+        categoria: { type: string }
+        comprobante: { type: string, enum: [Virtual Legal, Física Legal, No Legal] }
+        tasa_iva: { type: string, enum: ["10%", "5%", "Exento"] }
+        monto_gravado: { type: integer }
+        monto_iva: { type: integer }
+        mes: { type: string }
+        client_id: { type: string, description: "UUID de idempotencia", nullable: true }
+    Aviso:
+      type: object
+      properties:
+        id: { type: string }
+        titulo: { type: string }
+        fecha_evento: { type: string, description: "DD/MM/AAAA HH:MM" }
+security:
+  - ApiKeyAuth: []
+paths:
+  /health:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: OK
+  /dashboard/summary:
+    get:
+      summary: Resumen financiero
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardSummary'
+  /movimientos:
+    get:
+      summary: Lista de movimientos
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Movimiento'
+    post:
+      summary: Crear movimiento
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Movimiento'
+      responses:
+        '200':
+          description: OK
+  /avisos:
+    get:
+      summary: Lista de avisos
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Aviso'

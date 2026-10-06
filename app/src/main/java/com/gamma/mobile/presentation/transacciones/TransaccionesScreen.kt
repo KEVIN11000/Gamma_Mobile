@@ -17,7 +17,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.gamma.mobile.domain.model.Movimiento
-import com.gamma.mobile.presentation.dashboard.formatGuaranies
+import com.gamma.mobile.utils.formatGuaranies
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

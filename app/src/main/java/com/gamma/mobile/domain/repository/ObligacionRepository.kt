@@ -1,0 +1,8 @@
+package com.gamma.mobile.domain.repository
+
+import com.gamma.mobile.data.remote.NetworkResult
+import com.gamma.mobile.domain.model.Obligacion
+
+interface ObligacionRepository {
+    suspend fun getObligaciones(forceRefresh: Boolean = false): NetworkResult<List<Obligacion>>
+}

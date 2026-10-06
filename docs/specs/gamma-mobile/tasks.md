@@ -7,7 +7,7 @@ Todo dentro de `GammaMobile/`. Prefijos: `E` entorno, `S` backend-spec, `M` móv
 - [x] **E-01** Configurar `JAVA_HOME` (JDK 17+). *Aceptación:* `java -version` y `./gradlew --version` responden. *(Verificado: JDK Temurin 17.0.20.1, Gradle 8.13.)*
 - [ ] **E-02** Respaldar scaffold actual (rama `archive/scaffold-v1`) y crear `feat/gamma-mobile` en el repo de GammaMobile. *Aceptación:* `git branch` muestra ambas; árbol limpio.
 - [ ] **M-01** Proyecto Android nuevo (minSdk 26, targetSdk 35, Compose, Hilt, Retrofit, Room, WorkManager) con `versionName = 0.0.1+<commit>`. *Aceptación:* `./gradlew assembleDebug` OK; test valida `^0\.0\.1\+([0-9a-f]{7}|nogit)$`.
-- [ ] **M-02** CI GitHub Actions para Android (assembleDebug + test). *Aceptación:* YAML válido y comandos pasan localmente.
+- [x] **M-02** CI GitHub Actions para Android (assembleDebug + test). *Aceptación:* YAML válido y comandos pasan localmente.
 
 ## Fase S — Especificación de backend (`backend-spec/`)
 - [x] **S-01** `openapi.yaml` con todos los endpoints, esquemas y errores (Flask/WSGI, X-API-KEY). *Aceptación:* validador OpenAPI sin errores.
@@ -16,11 +16,11 @@ Todo dentro de `GammaMobile/`. Prefijos: `E` entorno, `S` backend-spec, `M` móv
 - [x] **S-04** `mock_server/` Flask mínimo que sirve las fixtures (incluye 401 sin key y respuesta lenta simulada). *Aceptación:* pytest con test client: 200/401 correctos.
 
 ## Fase A — Android Finanzas y Deudas
-- [ ] **M-03** Capa de red: `GammaApi`, interceptor key, `NetworkResult`, timeouts, Dispatcher limitado, 401. *Aceptación:* tests `MockWebServer` (200/401/500/timeout).
-- [ ] **M-04** Almacén seguro de URL+key y onboarding con verificación. *Aceptación:* test de ViewModel (válida/inválida/sin red); la key no aparece en logs.
-- [ ] **M-05** Room (movimientos, obligaciones, avisos) y repositorios con caché/TTL. *Aceptación:* tests Room en memoria y repos con fakes (sin red devuelve caché).
-- [ ] **M-06** Navegación inferior de 5 destinos y tema claro/oscuro. *Aceptación:* test de navegación; compila.
-- [ ] **M-07** Dashboard: tarjetas financieras con estados loading/error/empty/offline y formato `#,##0 ₲`. *Aceptación:* tests de ViewModel y formateador.
+- [x] **M-03** Capa de red: `GammaApi`, interceptor key, `NetworkResult`, timeouts, Dispatcher limitado, 401. *Aceptación:* tests `MockWebServer` (200/401/500/timeout).
+- [x] **M-04** Almacén seguro de URL+key y onboarding con verificación. *Aceptación:* test de ViewModel (válida/inválida/sin red); la key no aparece en logs.
+- [x] **M-05** Room (movimientos, obligaciones, avisos) y repositorios con caché/TTL. *Aceptación:* tests Room en memoria y repos con fakes (sin red devuelve caché).
+- [x] **M-06** Navegación inferior de 5 destinos y tema claro/oscuro. *Aceptación:* test de navegación; compila.
+- [x] **M-07** Dashboard: tarjetas financieras con estados loading/error/empty/offline y formato `#,##0 ₲`. *Aceptación:* tests de ViewModel y formateador.
 - [ ] **M-08** Tarjeta **Eventos de la semana** en el dashboard (próximos 7 días, orden ascendente, resalte ≤1 día, "hoy/mañana/en N días", estado vacío, tap → Avisos). *Aceptación:* tests con reloj fijo: borde de 7 días, medianoche, eventos pasados excluidos, orden y vacío.
 - [ ] **M-09** Libro diario con filtros y pull-to-refresh. *Aceptación:* tests de filtrado y agrupación por fecha.
 - [ ] **M-10** Registro manual con vista previa de IVA. *Aceptación:* tests de validación y cálculo contra casos de las fixtures.

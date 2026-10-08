@@ -114,10 +114,14 @@ fun AvisosScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AvisoItem(aviso: Aviso, onDelete: () -> Unit) {
+    var showDetails by remember { mutableStateOf(false) }
+
     Card(
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        onClick = { showDetails = true }
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(16.dp),
@@ -132,4 +136,26 @@ fun AvisoItem(aviso: Aviso, onDelete: () -> Unit) {
             }
         }
     }
+
+    if (showDetails) {
+        AlertDialog(
+            onDismissRequest = { showDetails = false },
+            title = { Text("Detalle del Aviso") },
+            text = {
+                Column {
+                    Text("Título: ${aviso.titulo}", style = MaterialTheme.typography.bodyLarge)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Fecha Evento: ${aviso.fechaEvento}")
+                    
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showDetails = false }) {
+                    Text("Cerrar")
+                }
+            }
+        )
+    }
 }
+
+

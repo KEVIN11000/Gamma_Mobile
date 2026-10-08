@@ -271,3 +271,4 @@ fun CargaOcrUI(onImageSelected: (Uri) -> Unit) {
         }
     }
 }
+

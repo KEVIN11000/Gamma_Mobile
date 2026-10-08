@@ -92,7 +92,57 @@ class NuevaTransaccionViewModel @Inject constructor(
         _uiState.update { it.copy(errorMessage = null) }
     }
 
-    fun saveMovimiento() {
+        fun interpretarTextoIa(texto: String) {
+        _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+        viewModelScope.launch {
+            when (val result = repository.interpretarMovimientoIa(texto)) {
+                is NetworkResult.Success -> {
+                    val propuesta = result.data
+                    _uiState.update { 
+                        it.copy(
+                            tipo = if (propuesta.tipo.isNotBlank()) propuesta.tipo else it.tipo,
+                            categoria = propuesta.categoria,
+                            totalInput = if (propuesta.total > 0) propuesta.total.toString() else it.totalInput,
+                            isLoading = false
+                        ) 
+                    }
+                }
+                is NetworkResult.Error -> {
+                    _uiState.update { it.copy(isLoading = false, errorMessage = result.message) }
+                }
+                is NetworkResult.Exception -> {
+                    _uiState.update { it.copy(isLoading = false, errorMessage = result.e.message ?: "Error de red al interpretar") }
+                }
+            }
+        }
+    }
+
+    fun interpretarImagenOcr(imageBytes: ByteArray, fileName: String) {
+        _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+        viewModelScope.launch {
+            when (val result = repository.interpretarMovimientoOcr(imageBytes, fileName)) {
+                is NetworkResult.Success -> {
+                    val propuesta = result.data
+                    _uiState.update { 
+                        it.copy(
+                            tipo = if (propuesta.tipo.isNotBlank()) propuesta.tipo else it.tipo,
+                            categoria = propuesta.categoria,
+                            totalInput = if (propuesta.total > 0) propuesta.total.toString() else it.totalInput,
+                            isLoading = false
+                        ) 
+                    }
+                }
+                is NetworkResult.Error -> {
+                    _uiState.update { it.copy(isLoading = false, errorMessage = result.message) }
+                }
+                is NetworkResult.Exception -> {
+                    _uiState.update { it.copy(isLoading = false, errorMessage = result.e.message ?: "Error de red al procesar imagen") }
+                }
+            }
+        }
+    }
+
+fun saveMovimiento() {
         val state = _uiState.value
         if (!state.isValid) return
 
@@ -124,3 +174,5 @@ class NuevaTransaccionViewModel @Inject constructor(
         }
     }
 }
+
+

@@ -164,4 +164,9 @@ class FakeAvisoRepository : AvisoRepository {
     override suspend fun getAvisos(forceRefresh: Boolean): NetworkResult<List<Aviso>> {
         return result
     }
+
+    override suspend fun createAviso(aviso: Aviso): NetworkResult<Unit> = NetworkResult.Success(Unit)
+    override suspend fun deleteAviso(id: String): NetworkResult<Unit> = NetworkResult.Success(Unit)
+    override suspend fun interpretarAvisoIa(texto: String): NetworkResult<Aviso> = NetworkResult.Success(Aviso())
 }
+

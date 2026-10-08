@@ -106,8 +106,41 @@ class MovimientoRepositoryImpl @Inject constructor(
         )
     }
 
+    override suspend fun interpretarMovimientoIa(texto: String): NetworkResult<Movimiento> {
+        var result: NetworkResult<Movimiento>? = null
+        for (i in 0..1) { // 1 retry (total 2 attempts)
+            result = kotlinx.coroutines.withTimeoutOrNull(45000L) {
+                safeApiCall(dispatcher) { api.interpretarMovimientoIa(com.gamma.mobile.data.remote.IaTextRequest(texto)) }
+            }
+            if (result is NetworkResult.Success || result is NetworkResult.Error) {
+                return result
+            }
+            if (i == 0) kotlinx.coroutines.delay(1000)
+        }
+        return result ?: NetworkResult.Exception(java.util.concurrent.TimeoutException("Timeout de IA (45s)"))
+    }
+
+        override suspend fun interpretarMovimientoOcr(imageBytes: ByteArray, fileName: String): NetworkResult<Movimiento> {
+        val requestBody = okhttp3.RequestBody.create(okhttp3.MediaType.parse("image/*"), imageBytes)
+        val part = okhttp3.MultipartBody.Part.createFormData("file", fileName, requestBody)
+        
+        var result: NetworkResult<Movimiento>? = null
+        for (i in 0..1) { // 1 retry (total 2 attempts)
+            result = kotlinx.coroutines.withTimeoutOrNull(45000L) {
+                safeApiCall(dispatcher) { api.interpretarMovimientoOcr(part) }
+            }
+            if (result is NetworkResult.Success || result is NetworkResult.Error) {
+                return result
+            }
+            if (i == 0) kotlinx.coroutines.delay(1000)
+        }
+        return result ?: NetworkResult.Exception(java.util.concurrent.TimeoutException("Timeout de OCR (45s)"))
+    }
+
     companion object {
         private const val SYNC_KEY = "movimientos"
         private const val CACHE_TTL = 5 * 60 * 1000L // 5 minutes
     }
 }
+
+

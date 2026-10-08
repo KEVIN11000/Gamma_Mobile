@@ -30,10 +30,10 @@ Todo dentro de `GammaMobile/`. Prefijos: `E` entorno, `S` backend-spec, `M` móv
 - [x] **QA-A** Emulador contra `mock_server`. *Aceptación:* checklist por pantalla con evidencia (Feedback aplicado).
 
 ## Fase B — Avisos, IA y OCR
-- [ ] **M-14** Pestaña Avisos (lista/crear/borrar, texto libre con IA). *Aceptación:* tests de ViewModel.
-- [ ] **M-15** `AvisosWorker` 08:00 Asunción, hitos 30/7/5/3/1, canal y permiso. *Aceptación:* tests de hitos con reloj fijo; notificación visible en emulador.
-- [ ] **M-16** Registro por IA (precarga campos, inferencia explícita de "Ingreso" vs "Gasto"; timeout 45 s con reintento). *Aceptación:* tests con respuesta simulada (éxito/timeout/JSON inválido).
-- [ ] **M-17** Foto de comprobante (cámara/galería) con confirmar/cancelar. *Aceptación:* test: cancelar no envía; confirmar crea movimiento.
+- [x] **M-14** Pestaña Avisos (lista/crear/borrar, texto libre con IA). *Aceptación:* tests de ViewModel.
+- [x] **M-15** `AvisosWorker` 08:00 Asunción, hitos 30/7/5/3/1, canal y permiso. *Aceptación:* tests de hitos con reloj fijo; notificación visible en emulador.
+- [x] **M-16** Registro por IA (precarga campos, inferencia explícita de "Ingreso" vs "Gasto"; timeout 45 s con reintento). *Aceptación:* tests con respuesta simulada (éxito/timeout/JSON inválido).
+- [x] **M-17** Foto de comprobante (cámara/galería) con confirmar/cancelar. *Aceptación:* test: cancelar no envía; confirmar crea movimiento.
 - [ ] **QA-B** Emulador Fase B.
 
 ## Fase C — Asistencia, cierres, soporte
@@ -47,3 +47,5 @@ Todo dentro de `GammaMobile/`. Prefijos: `E` entorno, `S` backend-spec, `M` móv
 - [ ] **F-02** Suites completas (`./gradlew test lint assembleDebug`, pytest de `backend-spec`). *Aceptación:* salida en verde registrada.
 - [ ] **F-03** APK release firmado (keystore fuera del repo), versión `0.0.1+<commit>`. *Aceptación:* `apksigner verify` OK.
 - [ ] **F-04** Reporte para el gate de despliegue, con la lista de cambios que debe aplicar el backend real. *Aceptación:* reporte con evidencia y `git status` limpio; sin push hasta tu aprobación.
+
+

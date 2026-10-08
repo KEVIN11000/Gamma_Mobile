@@ -8,6 +8,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+import android.net.Uri
+import androidx.core.content.FileProvider
+import java.io.File
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -24,7 +30,7 @@ fun NuevaTransaccionScreen(
     onProcessIA: (String) -> Unit
 ) {
     var selectedTabIndex by remember { mutableStateOf(0) }
-    val tabs = listOf("IA", "Manual")
+    val tabs = listOf("IA", "Foto", "Manual")
     val uiState by viewModel.uiState.collectAsState()
 
     LaunchedEffect(uiState.isSuccess) {
@@ -75,8 +81,17 @@ fun NuevaTransaccionScreen(
             }
 
             Box(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-                if (selectedTabIndex == 0) {
+                                if (selectedTabIndex == 0) {
                     CargaAsistidaIA(onProcessIA)
+                } else if (selectedTabIndex == 1) {
+                    val context = LocalContext.current
+                    CargaOcrUI { uri ->
+                        val bytes = context.contentResolver.openInputStream(uri)?.readBytes()
+                        if (bytes != null) {
+                            viewModel.interpretarImagenOcr(bytes, "comprobante.jpg")
+                            selectedTabIndex = 2
+                        }
+                    }
                 } else {
                     CargaManual(viewModel, uiState)
                 }
@@ -223,6 +238,36 @@ fun CargaManual(viewModel: NuevaTransaccionViewModel, uiState: NuevaTransaccionU
             } else {
                 Text("Guardar TransacciÃ³n")
             }
+        }
+    }
+}
+
+@Composable
+fun CargaOcrUI(onImageSelected: (Uri) -> Unit) {
+    val context = LocalContext.current
+    var photoUri by remember { mutableStateOf<Uri?>(null) }
+    
+    val galleryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+        if (uri != null) onImageSelected(uri)
+    }
+    
+    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
+        if (success && photoUri != null) {
+            onImageSelected(photoUri!!)
+        }
+    }
+
+    Column(modifier = Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+        Button(onClick = { galleryLauncher.launch("image/*") }, modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
+            Text("Seleccionar de la Galería")
+        }
+        
+        Button(onClick = { 
+            val tempFile = File.createTempFile("photo_", ".jpg", context.cacheDir).apply { createNewFile() }
+            photoUri = FileProvider.getUriForFile(context, "com.gamma.mobile.fileprovider", tempFile)
+            cameraLauncher.launch(photoUri!!)
+        }, modifier = Modifier.fillMaxWidth()) {
+            Text("Tomar Foto con Cámara")
         }
     }
 }

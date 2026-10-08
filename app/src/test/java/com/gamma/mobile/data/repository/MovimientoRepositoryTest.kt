@@ -92,7 +92,14 @@ class FakeApiForRepo : GammaApi {
     override suspend fun checkHealth() = throw NotImplementedError()
     override suspend fun getDashboardSummary() = throw NotImplementedError()
     override suspend fun createMovimiento(movimiento: Movimiento) = throw NotImplementedError()
+
+    override suspend fun interpretarMovimientoIa(request: com.gamma.mobile.data.remote.IaTextRequest): retrofit2.Response<com.gamma.mobile.domain.model.Movimiento> = retrofit2.Response.success(com.gamma.mobile.domain.model.Movimiento())
+
+    override suspend fun interpretarMovimientoOcr(request: okhttp3.MultipartBody.Part): retrofit2.Response<com.gamma.mobile.domain.model.Movimiento> = retrofit2.Response.success(com.gamma.mobile.domain.model.Movimiento())
     override suspend fun getAvisos() = throw NotImplementedError()
+    override suspend fun createAviso(aviso: com.gamma.mobile.domain.model.Aviso): retrofit2.Response<Unit> = retrofit2.Response.success(Unit)
+    override suspend fun deleteAviso(id: String): retrofit2.Response<Unit> = retrofit2.Response.success(Unit)
+    override suspend fun interpretarAvisoIa(request: com.gamma.mobile.data.remote.IaTextRequest): retrofit2.Response<com.gamma.mobile.domain.model.Aviso> = retrofit2.Response.success(com.gamma.mobile.domain.model.Aviso())
     override suspend fun getObligaciones() = throw NotImplementedError()
     override suspend fun createObligacion(obligacion: com.gamma.mobile.domain.model.Obligacion) = throw NotImplementedError()
     override suspend fun updateObligacion(id: String, obligacion: com.gamma.mobile.domain.model.Obligacion) = throw NotImplementedError()
@@ -136,3 +143,5 @@ class FakeSyncStateDao : SyncStateDao {
         data[syncState.key] = syncState
     }
 }
+
+

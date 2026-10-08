@@ -51,6 +51,26 @@ class AvisoRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun createAviso(aviso: Aviso): NetworkResult<Unit> {
+        return safeApiCall(dispatcher) { api.createAviso(aviso) }.also {
+            if (it is NetworkResult.Success) {
+                syncStateDao.insert(SyncStateEntity(SYNC_KEY, 0L))
+            }
+        }
+    }
+
+    override suspend fun deleteAviso(id: String): NetworkResult<Unit> {
+        return safeApiCall(dispatcher) { api.deleteAviso(id) }.also {
+            if (it is NetworkResult.Success) {
+                syncStateDao.insert(SyncStateEntity(SYNC_KEY, 0L))
+            }
+        }
+    }
+
+    override suspend fun interpretarAvisoIa(texto: String): NetworkResult<Aviso> {
+        return safeApiCall(dispatcher) { api.interpretarAvisoIa(com.gamma.mobile.data.remote.IaTextRequest(texto)) }
+    }
+
     companion object {
         private const val SYNC_KEY = "avisos"
         private const val CACHE_TTL = 30 * 60 * 1000L // 30 minutes

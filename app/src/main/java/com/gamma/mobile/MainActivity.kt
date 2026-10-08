@@ -126,14 +126,14 @@ fun GammaApp() {
                         viewModel = nuevaTransaccionViewModel,
                         onSave = { currentScreen = Screen.Transacciones },
                         onBack = { currentScreen = Screen.Dashboard },
-                        onProcessIA = { currentScreen = Screen.Transacciones }
+                        onProcessIA = { texto -> nuevaTransaccionViewModel.interpretarTextoIa(texto) }
                     )
                 }
                 Screen.Obligaciones -> {
                     val obligacionesViewModel: com.gamma.mobile.presentation.obligaciones.ObligacionesViewModel = androidx.hilt.navigation.compose.hiltViewModel()
                     ObligacionesScreen(viewModel = obligacionesViewModel)
                 }
-                Screen.Avisos -> DummyScreen("Pantalla de Avisos")
+                Screen.Avisos -> { val viewModel: com.gamma.mobile.presentation.avisos.AvisosViewModel = androidx.hilt.navigation.compose.hiltViewModel(); com.gamma.mobile.presentation.avisos.AvisosScreen(viewModel) }
                 Screen.Sistema -> DummyScreen("Pantalla de Sistema")
             }
         }
@@ -149,3 +149,5 @@ fun DummyScreen(title: String) {
         Text(text = title, style = MaterialTheme.typography.headlineMedium)
     }
 }
+
+

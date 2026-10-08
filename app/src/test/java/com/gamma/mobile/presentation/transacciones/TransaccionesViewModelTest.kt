@@ -136,4 +136,10 @@ class FakeMovimientoRepository : MovimientoRepository {
     override suspend fun addMovimiento(movimiento: Movimiento): NetworkResult<Unit> {
         return NetworkResult.Success(Unit)
     }
+
+    override suspend fun interpretarMovimientoIa(texto: String): NetworkResult<Movimiento> = NetworkResult.Success(Movimiento())
+
+    override suspend fun interpretarMovimientoOcr(imageBytes: ByteArray, fileName: String): NetworkResult<Movimiento> = NetworkResult.Success(Movimiento())
 }
+
+

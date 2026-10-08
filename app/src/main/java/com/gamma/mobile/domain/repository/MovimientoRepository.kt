@@ -7,4 +7,5 @@ import kotlinx.coroutines.flow.Flow
 interface MovimientoRepository {
     suspend fun getMovimientos(forceRefresh: Boolean = false): NetworkResult<List<Movimiento>>
     fun getMovimientosLocal(): Flow<List<Movimiento>>
+    suspend fun addMovimiento(movimiento: Movimiento): NetworkResult<Unit>
 }

@@ -11,13 +11,14 @@ data class MovimientoEntity(
     val tipo: String,
     val categoria: String,
     val total: Int,
-    val comprobante: String
+    val comprobante: String,
+    val syncStatus: String = "SYNCED"
 )
 
 fun MovimientoEntity.toDomain(): Movimiento {
     return Movimiento(id, fecha, tipo, categoria, total, comprobante)
 }
 
-fun Movimiento.toEntity(): MovimientoEntity {
-    return MovimientoEntity(id, fecha, tipo, categoria, total, comprobante)
+fun Movimiento.toEntity(status: String = "SYNCED"): MovimientoEntity {
+    return MovimientoEntity(id, fecha, tipo, categoria, total, comprobante, status)
 }

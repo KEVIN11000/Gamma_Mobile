@@ -14,9 +14,11 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+import java.time.Clock
+
 sealed class DashboardUiState {
     object Loading : DashboardUiState()
-    data class Success(val summary: DashboardSummary, val avisos: List<Aviso>) : DashboardUiState()
+    data class Success(val summary: DashboardSummary, val avisos: List<AvisoUiModel>) : DashboardUiState()
     data class Error(val message: String, val isOffline: Boolean = false) : DashboardUiState()
     object Empty : DashboardUiState()
 }
@@ -24,7 +26,8 @@ sealed class DashboardUiState {
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
     private val dashboardRepository: DashboardRepository,
-    private val avisoRepository: AvisoRepository
+    private val avisoRepository: AvisoRepository,
+    private val clock: Clock
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<DashboardUiState>(DashboardUiState.Loading)
@@ -46,7 +49,8 @@ class DashboardViewModel @Inject constructor(
                 if (summaryResult.data.saldoAcumulado == 0 && summaryResult.data.margenLibreDisponible == 0) {
                     _uiState.value = DashboardUiState.Empty
                 } else {
-                    _uiState.value = DashboardUiState.Success(summaryResult.data, avisosResult.data)
+                    val avisosUi = avisosResult.data.filterAndSortForDashboard(clock)
+                    _uiState.value = DashboardUiState.Success(summaryResult.data, avisosUi)
                 }
             } else {
                 val isOffline = summaryResult is NetworkResult.Exception || avisosResult is NetworkResult.Exception

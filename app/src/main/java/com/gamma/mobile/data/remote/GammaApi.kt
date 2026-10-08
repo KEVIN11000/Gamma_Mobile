@@ -24,4 +24,16 @@ interface GammaApi {
 
     @GET("avisos")
     suspend fun getAvisos(): Response<List<Aviso>>
+
+    @GET("obligaciones")
+    suspend fun getObligaciones(): Response<List<com.gamma.mobile.domain.model.Obligacion>>
+
+    @POST("obligaciones")
+    suspend fun createObligacion(@Body obligacion: com.gamma.mobile.domain.model.Obligacion): Response<Unit>
+
+    @retrofit2.http.PUT("obligaciones/{id}")
+    suspend fun updateObligacion(
+        @retrofit2.http.Path("id") id: String, 
+        @Body obligacion: com.gamma.mobile.domain.model.Obligacion
+    ): Response<Unit>
 }

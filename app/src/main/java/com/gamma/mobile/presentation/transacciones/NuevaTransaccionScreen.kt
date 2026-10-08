@@ -10,18 +10,39 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.gamma.mobile.utils.formatGuaranies
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NuevaTransaccionScreen(
+    viewModel: NuevaTransaccionViewModel,
     onSave: () -> Unit,
     onBack: () -> Unit,
     onProcessIA: (String) -> Unit
 ) {
     var selectedTabIndex by remember { mutableStateOf(0) }
     val tabs = listOf("IA", "Manual")
+    val uiState by viewModel.uiState.collectAsState()
+
+    LaunchedEffect(uiState.isSuccess) {
+        if (uiState.isSuccess) {
+            onSave()
+        }
+    }
+    
+    if (uiState.errorMessage != null) {
+        AlertDialog(
+            onDismissRequest = { viewModel.dismissError() },
+            confirmButton = {
+                TextButton(onClick = { viewModel.dismissError() }) { Text("OK") }
+            },
+            title = { Text("Error") },
+            text = { Text(uiState.errorMessage!!) }
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -57,7 +78,7 @@ fun NuevaTransaccionScreen(
                 if (selectedTabIndex == 0) {
                     CargaAsistidaIA(onProcessIA)
                 } else {
-                    CargaManual(onSave)
+                    CargaManual(viewModel, uiState)
                 }
             }
         }
@@ -94,56 +115,114 @@ fun CargaAsistidaIA(onProcessIA: (String) -> Unit) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CargaManual(onSave: () -> Unit) {
-    var monto by remember { mutableStateOf("") }
-    var categoria by remember { mutableStateOf("") }
-    var tipo by remember { mutableStateOf("Gasto") }
-    var iva by remember { mutableStateOf("10%") }
-
+fun CargaManual(viewModel: NuevaTransaccionViewModel, uiState: NuevaTransaccionUiState) {
     Column(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        // Tipo de Movimiento
+        Text("Tipo de Movimiento", style = MaterialTheme.typography.labelLarge)
+        Row {
+            RadioButton(selected = uiState.tipo == "Gasto", onClick = { viewModel.updateTipo("Gasto") })
+            Text("Gasto", modifier = Modifier.align(Alignment.CenterVertically))
+            Spacer(modifier = Modifier.width(16.dp))
+            RadioButton(selected = uiState.tipo == "Ingreso", onClick = { viewModel.updateTipo("Ingreso") })
+            Text("Ingreso", modifier = Modifier.align(Alignment.CenterVertically))
+        }
+
         OutlinedTextField(
-            value = monto,
-            onValueChange = { monto = it },
-            label = { Text("Monto (₲)") },
+            value = uiState.categoria,
+            onValueChange = { viewModel.updateCategoria(it) },
+            label = { Text("Categoría") },
+            modifier = Modifier.fillMaxWidth()
+        )
+        
+        OutlinedTextField(
+            value = uiState.totalInput,
+            onValueChange = { viewModel.updateTotal(it) },
+            label = { Text("Monto Total (IVA Incluido, ₲)") },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             modifier = Modifier.fillMaxWidth()
         )
 
-        OutlinedTextField(
-            value = categoria,
-            onValueChange = { categoria = it },
-            label = { Text("Categoría") },
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        Text("Tipo de Movimiento")
-        Row {
-            RadioButton(selected = tipo == "Gasto", onClick = { tipo = "Gasto" })
-            Text("Gasto", modifier = Modifier.align(Alignment.CenterVertically))
-            Spacer(modifier = Modifier.width(16.dp))
-            RadioButton(selected = tipo == "Ingreso", onClick = { tipo = "Ingreso" })
-            Text("Ingreso", modifier = Modifier.align(Alignment.CenterVertically))
-        }
-
-        Text("Tasa de IVA")
-        Row {
-            listOf("10%", "5%", "Exento").forEach { option ->
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    RadioButton(selected = iva == option, onClick = { iva = option })
-                    Text(option)
-                    Spacer(modifier = Modifier.width(8.dp))
+        // Comprobante
+        Text("Tipo de Comprobante", style = MaterialTheme.typography.labelLarge)
+        var expandedComprobante by remember { mutableStateOf(false) }
+        ExposedDropdownMenuBox(
+            expanded = expandedComprobante,
+            onExpandedChange = { expandedComprobante = !expandedComprobante }
+        ) {
+            OutlinedTextField(
+                value = uiState.comprobante,
+                onValueChange = {},
+                readOnly = true,
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedComprobante) },
+                modifier = Modifier.menuAnchor().fillMaxWidth()
+            )
+            ExposedDropdownMenu(
+                expanded = expandedComprobante,
+                onDismissRequest = { expandedComprobante = false }
+            ) {
+                listOf("Virtual Legal", "Física Legal", "No Legal").forEach { option ->
+                    DropdownMenuItem(
+                        text = { Text(option) },
+                        onClick = {
+                            viewModel.updateComprobante(option)
+                            expandedComprobante = false
+                        }
+                    )
                 }
             }
         }
 
-        Button(onClick = onSave, modifier = Modifier.fillMaxWidth()) {
-            Text("Guardar Transacción")
+        // Tasa IVA
+        Text("Tasa de IVA", style = MaterialTheme.typography.labelLarge)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf("10%", "5%", "Exento").forEach { option ->
+                FilterChip(
+                    selected = uiState.tasaIva == option,
+                    onClick = { viewModel.updateTasaIva(option) },
+                    label = { Text(option) }
+                )
+            }
+        }
+
+        // IVA Preview Card
+        if (uiState.totalParsed > 0) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Desglose de Impuestos (IVA extraído del total)", fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("Monto Gravado:")
+                        Text(formatGuaranies(uiState.ivaPreview.montoGravado))
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("Monto IVA:")
+                        Text(formatGuaranies(uiState.ivaPreview.montoIva), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+
+        Button(
+            onClick = { viewModel.saveMovimiento() },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = uiState.isValid && !uiState.isLoading
+        ) {
+            if (uiState.isLoading) {
+                CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary)
+            } else {
+                Text("Guardar Transacción")
+            }
         }
     }
 }

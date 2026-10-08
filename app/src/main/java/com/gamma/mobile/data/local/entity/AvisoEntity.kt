@@ -8,13 +8,13 @@ import com.gamma.mobile.domain.model.Aviso
 data class AvisoEntity(
     @PrimaryKey val id: String,
     val titulo: String,
-    val diasRestantes: Int
+    val fechaEvento: String
 )
 
 fun AvisoEntity.toDomain(): Aviso {
-    return Aviso(id, titulo, diasRestantes)
+    return Aviso(id, titulo, fechaEvento)
 }
 
 fun Aviso.toEntity(): AvisoEntity {
-    return AvisoEntity(id, titulo, diasRestantes)
+    return AvisoEntity(id, titulo, fechaEvento)
 }

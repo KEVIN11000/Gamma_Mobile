@@ -63,36 +63,7 @@ class MainActivity : ComponentActivity() {
 fun GammaApp() {
     var currentScreen by remember { mutableStateOf(Screen.Dashboard) }
 
-    val sampleSummary = DashboardSummary(
-        margenLibreDisponible = 5000000,
-        saldoAcumulado = 12000000,
-        posicionIva = 450000,
-        esDebitoFiscal = true
-    )
 
-    val sampleAvisos = listOf(
-        Aviso(id = "1", titulo = "I.V.A. Mensual", diasRestantes = 3),
-        Aviso(id = "2", titulo = "Pago Cuota Préstamo", diasRestantes = 5)
-    )
-
-    val sampleMovimientos = listOf(
-        Movimiento(
-            id = "1",
-            fecha = "2026-04-01",
-            tipo = "Ingreso",
-            categoria = "Venta Servicios",
-            total = 1500000,
-            comprobante = "Virtual Legal"
-        ),
-        Movimiento(
-            id = "2",
-            fecha = "2026-04-02",
-            tipo = "Gasto",
-            categoria = "Repuestos",
-            total = 250000,
-            comprobante = "Física Legal"
-        )
-    )
 
     Scaffold(
         bottomBar = {
@@ -139,18 +110,29 @@ fun GammaApp() {
                     DashboardScreen(
                         viewModel = dashboardViewModel,
                         onNuevaTransaccion = { currentScreen = Screen.NuevaTransaccion },
-                        onNuevoRecordatorio = { currentScreen = Screen.Obligaciones }
+                        onNuevoRecordatorio = { currentScreen = Screen.Obligaciones },
+                        onNavigateToAvisos = { currentScreen = Screen.Avisos }
                     )
                 }
-                Screen.Transacciones -> TransaccionesScreen(
-                    movimientos = sampleMovimientos
-                )
-                Screen.NuevaTransaccion -> NuevaTransaccionScreen(
-                    onSave = { currentScreen = Screen.Transacciones },
-                    onBack = { currentScreen = Screen.Dashboard },
-                    onProcessIA = { currentScreen = Screen.Transacciones }
-                )
-                Screen.Obligaciones -> ObligacionesScreen()
+                Screen.Transacciones -> {
+                    val transaccionesViewModel: com.gamma.mobile.presentation.transacciones.TransaccionesViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+                    TransaccionesScreen(
+                        viewModel = transaccionesViewModel
+                    )
+                }
+                Screen.NuevaTransaccion -> {
+                    val nuevaTransaccionViewModel: com.gamma.mobile.presentation.transacciones.NuevaTransaccionViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+                    NuevaTransaccionScreen(
+                        viewModel = nuevaTransaccionViewModel,
+                        onSave = { currentScreen = Screen.Transacciones },
+                        onBack = { currentScreen = Screen.Dashboard },
+                        onProcessIA = { currentScreen = Screen.Transacciones }
+                    )
+                }
+                Screen.Obligaciones -> {
+                    val obligacionesViewModel: com.gamma.mobile.presentation.obligaciones.ObligacionesViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+                    ObligacionesScreen(viewModel = obligacionesViewModel)
+                }
                 Screen.Avisos -> DummyScreen("Pantalla de Avisos")
                 Screen.Sistema -> DummyScreen("Pantalla de Sistema")
             }

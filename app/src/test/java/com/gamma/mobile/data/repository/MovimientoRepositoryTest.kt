@@ -20,6 +20,7 @@ import org.junit.Test
 import retrofit2.Response
 
 @OptIn(ExperimentalCoroutinesApi::class)
+@org.junit.runner.RunWith(org.robolectric.RobolectricTestRunner::class)
 class MovimientoRepositoryTest {
 
     private lateinit var repository: MovimientoRepositoryImpl
@@ -30,10 +31,11 @@ class MovimientoRepositoryTest {
 
     @Before
     fun setup() {
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
         fakeApi = FakeApiForRepo()
         fakeDao = FakeMovimientoDao()
         fakeSyncDao = FakeSyncStateDao()
-        repository = MovimientoRepositoryImpl(fakeApi, fakeDao, fakeSyncDao, dispatcher)
+        repository = MovimientoRepositoryImpl(context, fakeApi, fakeDao, fakeSyncDao, dispatcher)
     }
 
     @Test
@@ -91,6 +93,9 @@ class FakeApiForRepo : GammaApi {
     override suspend fun getDashboardSummary() = throw NotImplementedError()
     override suspend fun createMovimiento(movimiento: Movimiento) = throw NotImplementedError()
     override suspend fun getAvisos() = throw NotImplementedError()
+    override suspend fun getObligaciones() = throw NotImplementedError()
+    override suspend fun createObligacion(obligacion: com.gamma.mobile.domain.model.Obligacion) = throw NotImplementedError()
+    override suspend fun updateObligacion(id: String, obligacion: com.gamma.mobile.domain.model.Obligacion) = throw NotImplementedError()
 }
 
 class FakeMovimientoDao : MovimientoDao {
@@ -100,6 +105,21 @@ class FakeMovimientoDao : MovimientoDao {
 
     override suspend fun insertAll(movimientos: List<MovimientoEntity>) {
         data.addAll(movimientos)
+    }
+
+    override suspend fun insert(movimiento: MovimientoEntity) {
+        data.add(movimiento)
+    }
+
+    override suspend fun getPendingSync(): List<MovimientoEntity> {
+        return data.filter { it.syncStatus == "PENDING" }
+    }
+
+    override suspend fun updateSyncStatus(id: String) {
+        val idx = data.indexOfFirst { it.id == id }
+        if (idx != -1) {
+            data[idx] = data[idx].copy(syncStatus = "SYNCED")
+        }
     }
 
     override suspend fun deleteAll() {

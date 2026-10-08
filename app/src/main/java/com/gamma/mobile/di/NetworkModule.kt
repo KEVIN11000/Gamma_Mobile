@@ -40,7 +40,7 @@ object NetworkModule {
     @Singleton
     fun provideRetrofit(okHttpClient: OkHttpClient): Retrofit {
         return Retrofit.Builder()
-            .baseUrl("https://gamma-mobile.app/api/v1/") // Placeholder
+            .baseUrl("http://127.0.0.1:5000/api/v1/") // Mock server
             .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create())
             .build()

@@ -86,6 +86,9 @@ class FakeGammaApi : GammaApi {
     override suspend fun getMovimientos() = throw NotImplementedError()
     override suspend fun createMovimiento(movimiento: com.gamma.mobile.domain.model.Movimiento) = throw NotImplementedError()
     override suspend fun getAvisos() = throw NotImplementedError()
+    override suspend fun getObligaciones() = throw NotImplementedError()
+    override suspend fun createObligacion(obligacion: com.gamma.mobile.domain.model.Obligacion) = throw NotImplementedError()
+    override suspend fun updateObligacion(id: String, obligacion: com.gamma.mobile.domain.model.Obligacion) = throw NotImplementedError()
 }
 
 class FakeSecureStorageRepository : SecureStorageRepository {

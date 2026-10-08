@@ -9,30 +9,45 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshContainer
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.gamma.mobile.domain.model.Movimiento
 import com.gamma.mobile.utils.formatGuaranies
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TransaccionesScreen(
-    movimientos: List<Movimiento>
+    viewModel: TransaccionesViewModel
 ) {
-    var selectedFilter by remember { mutableStateOf("Todos") }
-    val filters = listOf("Todos", "Ingreso", "Gasto", "Deudas")
-
-    val filteredMovimientos = if (selectedFilter == "Todos") {
-        movimientos
-    } else if (selectedFilter == "Deudas") {
-        movimientos.filter { it.categoria == "Deuda" }
-    } else {
-        movimientos.filter { it.tipo == selectedFilter }
+    val uiState by viewModel.uiState.collectAsState()
+    val pullToRefreshState = rememberPullToRefreshState()
+    val coroutineScope = rememberCoroutineScope()
+    
+    // Manage pull to refresh state changes
+    if (pullToRefreshState.isRefreshing) {
+        LaunchedEffect(true) {
+            viewModel.loadMovimientos(forceRefresh = true)
+        }
+    }
+    
+    // Auto-hide the indicator if not refreshing from the VM
+    LaunchedEffect(uiState) {
+        if (uiState is TransaccionesUiState.Success && !(uiState as TransaccionesUiState.Success).isRefreshing) {
+            pullToRefreshState.endRefresh()
+        }
+        if (uiState is TransaccionesUiState.Error || uiState is TransaccionesUiState.Empty) {
+            pullToRefreshState.endRefresh()
+        }
     }
 
     Scaffold(
@@ -45,95 +60,164 @@ fun TransaccionesScreen(
             )
         }
     ) { paddingValues ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
+                .nestedScroll(pullToRefreshState.nestedScrollConnection)
         ) {
-            // Chips Filter
-            ScrollableTabRow(
-                selectedTabIndex = filters.indexOf(selectedFilter),
-                edgePadding = 16.dp,
-                modifier = Modifier.padding(bottom = 8.dp),
-                containerColor = MaterialTheme.colorScheme.background,
-                divider = {}
-            ) {
-                filters.forEachIndexed { index, title ->
-                    Tab(
-                        selected = selectedFilter == title,
-                        onClick = { selectedFilter = title },
-                        text = { Text(title, fontWeight = if (selectedFilter == title) FontWeight.Bold else FontWeight.Normal) }
-                    )
+            when (val state = uiState) {
+                is TransaccionesUiState.Loading -> {
+                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
                 }
-            }
-
-            // Lista de transacciones
-            LazyColumn(
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(filteredMovimientos) { mov ->
-                    val isIngreso = mov.tipo == "Ingreso"
-                    val itemColor = if (isIngreso) Color(0xFF4CAF50) else MaterialTheme.colorScheme.error
-
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                        ),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                is TransaccionesUiState.Error -> {
+                    Column(
+                        modifier = Modifier.align(Alignment.Center),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                        Text(state.message, color = MaterialTheme.colorScheme.error)
+                        Button(onClick = { viewModel.loadMovimientos(forceRefresh = true) }) {
+                            Text("Reintentar")
+                        }
+                    }
+                }
+                is TransaccionesUiState.Empty -> {
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        FilterTabs(
+                            selectedFiltro = FiltroTipo.TODOS,
+                            onFilterSelected = { viewModel.setFiltro(it) }
+                        )
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text("No hay movimientos registrados.")
+                        }
+                    }
+                }
+                is TransaccionesUiState.Success -> {
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        FilterTabs(
+                            selectedFiltro = state.filtroActual,
+                            onFilterSelected = { viewModel.setFiltro(it) }
+                        )
+                        
+                        LazyColumn(
+                            contentPadding = PaddingValues(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                            modifier = Modifier.fillMaxSize()
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(40.dp)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(itemColor.copy(alpha = 0.1f)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = if (isIngreso) Icons.Default.ArrowUpward else Icons.Default.ArrowDownward,
-                                        contentDescription = mov.tipo,
-                                        tint = itemColor
+                            state.movimientosAgrupados.forEach { (fecha, listaMovimientos) ->
+                                item(key = fecha) {
+                                    Text(
+                                        text = fecha,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(top = 16.dp, bottom = 8.dp),
+                                        color = MaterialTheme.colorScheme.primary
                                     )
                                 }
-                                Spacer(modifier = Modifier.width(16.dp))
-                                Column {
-                                    Text(mov.categoria, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyLarge)
-                                    Spacer(modifier = Modifier.height(2.dp))
-                                    Text(mov.fecha, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Box(
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(4.dp))
-                                            .background(MaterialTheme.colorScheme.primaryContainer)
-                                            .padding(horizontal = 6.dp, vertical = 2.dp)
-                                    ) {
-                                        Text(
-                                            mov.comprobante,
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                                        )
-                                    }
+                                items(listaMovimientos, key = { it.id }) { mov ->
+                                    MovimientoItem(mov)
                                 }
                             }
-                            Text(
-                                formatGuaranies(mov.total),
-                                color = itemColor,
-                                fontWeight = FontWeight.Bold,
-                                style = MaterialTheme.typography.titleMedium
-                            )
                         }
                     }
                 }
             }
+
+            PullToRefreshContainer(
+                state = pullToRefreshState,
+                modifier = Modifier.align(Alignment.TopCenter)
+            )
+        }
+    }
+}
+
+@Composable
+fun FilterTabs(
+    selectedFiltro: FiltroTipo,
+    onFilterSelected: (FiltroTipo) -> Unit
+) {
+    val filters = listOf(
+        FiltroTipo.TODOS to "Todos",
+        FiltroTipo.INGRESO to "Ingresos",
+        FiltroTipo.GASTO to "Gastos"
+    )
+
+    ScrollableTabRow(
+        selectedTabIndex = filters.indexOfFirst { it.first == selectedFiltro }.coerceAtLeast(0),
+        edgePadding = 16.dp,
+        modifier = Modifier.padding(bottom = 8.dp),
+        containerColor = MaterialTheme.colorScheme.background,
+        divider = {}
+    ) {
+        filters.forEach { (filtro, title) ->
+            Tab(
+                selected = selectedFiltro == filtro,
+                onClick = { onFilterSelected(filtro) },
+                text = { Text(title, fontWeight = if (selectedFiltro == filtro) FontWeight.Bold else FontWeight.Normal) }
+            )
+        }
+    }
+}
+
+@Composable
+fun MovimientoItem(mov: Movimiento) {
+    val isIngreso = mov.tipo == "Ingreso"
+    val itemColor = if (isIngreso) Color(0xFF4CAF50) else MaterialTheme.colorScheme.error
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(itemColor.copy(alpha = 0.1f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = if (isIngreso) Icons.Default.ArrowUpward else Icons.Default.ArrowDownward,
+                        contentDescription = mov.tipo,
+                        tint = itemColor
+                    )
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                Column {
+                    Text(mov.categoria, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyLarge)
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(mov.fecha, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(MaterialTheme.colorScheme.primaryContainer)
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            mov.comprobante,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
+                }
+            }
+            Text(
+                formatGuaranies(mov.total),
+                color = itemColor,
+                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.titleMedium
+            )
         }
     }
 }

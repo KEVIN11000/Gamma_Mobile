@@ -17,6 +17,7 @@ import javax.inject.Inject
 import javax.inject.Named
 
 class MovimientoRepositoryImpl @Inject constructor(
+    @dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context,
     private val api: GammaApi,
     private val movimientoDao: MovimientoDao,
     private val syncStateDao: SyncStateDao,
@@ -67,6 +68,42 @@ class MovimientoRepositoryImpl @Inject constructor(
     override fun getMovimientosLocal(): Flow<List<Movimiento>> {
         // En un caso real MovimientoDao retornaría Flow<List<MovimientoEntity>>
         throw NotImplementedError("To be implemented as Flow")
+    }
+
+    override suspend fun addMovimiento(movimiento: Movimiento): NetworkResult<Unit> {
+        // Optimistic / local first
+        val response = safeApiCall(dispatcher) { api.createMovimiento(movimiento) }
+        
+        if (response is NetworkResult.Success) {
+            movimientoDao.insert(movimiento.toEntity("SYNCED"))
+        } else {
+            // Save as pending and schedule worker
+            movimientoDao.insert(movimiento.toEntity("PENDING"))
+            scheduleSyncWorker()
+        }
+        
+        return NetworkResult.Success(Unit) // Return success to UI for immediate update
+    }
+
+    private fun scheduleSyncWorker() {
+        val constraints = androidx.work.Constraints.Builder()
+            .setRequiredNetworkType(androidx.work.NetworkType.CONNECTED)
+            .build()
+            
+        val workRequest = androidx.work.OneTimeWorkRequestBuilder<com.gamma.mobile.data.worker.SyncMovimientosWorker>()
+            .setConstraints(constraints)
+            .setBackoffCriteria(
+                androidx.work.BackoffPolicy.EXPONENTIAL,
+                androidx.work.WorkRequest.MIN_BACKOFF_MILLIS,
+                java.util.concurrent.TimeUnit.MILLISECONDS
+            )
+            .build()
+            
+        androidx.work.WorkManager.getInstance(context).enqueueUniqueWork(
+            "SyncMovimientos",
+            androidx.work.ExistingWorkPolicy.REPLACE,
+            workRequest
+        )
     }
 
     companion object {

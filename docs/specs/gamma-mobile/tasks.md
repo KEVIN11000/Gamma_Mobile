@@ -21,12 +21,12 @@ Todo dentro de `GammaMobile/`. Prefijos: `E` entorno, `S` backend-spec, `M` móv
 - [x] **M-05** Room (movimientos, obligaciones, avisos) y repositorios con caché/TTL. *Aceptación:* tests Room en memoria y repos con fakes (sin red devuelve caché).
 - [x] **M-06** Navegación inferior de 5 destinos y tema claro/oscuro. *Aceptación:* test de navegación; compila.
 - [x] **M-07** Dashboard: tarjetas financieras con estados loading/error/empty/offline y formato `#,##0 ₲`. *Aceptación:* tests de ViewModel y formateador.
-- [ ] **M-08** Tarjeta **Eventos de la semana** en el dashboard (próximos 7 días, orden ascendente, resalte ≤1 día, "hoy/mañana/en N días", estado vacío, tap → Avisos). *Aceptación:* tests con reloj fijo: borde de 7 días, medianoche, eventos pasados excluidos, orden y vacío.
-- [ ] **M-09** Libro diario con filtros y pull-to-refresh. *Aceptación:* tests de filtrado y agrupación por fecha.
-- [ ] **M-10** Registro manual con vista previa de IVA. *Aceptación:* tests de validación y cálculo contra casos de las fixtures.
-- [ ] **M-11** Cola offline de movimientos (`SyncMovimientosWorker`, backoff exponencial, `client_id`). *Aceptación:* test: reintento tras fallo y sin duplicados.
-- [ ] **M-12** Pestaña Deudas: lista con progreso, crear, aprobar, abonar. *Aceptación:* tests de ViewModel con fixtures.
-- [ ] **M-13** Simulador con indicador verde/amarillo/rojo. *Aceptación:* tests de mapeo de diagnóstico.
+- [x] **M-08** Tarjeta **Eventos de la semana** en el dashboard (próximos 7 días, orden ascendente, resalte ≤1 día, "hoy/mañana/en N días", estado vacío, tap → Avisos). *Aceptación:* tests con reloj fijo: borde de 7 días, medianoche, eventos pasados excluidos, orden y vacío.
+- [x] **M-09** Libro diario con filtros y pull-to-refresh. *Aceptación:* tests de filtrado y agrupación por fecha.
+- [x] **M-10** Registro manual con vista previa de IVA. *Aceptación:* tests de validación y cálculo contra casos de las fixtures.
+- [x] **M-11** Cola offline de movimientos (`SyncMovimientosWorker`, backoff exponencial, `client_id`). *Aceptación:* test: reintento tras fallo y sin duplicados.
+- [x] **M-12** Pestaña Deudas: lista con progreso, crear, aprobar, abonar. *Aceptación:* tests de ViewModel con fixtures.
+- [x] **M-13** Simulador con indicador verde/amarillo/rojo. *Aceptación:* tests de mapeo de diagnóstico.
 - [ ] **QA-A** Emulador contra `mock_server`. *Aceptación:* checklist por pantalla con evidencia.
 
 ## Fase B — Avisos, IA y OCR

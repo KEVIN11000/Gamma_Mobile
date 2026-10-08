@@ -14,6 +14,15 @@ interface MovimientoDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(movimientos: List<MovimientoEntity>)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(movimiento: MovimientoEntity)
+
+    @Query("SELECT * FROM movimientos WHERE syncStatus = 'PENDING'")
+    suspend fun getPendingSync(): List<MovimientoEntity>
+
+    @Query("UPDATE movimientos SET syncStatus = 'SYNCED' WHERE id = :id")
+    suspend fun updateSyncStatus(id: String)
+
     @Query("DELETE FROM movimientos")
     suspend fun deleteAll()
 }

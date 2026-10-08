@@ -32,14 +32,34 @@ class ObligacionRepositoryImpl @Inject constructor(
             }
         }
 
-        // TODO: M-05 GammaApi is missing getObligaciones() endpoint. 
-        // We simulate a fallback to local cache.
-        val localData = obligacionDao.getAll().map { it.toDomain() }
-        return if (localData.isNotEmpty()) {
-            NetworkResult.Success(localData)
-        } else {
-            NetworkResult.Error(404, "Endpoint no implementado en el mock_server aún")
+        return when (val response = safeApiCall(dispatcher) { api.getObligaciones() }) {
+            is NetworkResult.Success -> {
+                obligacionDao.deleteAll()
+                obligacionDao.insertAll(response.data.map { it.toEntity() })
+                syncStateDao.insert(SyncStateEntity(SYNC_KEY, System.currentTimeMillis()))
+                NetworkResult.Success(response.data)
+            }
+            else -> {
+                val localData = obligacionDao.getAll().map { it.toDomain() }
+                if (localData.isNotEmpty()) NetworkResult.Success(localData) else response
+            }
         }
+    }
+
+    override suspend fun createObligacion(obligacion: Obligacion): NetworkResult<Unit> {
+        val result = safeApiCall(dispatcher) { api.createObligacion(obligacion) }
+        if (result is NetworkResult.Success) {
+            obligacionDao.insertAll(listOf(obligacion.toEntity()))
+        }
+        return result
+    }
+
+    override suspend fun updateObligacion(obligacion: Obligacion): NetworkResult<Unit> {
+        val result = safeApiCall(dispatcher) { api.updateObligacion(obligacion.id, obligacion) }
+        if (result is NetworkResult.Success) {
+            obligacionDao.insertAll(listOf(obligacion.toEntity())) // replace logic
+        }
+        return result
     }
 
     companion object {

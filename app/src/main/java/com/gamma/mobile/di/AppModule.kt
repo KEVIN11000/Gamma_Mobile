@@ -4,6 +4,7 @@ import com.gamma.mobile.data.repository.SecureStorageRepositoryImpl
 import com.gamma.mobile.domain.repository.SecureStorageRepository
 import dagger.Binds
 import dagger.Module
+import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
@@ -41,4 +42,12 @@ abstract class AppModule {
     abstract fun bindDashboardRepository(
         impl: com.gamma.mobile.data.repository.DashboardRepositoryImpl
     ): com.gamma.mobile.domain.repository.DashboardRepository
+
+    companion object {
+        @Provides
+        @Singleton
+        fun provideClock(): java.time.Clock {
+            return java.time.Clock.systemDefaultZone()
+        }
+    }
 }

@@ -42,12 +42,13 @@ class DashboardViewModelTest {
     @Test
     fun `loadDashboard with successful data emits Success state`() = runTest {
         val summary = DashboardSummary(100, 200, 50, false)
-        val avisos = listOf(Aviso("1", "Aviso 1", 5))
+        val avisos = listOf(Aviso("1", "Aviso 1", "06/10/2026 12:00"))
         
         fakeDashboardRepo.result = NetworkResult.Success(summary)
         fakeAvisoRepo.result = NetworkResult.Success(avisos)
 
-        viewModel = DashboardViewModel(fakeDashboardRepo, fakeAvisoRepo)
+        val clock = java.time.Clock.fixed(java.time.Instant.parse("2026-10-06T10:00:00Z"), java.time.ZoneId.of("UTC"))
+        viewModel = DashboardViewModel(fakeDashboardRepo, fakeAvisoRepo, clock)
         advanceUntilIdle()
 
         val state = viewModel.uiState.value
@@ -67,7 +68,8 @@ class DashboardViewModelTest {
         fakeDashboardRepo.result = NetworkResult.Success(summary)
         fakeAvisoRepo.result = NetworkResult.Success(emptyList())
 
-        viewModel = DashboardViewModel(fakeDashboardRepo, fakeAvisoRepo)
+        val clock = java.time.Clock.fixed(java.time.Instant.parse("2026-10-06T10:00:00Z"), java.time.ZoneId.of("UTC"))
+        viewModel = DashboardViewModel(fakeDashboardRepo, fakeAvisoRepo, clock)
         advanceUntilIdle()
 
         val state = viewModel.uiState.value
@@ -79,7 +81,8 @@ class DashboardViewModelTest {
         fakeDashboardRepo.result = NetworkResult.Exception(java.net.SocketTimeoutException())
         fakeAvisoRepo.result = NetworkResult.Success(emptyList())
 
-        viewModel = DashboardViewModel(fakeDashboardRepo, fakeAvisoRepo)
+        val clock = java.time.Clock.fixed(java.time.Instant.parse("2026-10-06T10:00:00Z"), java.time.ZoneId.of("UTC"))
+        viewModel = DashboardViewModel(fakeDashboardRepo, fakeAvisoRepo, clock)
         advanceUntilIdle()
 
         val state = viewModel.uiState.value
@@ -92,12 +95,58 @@ class DashboardViewModelTest {
         fakeDashboardRepo.result = NetworkResult.Error(500, "Server Error")
         fakeAvisoRepo.result = NetworkResult.Success(emptyList())
 
-        viewModel = DashboardViewModel(fakeDashboardRepo, fakeAvisoRepo)
+        val clock = java.time.Clock.fixed(java.time.Instant.parse("2026-10-06T10:00:00Z"), java.time.ZoneId.of("UTC"))
+        viewModel = DashboardViewModel(fakeDashboardRepo, fakeAvisoRepo, clock)
         advanceUntilIdle()
 
         val state = viewModel.uiState.value
         assertTrue(state is DashboardUiState.Error)
         assertEquals(false, (state as DashboardUiState.Error).isOffline)
+    }
+
+    @Test
+    fun `loadDashboard filters past avisos and sorts correctly with fixed clock`() = runTest {
+        val summary = DashboardSummary(100, 200, 50, false)
+        // Fijamos la fecha a 2026-10-06 10:00 (UTC)
+        val fixedClock = java.time.Clock.fixed(java.time.Instant.parse("2026-10-06T10:00:00Z"), java.time.ZoneId.of("UTC"))
+        
+        // 05/10/2026 = Pasado (debe omitirse)
+        // 06/10/2026 = Hoy
+        // 07/10/2026 = Mañana
+        // 13/10/2026 = 7 días
+        // 14/10/2026 = 8 días (debe omitirse)
+        
+        val avisos = listOf(
+            Aviso("1", "Pasado", "05/10/2026 12:00"),
+            Aviso("2", "7 días", "13/10/2026 12:00"),
+            Aviso("3", "Hoy", "06/10/2026 15:00"),
+            Aviso("4", "Mañana", "07/10/2026 09:00"),
+            Aviso("5", "Fuera rango", "14/10/2026 12:00")
+        )
+        
+        fakeDashboardRepo.result = NetworkResult.Success(summary)
+        fakeAvisoRepo.result = NetworkResult.Success(avisos)
+
+        viewModel = DashboardViewModel(fakeDashboardRepo, fakeAvisoRepo, fixedClock)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertTrue(state is DashboardUiState.Success)
+        val uiAvisos = (state as DashboardUiState.Success).avisos
+        
+        // Solo 3 avisos válidos: Hoy, Mañana, 7 días. Ordenados.
+        assertEquals(3, uiAvisos.size)
+        assertEquals("Hoy", uiAvisos[0].titulo)
+        assertEquals("Hoy", uiAvisos[0].textoTiempo)
+        assertEquals(true, uiAvisos[0].esCritico)
+        
+        assertEquals("Mañana", uiAvisos[1].titulo)
+        assertEquals("Mañana", uiAvisos[1].textoTiempo)
+        assertEquals(true, uiAvisos[1].esCritico)
+        
+        assertEquals("7 días", uiAvisos[2].titulo)
+        assertEquals("En 7 días", uiAvisos[2].textoTiempo)
+        assertEquals(false, uiAvisos[2].esCritico)
     }
 }
 

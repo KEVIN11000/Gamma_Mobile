@@ -27,12 +27,12 @@ Todo dentro de `GammaMobile/`. Prefijos: `E` entorno, `S` backend-spec, `M` móv
 - [x] **M-11** Cola offline de movimientos (`SyncMovimientosWorker`, backoff exponencial, `client_id`). *Aceptación:* test: reintento tras fallo y sin duplicados.
 - [x] **M-12** Pestaña Deudas: lista con progreso, crear, aprobar, abonar. *Aceptación:* tests de ViewModel con fixtures.
 - [x] **M-13** Simulador con indicador verde/amarillo/rojo. *Aceptación:* tests de mapeo de diagnóstico.
-- [ ] **QA-A** Emulador contra `mock_server`. *Aceptación:* checklist por pantalla con evidencia.
+- [x] **QA-A** Emulador contra `mock_server`. *Aceptación:* checklist por pantalla con evidencia (Feedback aplicado).
 
 ## Fase B — Avisos, IA y OCR
 - [ ] **M-14** Pestaña Avisos (lista/crear/borrar, texto libre con IA). *Aceptación:* tests de ViewModel.
 - [ ] **M-15** `AvisosWorker` 08:00 Asunción, hitos 30/7/5/3/1, canal y permiso. *Aceptación:* tests de hitos con reloj fijo; notificación visible en emulador.
-- [ ] **M-16** Registro por IA (precarga campos; timeout 45 s con reintento). *Aceptación:* tests con respuesta simulada (éxito/timeout/JSON inválido).
+- [ ] **M-16** Registro por IA (precarga campos, inferencia explícita de "Ingreso" vs "Gasto"; timeout 45 s con reintento). *Aceptación:* tests con respuesta simulada (éxito/timeout/JSON inválido).
 - [ ] **M-17** Foto de comprobante (cámara/galería) con confirmar/cancelar. *Aceptación:* test: cancelar no envía; confirmar crea movimiento.
 - [ ] **QA-B** Emulador Fase B.
 

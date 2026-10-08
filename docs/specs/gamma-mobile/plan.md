@@ -36,7 +36,7 @@ Asistencia:      AsistenciaMarcaRequest{modo: normal|directo} -> {tipo: entrada|
 Cierre:          CierreRequest{hoja, aplicar_descuento} -> {resumen, pdf_url?}
 Ticket:          TicketCreate{asunto, descripcion} -> TicketItem{id TCK-xxx, estado, fecha}
 Health:          {status ok|degraded, sheets, avisos, version_api}
-Ocr:             {propuesta: MovimientoCreate, confianza?}   (no persiste)
+Ocr/Ia:          {propuesta: MovimientoCreate(incluyendo tipo: "Ingreso" | "Gasto" inferido), confianza?}   (no persiste)
 Error:           {error:{code, message, detail?}}
 ```
 Endpoints (`/api/v1`): `auth/verify`, `health`, `dashboard/summary`, `dashboard/eventos?dias=7`, `movimientos` (GET/POST), `movimientos/ocr`, `presupuesto`, `obligaciones` (GET/POST), `obligaciones/{id}/aprobar`, `obligaciones/abonar`, `obligaciones/simular`, `avisos` (GET/POST/DELETE), `ia/interpretar`, `asistencia/marcar`, `asistencia/materia`, `cierres/ejecutar`, `cierres/{id}/pdf`, `soporte/tickets` (GET/POST), `sistema/logs`.

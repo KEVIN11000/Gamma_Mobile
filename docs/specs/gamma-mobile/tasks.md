@@ -43,7 +43,7 @@ Todo dentro de `GammaMobile/`. Prefijos: `E` entorno, `S` backend-spec, `M` móv
 - [x] **QA-C** Emulador Fase C. *(Verificado: QA manual realizado por el usuario; feedback de menús desplegables para Materias, Períodos y Categorías implementado y probado).*
 
 ## Cierre
-- [ ] **F-01** Auditoría de seguridad: sin secretos en git, `network_security_config`, logs sin key. *Aceptación:* `git status`, `git diff --cached --stat` y búsqueda de secretos limpias.
+- [x] **F-01** Auditoría de seguridad: sin secretos en git, `network_security_config`, logs sin key. *Aceptación:* `git status`, `git diff --cached --stat` y búsqueda de secretos limpias. *(Verificado: network_security_config.xml implementado restringiendo cleartext a loopbacks locales/emulador, auditoría de logs y secretos limpia, assembleDebug y tests en verde).*
 - [ ] **F-02** Suites completas (`./gradlew test lint assembleDebug`, pytest de `backend-spec`). *Aceptación:* salida en verde registrada.
 - [ ] **F-03** APK release firmado (keystore fuera del repo), versión `0.0.1+<commit>`. *Aceptación:* `apksigner verify` OK.
 - [ ] **F-04** Reporte para el gate de despliegue, con la lista de cambios que debe aplicar el backend real. *Aceptación:* reporte con evidencia y `git status` limpio; sin push hasta tu aprobación.

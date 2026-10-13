@@ -5,6 +5,28 @@ plugins {
     id("com.google.devtools.ksp")
 }
 
+fun getGitCommitHash(): String {
+    return try {
+        val process = ProcessBuilder("git", "rev-parse", "--short", "HEAD").start()
+        val text = process.inputStream.bufferedReader().readText().trim()
+        process.waitFor()
+        text.ifEmpty { "nogit" }
+    } catch (e: Exception) {
+        "nogit"
+    }
+}
+
+fun getGitCommitCount(): Int {
+    return try {
+        val process = ProcessBuilder("git", "rev-list", "--count", "HEAD").start()
+        val text = process.inputStream.bufferedReader().readText().trim()
+        process.waitFor()
+        text.toIntOrNull() ?: 1
+    } catch (e: Exception) {
+        1
+    }
+}
+
 android {
     namespace = "com.gamma.mobile"
     compileSdk = 34
@@ -13,8 +35,8 @@ android {
         applicationId = "com.gamma.mobile"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = getGitCommitCount()
+        versionName = "0.0.1+${getGitCommitHash()}"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -40,6 +62,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.11"

@@ -13,6 +13,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.gamma.mobile.domain.model.Obligacion
 import com.gamma.mobile.utils.formatGuaranies
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -184,7 +186,8 @@ fun CrearObligacionModal(onDismiss: () -> Unit, onConfirm: (String, Int) -> Unit
                 OutlinedTextField(
                     value = monto, 
                     onValueChange = { if (it.all { char -> char.isDigit() }) monto = it },
-                    label = { Text("Monto") }
+                    label = { Text("Monto") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
             }
         },
@@ -217,7 +220,8 @@ fun AbonarModal(obligacion: Obligacion, onDismiss: () -> Unit, onConfirm: (Int) 
                 OutlinedTextField(
                     value = monto, 
                     onValueChange = { if (it.all { char -> char.isDigit() }) monto = it },
-                    label = { Text("Monto a abonar") }
+                    label = { Text("Monto a abonar") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
             }
         },
@@ -254,13 +258,15 @@ fun SimuladorCuotasModal(
                 OutlinedTextField(
                     value = monto,
                     onValueChange = { if (it.all { char -> char.isDigit() }) monto = it },
-                    label = { Text("Monto del préstamo") }
+                    label = { Text("Monto del préstamo") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
                     value = cuotas,
                     onValueChange = { if (it.all { char -> char.isDigit() }) cuotas = it },
-                    label = { Text("Cantidad de cuotas") }
+                    label = { Text("Cantidad de cuotas") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
 
                 if (simulacionResult != null) {

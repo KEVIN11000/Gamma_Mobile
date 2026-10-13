@@ -43,6 +43,24 @@ abstract class AppModule {
         impl: com.gamma.mobile.data.repository.DashboardRepositoryImpl
     ): com.gamma.mobile.domain.repository.DashboardRepository
 
+    @Binds
+    @Singleton
+    abstract fun bindAsistenciaRepository(
+        impl: com.gamma.mobile.data.repository.AsistenciaRepositoryImpl
+    ): com.gamma.mobile.domain.repository.AsistenciaRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindCierreRepository(
+        impl: com.gamma.mobile.data.repository.CierreRepositoryImpl
+    ): com.gamma.mobile.domain.repository.CierreRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindSistemaRepository(
+        impl: com.gamma.mobile.data.repository.SistemaRepositoryImpl
+    ): com.gamma.mobile.domain.repository.SistemaRepository
+
     companion object {
         @Provides
         @Singleton

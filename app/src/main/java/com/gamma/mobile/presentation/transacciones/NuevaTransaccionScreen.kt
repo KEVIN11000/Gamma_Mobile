@@ -53,7 +53,7 @@ fun NuevaTransaccionScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Nueva Transacción") },
+                title = { Text("Nueva TransacciÃ³n") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
@@ -123,7 +123,7 @@ fun CargaAsistidaIA(onProcessIA: (String) -> Unit) {
         }
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            text = "Ejemplo: Compré repuestos por 250000 con factura crédito fiscal",
+            text = "Ejemplo: ComprÃ© repuestos por 250000 con factura crÃ©dito fiscal",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -149,17 +149,46 @@ fun CargaManual(viewModel: NuevaTransaccionViewModel, uiState: NuevaTransaccionU
             Text("Ingreso", modifier = Modifier.align(Alignment.CenterVertically))
         }
 
-        OutlinedTextField(
-            value = uiState.categoria,
-            onValueChange = { viewModel.updateCategoria(it) },
-            label = { Text("Categoría") },
-            modifier = Modifier.fillMaxWidth()
-        )
+        // Categoría
+        var expandedCategoria by remember { mutableStateOf(false) }
+        val categoriasSugeridas = if (uiState.tipo == "Gasto") {
+            listOf("Alimentación", "Supermercado", "Transporte", "Servicios Básicos", "Educación", "Salud", "Ocio", "Tecnología", "Deudas", "Otros")
+        } else {
+            listOf("Salario", "Honorarios", "Ventas", "Rendimientos", "Préstamo", "Otros")
+        }
+
+        ExposedDropdownMenuBox(
+            expanded = expandedCategoria,
+            onExpandedChange = { expandedCategoria = !expandedCategoria }
+        ) {
+            OutlinedTextField(
+                value = uiState.categoria,
+                onValueChange = { viewModel.updateCategoria(it) },
+                label = { Text("Categoría") },
+                placeholder = { Text("Selecciona o escribe una categoría") },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedCategoria) },
+                modifier = Modifier.menuAnchor().fillMaxWidth()
+            )
+            ExposedDropdownMenu(
+                expanded = expandedCategoria,
+                onDismissRequest = { expandedCategoria = false }
+            ) {
+                categoriasSugeridas.forEach { cat ->
+                    DropdownMenuItem(
+                        text = { Text(cat) },
+                        onClick = {
+                            viewModel.updateCategoria(cat)
+                            expandedCategoria = false
+                        }
+                    )
+                }
+            }
+        }
         
         OutlinedTextField(
             value = uiState.totalInput,
             onValueChange = { viewModel.updateTotal(it) },
-            label = { Text("Monto Total (IVA Incluido, ₲)") },
+            label = { Text("Monto Total (IVA Incluido, â‚²)") },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             modifier = Modifier.fillMaxWidth()
         )
@@ -182,7 +211,7 @@ fun CargaManual(viewModel: NuevaTransaccionViewModel, uiState: NuevaTransaccionU
                 expanded = expandedComprobante,
                 onDismissRequest = { expandedComprobante = false }
             ) {
-                listOf("Virtual Legal", "Física Legal", "No Legal").forEach { option ->
+                listOf("Virtual Legal", "FÃ­sica Legal", "No Legal").forEach { option ->
                     DropdownMenuItem(
                         text = { Text(option) },
                         onClick = {
@@ -213,7 +242,7 @@ fun CargaManual(viewModel: NuevaTransaccionViewModel, uiState: NuevaTransaccionU
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Desglose de Impuestos (IVA extraído del total)", fontWeight = FontWeight.Bold)
+                    Text("Desglose de Impuestos (IVA extraÃ­do del total)", fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(8.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("Monto Gravado:")
@@ -236,7 +265,7 @@ fun CargaManual(viewModel: NuevaTransaccionViewModel, uiState: NuevaTransaccionU
             if (uiState.isLoading) {
                 CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary)
             } else {
-                Text("Guardar Transacción")
+                Text("Guardar TransacciÃ³n")
             }
         }
     }
@@ -259,7 +288,7 @@ fun CargaOcrUI(onImageSelected: (Uri) -> Unit) {
 
     Column(modifier = Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
         Button(onClick = { galleryLauncher.launch("image/*") }, modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
-            Text("Seleccionar de la Galer�a")
+            Text("Seleccionar de la Galería")
         }
         
         Button(onClick = { 
@@ -267,8 +296,9 @@ fun CargaOcrUI(onImageSelected: (Uri) -> Unit) {
             photoUri = FileProvider.getUriForFile(context, "com.gamma.mobile.fileprovider", tempFile)
             cameraLauncher.launch(photoUri!!)
         }, modifier = Modifier.fillMaxWidth()) {
-            Text("Tomar Foto con C�mara")
+            Text("Tomar Foto con Cámara")
         }
     }
 }
+
 

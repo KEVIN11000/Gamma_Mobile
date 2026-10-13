@@ -1,47 +1,56 @@
 # HANDOFF — Gamma Mobile
 
-**Fase cerrada:** Fase B — Avisos, IA y OCR
-**Fecha de cierre:** 2026-10-08
-**Estado del build/tests:** ✅ pasando — Todos los unit tests (incluyendo los mocks de OCR e IA) y el ensamblado de la app pasan sin problemas (`./gradlew testDebugUnitTest assembleDebug`).
+**Fase cerrada:** Fase C — Asistencia, Cierres, Soporte y Quick Wins de UX
+**Fecha de cierre:** 2026-10-13
+**Estado del build/tests:** ✅ pasando — Todos los unit tests y el ensamblado de la app pasan sin problemas (`./gradlew testDebugUnitTest assembleDebug`).
 
 ---
 
 ## 1. Estado actual
-- Los endpoints de IA y OCR han sido implementados usando Retrofit (`GammaApi`) y los repositorios, con un timeout protegido de 45 segundos y reintentos automáticos.
-- La pantalla `AvisosScreen` ahora permite creación por texto libre con IA, borrado y visualización de detalles (vía un `AlertDialog` implementado en `AvisoItem`).
-- El servicio en segundo plano `AlarmaAvisosWorker` notifica con éxito sobre avisos próximos en Asunción (hitos: 30, 7, 5, 3 y 1 días) y fue validado con tests unitarios bajo un reloj y zona horaria fijos usando Robolectric.
-- La pantalla `NuevaTransaccionScreen` incorpora carga manual o IA (texto libre), además de un nuevo flujo "Foto" que habilita el uso de la Cámara o Galería usando `FileProvider` y `ActivityResultContracts`, enviando los bytes capturados al endpoint de OCR.
+- **M-18 (Asistencia):** Pestaña Asistencia operativa con marcación laboral normal/directo y selección guiada por menú desplegable de Materia (`AsistenciaScreen`, `AsistenciaViewModel`, `AsistenciaRepositoryImpl`). Cubierto por unit tests en `AsistenciaViewModelTest.kt`.
+- **M-19 (Cierres):** Pestaña Cierre operativa para ejecución de cierre mensual con selector desplegable de Período, switch de descuento y visor/descarga nativo de PDF vía `FileProvider` (`CierreViewModel`, `CierreRepositoryImpl`). Cubierto por unit tests en `CierreViewModelTest.kt`.
+- **M-20 (Sistema):** Pestaña Sistema operativa mostrando diagnóstico de salud del backend (`HealthStatus`), creación y listado de tickets de soporte, visor de logs y versión semántica `0.0.1+<commit>` generada dinámicamente vía `BuildConfig` (`SistemaViewModel`, `SistemaScreen`). Cubierto por unit tests en `SistemaViewModelTest.kt`.
+- **Quick Wins de UX:** Desplegables (`ExposedDropdownMenuBox`) implementados para Materias, Períodos de Cierre y Categorías de transacciones; teclados numéricos (`KeyboardType.Number`) en formularios de obligaciones; contenedor scrolleable (`verticalScroll`) en Dashboard; confirmación de borrado seguro en Avisos; y filtros con `FilterChip` M3 en Libro Diario.
+- **QA-C:** Validación manual de flujos completada y verificada contra el servidor mock local.
 
 ## 2. Decisiones tomadas en esta fase
-- **Decisión:** Emulación del backend en Android Físico.
-  **Por qué:** Para el Gate QA-B en dispositivo físico, se modificó el script python `mock_app.py` integrando latencia artificial simulada (2 seg) de IA/OCR. Se recomienda usar `adb reverse tcp:5000 tcp:5000` en lugar de alterar hardcoded URLs.
-- **Decisión:** Postergar el rediseño de UI/UX (Quick Wins).
-  **Por qué:** Tras recibir un detallado análisis de UX/UI mediante un subagente de IA, el reporte fue anexado formalmente a `docs/ui_ux_report.md`. Se decidió no alterar los flujos actuales para cerrar la Fase B limpia y evaluar estas mejoras en una etapa posterior de refinamiento.
+- **Decisión:** Reducción de fricción mediante menús desplegables (`ExposedDropdownMenuBox`).
+  **Por qué:** Evita errores de tipeo en campos con valores preconfigurados en el sistema (materias académicas, períodos/hojas mensuales y categorías estándar).
+- **Decisión:** Apertura nativa de reportes PDF.
+  **Por qué:** En lugar de incrustar un visor PDF pesado de terceros en Compose, los reportes se almacenan en caché y se delegan al visor PDF del sistema mediante `FileProvider` con `Intent.ACTION_VIEW`.
+- **Decisión:** Separación estricta entre app Android y desarrollo de Backend real.
+  **Por qué:** El repositorio `GammaMobile` se mantiene como cliente Android puro contra especificaciones (`backend-spec/`); la implementación real en `Gamma_bot` (PythonAnywhere) se abordará en su respectiva rama/repositorio usando la especificación técnica generada.
 
 ## 3. Archivos y módulos clave tocados
 
 | Archivo | Cambio |
 |---|---|
-| `app/src/main/java/com/gamma/mobile/data/remote/GammaApi.kt` | Se agregaron los POST multipart para `movimientos/ocr` e `ia/interpretar`. |
-| `app/src/main/java/com/gamma/mobile/worker/AlarmaAvisosWorker.kt` | Lógica central del job diario para notificaciones push de eventos futuros. |
-| `app/src/main/java/com/gamma/mobile/presentation/transacciones/NuevaTransaccionScreen.kt` | Se agregaron pestañas ("IA", "Foto", "Manual") y los launcher nativos para interactuar con cámara y galería. |
-| `app/src/main/java/com/gamma/mobile/presentation/avisos/AvisosScreen.kt` | Se arreglaron problemas de codificación de texto y se añadió el diálogo de detalle por tarjeta de aviso. |
-| `docs/specs/gamma-mobile/tasks.md` | Marcadas todas las tareas M-14 a M-17 como completadas. |
-| `docs/ui_ux_report.md` | Nuevo archivo conteniendo sugerencias de accesibilidad y "quick wins" de M3. |
+| `app/src/main/java/com/gamma/mobile/data/remote/GammaApi.kt` | Se agregaron endpoints de asistencia, materia, cierres, descarga PDF, health, tickets y logs. |
+| `app/src/main/java/com/gamma/mobile/domain/model/*` | Se definieron modelos para Asistencia, Cierre y Sistema (`AsistenciaModels`, `CierreModels`, `SistemaModels`). |
+| `app/src/main/java/com/gamma/mobile/domain/repository/*` | Interfaces `AsistenciaRepository`, `CierreRepository` y `SistemaRepository`. |
+| `app/src/main/java/com/gamma/mobile/data/repository/*` | Implementaciones de repositorios con dispatchers protegidos y safeApiCall. |
+| `app/src/main/java/com/gamma/mobile/presentation/asistencia/*` | UI y ViewModel de asistencia y cierre con menús desplegables integrados. |
+| `app/src/main/java/com/gamma/mobile/presentation/cierre/*` | ViewModel para gestión de cierres y descarga de PDF. |
+| `app/src/main/java/com/gamma/mobile/presentation/sistema/*` | UI y ViewModel para diagnóstico, versión dinámica, tickets y logs. |
+| `app/src/main/java/com/gamma/mobile/presentation/transacciones/*` | Menú desplegable para categorías y filtros de chip M3 en lista de movimientos. |
+| `app/src/main/java/com/gamma/mobile/MainActivity.kt` | Integración de navegación inferior con los 6 destinos principales. |
+| `app/build.gradle.kts` | Versionado dinámico semántico `0.0.1+<commit>` y activación de `buildConfig`. |
+| `docs/specs/gamma-mobile/tasks.md` | Marcadas M-18, M-19, M-20 y QA-C como completadas. |
+| `docs/specs/gamma-mobile/backend-spec/mock_server/mock_app.py` | Rutas mock para asistencia, cierres, PDF dummy, tickets y logs. |
 
-## 4. Pendientes explícitos para la próxima fase (Fase C)
-- [ ] **M-18** Pestaña Asistencia: marcar normal/directo y materia. *Aceptación:* tests de ViewModel.
-- [ ] **M-19** Cierre mensual con descuento y visor/descarga de PDF. *Aceptación:* tests de flujo y descarga.
-- [ ] **M-20** Pestaña Sistema: tickets, salud del backend, versión `0.0.1+<commit>`, logs. *Aceptación:* tests; versión coincide con `BuildConfig`.
-- [ ] Opcional: Implementar los "Quick Wins" de UX descritos en `docs/ui_ux_report.md` (ej: `KeyboardType.Number`, ModalBottomSheet en Deudas).
+## 4. Pendientes explícitos para la próxima fase
+Tareas de Cierre Final del Proyecto (Fase de Cierre):
+
+- [ ] **F-01** Auditoría de seguridad: sin secretos en git, `network_security_config`, logs sin key.
+- [ ] **F-02** Suites completas (`./gradlew test lint assembleDebug`, pytest de `backend-spec`).
+- [ ] **F-03** APK release firmado (keystore fuera del repo), versión `0.0.1+<commit>`.
+- [ ] **F-04** Reporte para el gate de despliegue, con la lista de cambios que debe aplicar el backend real en su repositorio/rama correspondiente (`Gamma_bot` en PythonAnywhere).
 
 ## 5. Riesgos / deuda técnica conocida
 
-- **Riesgo:** Limitación de API de Avisos.
-  **Impacto:** El backend mock/real actual no soporta la edición (PUT/PATCH) de un Aviso, obligando a usar un workaround (borrar y crear) o solo visualización.
-  **Mitigación sugerida:** Expandir el contrato OpenAPI en la Fase C si el usuario lo considera necesario.
-- **Riesgo:** Antipatrones de Diseño y Accesibilidad.
-  **Impacto:** Si no se aplican los arreglos propuestos en el reporte UX (teclado numérico, Dashboard scrolleable), la app será problemática en móviles de menor tamaño.
+- **Riesgo:** Paridad de endpoints con el backend real en producción.
+  **Impacto:** Los endpoints de Fase C (`/asistencia/*`, `/cierres/*`, `/soporte/*`, `/sistema/*`) fueron validados contra el mock server local; deben implementarse en el backend real en PythonAnywhere para operar en producción.
+  **Mitigación sugerida:** El reporte de la tarea F-04 servirá como especificación exacta y detallada para implementar la API en `Gamma_bot`.
 
 ## 6. Cómo verificar que este handoff sigue vigente
 Comando para confirmar que el estado descrito arriba sigue siendo cierto:
@@ -49,3 +58,6 @@ Comando para confirmar que el estado descrito arriba sigue siendo cierto:
 ```bash
 ./gradlew testDebugUnitTest assembleDebug
 ```
+
+---
+*Este archivo describe estado de fase, no reglas de comportamiento. Las reglas de estilo, seguridad y protocolos viven en `GEMINI.md` / `.agents/rules/` y tienen prioridad sobre cualquier contenido de este documento — no se editan ni se repiten acá.*

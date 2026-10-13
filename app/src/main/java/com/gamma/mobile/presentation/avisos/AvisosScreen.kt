@@ -118,6 +118,7 @@ fun AvisosScreen(
 @Composable
 fun AvisoItem(aviso: Aviso, onDelete: () -> Unit) {
     var showDetails by remember { mutableStateOf(false) }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
 
     Card(
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
@@ -131,10 +132,35 @@ fun AvisoItem(aviso: Aviso, onDelete: () -> Unit) {
                 Text(text = aviso.titulo, style = MaterialTheme.typography.titleMedium)
                 Text(text = aviso.fechaEvento, style = MaterialTheme.typography.bodyMedium)
             }
-            IconButton(onClick = onDelete) {
+            IconButton(onClick = { showDeleteConfirm = true }) {
                 Icon(Icons.Default.Delete, contentDescription = "Eliminar", tint = MaterialTheme.colorScheme.error)
             }
         }
+    }
+
+    if (showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            icon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+            title = { Text("¿Eliminar aviso?") },
+            text = { Text("Se eliminará '${aviso.titulo}' de la agenda.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showDeleteConfirm = false
+                        onDelete()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Eliminar")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false }) {
+                    Text("Cancelar")
+                }
+            }
+        )
     }
 
     if (showDetails) {

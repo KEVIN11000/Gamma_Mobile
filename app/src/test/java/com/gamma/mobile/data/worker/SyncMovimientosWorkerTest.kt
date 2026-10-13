@@ -146,6 +146,14 @@ class FakeWorkerApi : GammaApi {
     override suspend fun interpretarMovimientoIa(request: com.gamma.mobile.data.remote.IaTextRequest): retrofit2.Response<com.gamma.mobile.domain.model.Movimiento> = retrofit2.Response.success(com.gamma.mobile.domain.model.Movimiento())
 
     override suspend fun interpretarMovimientoOcr(request: okhttp3.MultipartBody.Part): retrofit2.Response<com.gamma.mobile.domain.model.Movimiento> = retrofit2.Response.success(com.gamma.mobile.domain.model.Movimiento())
+    override suspend fun marcarAsistencia(request: com.gamma.mobile.domain.model.AsistenciaMarcaRequest) = throw NotImplementedError()
+    override suspend fun marcarMateria(request: com.gamma.mobile.domain.model.AsistenciaMateriaRequest) = throw NotImplementedError()
+    override suspend fun ejecutarCierre(request: com.gamma.mobile.domain.model.CierreRequest) = throw NotImplementedError()
+    override suspend fun descargarArchivoPdf(url: String) = throw NotImplementedError()
+    override suspend fun getHealthStatus() = throw NotImplementedError()
+    override suspend fun getTickets() = throw NotImplementedError()
+    override suspend fun createTicket(request: com.gamma.mobile.domain.model.TicketCreate) = throw NotImplementedError()
+    override suspend fun getLogs() = throw NotImplementedError()
 }
 
 

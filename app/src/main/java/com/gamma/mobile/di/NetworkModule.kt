@@ -22,7 +22,7 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideApiKeyInterceptor(secureStorage: com.gamma.mobile.domain.repository.SecureStorageRepository): ApiKeyInterceptor {
-        return ApiKeyInterceptor { secureStorage.getApiKey() }
+        return ApiKeyInterceptor { secureStorage.getApiKey() ?: "dev-key" }
     }
 
     @Provides
@@ -40,7 +40,7 @@ object NetworkModule {
     @Singleton
     fun provideRetrofit(okHttpClient: OkHttpClient): Retrofit {
         return Retrofit.Builder()
-            .baseUrl("http://127.0.0.1:5000/api/v1/") // Mock server
+            .baseUrl("http://127.0.0.1:5000/api/v1/") // Mock server local (soporta adb reverse y emulador)
             .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create())
             .build()

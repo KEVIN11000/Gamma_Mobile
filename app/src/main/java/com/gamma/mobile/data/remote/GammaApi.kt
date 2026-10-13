@@ -57,5 +57,30 @@ interface GammaApi {
         @Path("id") id: String, 
         @Body obligacion: com.gamma.mobile.domain.model.Obligacion
     ): Response<Unit>
+
+    @POST("asistencia/marcar")
+    suspend fun marcarAsistencia(@Body request: com.gamma.mobile.domain.model.AsistenciaMarcaRequest): Response<com.gamma.mobile.domain.model.AsistenciaMarcaResponse>
+
+    @POST("asistencia/materia")
+    suspend fun marcarMateria(@Body request: com.gamma.mobile.domain.model.AsistenciaMateriaRequest): Response<com.gamma.mobile.domain.model.AsistenciaMateriaResponse>
+
+    @POST("cierres/ejecutar")
+    suspend fun ejecutarCierre(@Body request: com.gamma.mobile.domain.model.CierreRequest): Response<com.gamma.mobile.domain.model.CierreResponse>
+
+    @retrofit2.http.Streaming
+    @GET
+    suspend fun descargarArchivoPdf(@retrofit2.http.Url url: String): Response<okhttp3.ResponseBody>
+
+    @GET("health")
+    suspend fun getHealthStatus(): Response<com.gamma.mobile.domain.model.HealthStatus>
+
+    @GET("soporte/tickets")
+    suspend fun getTickets(): Response<List<com.gamma.mobile.domain.model.TicketItem>>
+
+    @POST("soporte/tickets")
+    suspend fun createTicket(@Body request: com.gamma.mobile.domain.model.TicketCreate): Response<com.gamma.mobile.domain.model.TicketItem>
+
+    @GET("sistema/logs")
+    suspend fun getLogs(): Response<List<com.gamma.mobile.domain.model.LogEntry>>
 }
 

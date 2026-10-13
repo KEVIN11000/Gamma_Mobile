@@ -42,6 +42,7 @@ enum class Screen {
     NuevaTransaccion,
     Obligaciones,
     Avisos,
+    Asistencia,
     Sistema
 }
 
@@ -84,14 +85,20 @@ fun GammaApp() {
                     NavigationBarItem(
                         selected = currentScreen == Screen.Obligaciones,
                         onClick = { currentScreen = Screen.Obligaciones },
-                        icon = { Icon(Icons.Default.DateRange, contentDescription = "Obligaciones") },
-                        label = { Text("Obligaciones") }
+                        icon = { Icon(Icons.Default.Info, contentDescription = "Obligaciones") },
+                        label = { Text("Deudas") }
                     )
                     NavigationBarItem(
                         selected = currentScreen == Screen.Avisos,
                         onClick = { currentScreen = Screen.Avisos },
                         icon = { Icon(Icons.Default.Notifications, contentDescription = "Avisos") },
                         label = { Text("Avisos") }
+                    )
+                    NavigationBarItem(
+                        selected = currentScreen == Screen.Asistencia,
+                        onClick = { currentScreen = Screen.Asistencia },
+                        icon = { Icon(Icons.Default.DateRange, contentDescription = "Asistencia") },
+                        label = { Text("Asistencia") }
                     )
                     NavigationBarItem(
                         selected = currentScreen == Screen.Sistema,
@@ -134,7 +141,11 @@ fun GammaApp() {
                     ObligacionesScreen(viewModel = obligacionesViewModel)
                 }
                 Screen.Avisos -> { val viewModel: com.gamma.mobile.presentation.avisos.AvisosViewModel = androidx.hilt.navigation.compose.hiltViewModel(); com.gamma.mobile.presentation.avisos.AvisosScreen(viewModel) }
-                Screen.Sistema -> DummyScreen("Pantalla de Sistema")
+                Screen.Asistencia -> {
+                    val asistenciaViewModel: com.gamma.mobile.presentation.asistencia.AsistenciaViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+                    com.gamma.mobile.presentation.asistencia.AsistenciaScreen(viewModel = asistenciaViewModel)
+                }
+                Screen.Sistema -> com.gamma.mobile.presentation.sistema.SistemaScreen()
             }
         }
     }

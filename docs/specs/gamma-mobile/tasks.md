@@ -37,10 +37,10 @@ Todo dentro de `GammaMobile/`. Prefijos: `E` entorno, `S` backend-spec, `M` móv
 - [ ] **QA-B** Emulador Fase B.
 
 ## Fase C — Asistencia, cierres, soporte
-- [ ] **M-18** Pestaña Asistencia: marcar normal/directo y materia. *Aceptación:* tests de ViewModel.
-- [ ] **M-19** Cierre mensual con descuento y visor/descarga de PDF. *Aceptación:* tests de flujo y descarga.
-- [ ] **M-20** Pestaña Sistema: tickets, salud del backend, versión `0.0.1+<commit>`, logs. *Aceptación:* tests; versión coincide con `BuildConfig`.
-- [ ] **QA-C** Emulador Fase C.
+- [x] **M-18** Pestaña Asistencia: marcar normal/directo y materia. *Aceptación:* tests de ViewModel. *(Verificado: AsistenciaViewModelTest con 8 tests unitarios pasando, assembleDebug OK).*
+- [x] **M-19** Cierre mensual con descuento y visor/descarga de PDF. *Aceptación:* tests de flujo y descarga. *(Verificado: CierreViewModelTest con 10 tests unitarios pasando, FileProvider configurado, assembleDebug OK).*
+- [x] **M-20** Pestaña Sistema: tickets, salud del backend, versión `0.0.1+<commit>`, logs. *Aceptación:* tests; versión coincide con `BuildConfig`. *(Verificado: SistemaViewModelTest con 7 tests unitarios pasando, versión dinámica generada 0.0.1+90efaab en BuildConfig, assembleDebug OK).*
+- [x] **QA-C** Emulador Fase C. *(Verificado: QA manual realizado por el usuario; feedback de menús desplegables para Materias, Períodos y Categorías implementado y probado).*
 
 ## Cierre
 - [ ] **F-01** Auditoría de seguridad: sin secretos en git, `network_security_config`, logs sin key. *Aceptación:* `git status`, `git diff --cached --stat` y búsqueda de secretos limpias.

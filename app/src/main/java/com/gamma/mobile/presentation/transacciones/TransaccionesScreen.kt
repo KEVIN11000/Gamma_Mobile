@@ -8,6 +8,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshContainer
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
@@ -142,18 +143,20 @@ fun FilterTabs(
         FiltroTipo.GASTO to "Gastos"
     )
 
-    ScrollableTabRow(
-        selectedTabIndex = filters.indexOfFirst { it.first == selectedFiltro }.coerceAtLeast(0),
-        edgePadding = 16.dp,
-        modifier = Modifier.padding(bottom = 8.dp),
-        containerColor = MaterialTheme.colorScheme.background,
-        divider = {}
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         filters.forEach { (filtro, title) ->
-            Tab(
+            FilterChip(
                 selected = selectedFiltro == filtro,
                 onClick = { onFilterSelected(filtro) },
-                text = { Text(title, fontWeight = if (selectedFiltro == filtro) FontWeight.Bold else FontWeight.Normal) }
+                label = { Text(title, fontWeight = if (selectedFiltro == filtro) FontWeight.Bold else FontWeight.Normal) },
+                leadingIcon = if (selectedFiltro == filtro) {
+                    { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                } else null
             )
         }
     }
@@ -162,7 +165,7 @@ fun FilterTabs(
 @Composable
 fun MovimientoItem(mov: Movimiento) {
     val isIngreso = mov.tipo == "Ingreso"
-    val itemColor = if (isIngreso) Color(0xFF4CAF50) else MaterialTheme.colorScheme.error
+    val itemColor = if (isIngreso) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
 
     Card(
         modifier = Modifier.fillMaxWidth(),

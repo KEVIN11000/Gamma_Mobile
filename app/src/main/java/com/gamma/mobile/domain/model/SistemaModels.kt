@@ -10,7 +10,13 @@ data class HealthStatus(
     @SerializedName("avisos")
     val avisos: Boolean = true,
     @SerializedName("version_api")
-    val versionApi: String = "1.0.0"
+    val versionApi: String = "1.0.0",
+    @SerializedName("latest_app_version")
+    val latestAppVersion: String? = null,
+    @SerializedName("latest_app_version_code")
+    val latestAppVersionCode: Int? = null,
+    @SerializedName("download_url")
+    val downloadUrl: String? = null
 )
 
 data class TicketCreate(

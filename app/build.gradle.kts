@@ -44,6 +44,19 @@ android {
         }
     }
 
+    signingConfigs {
+        create("release") {
+            val userHome = System.getProperty("user.home")
+            val keystoreFile = file("$userHome/.android/gamma_release.jks")
+            if (keystoreFile.exists()) {
+                storeFile = keystoreFile
+                storePassword = System.getenv("KEYSTORE_PASSWORD") ?: "gamma2026release"
+                keyAlias = System.getenv("KEY_ALIAS") ?: "gamma_key"
+                keyPassword = System.getenv("KEY_PASSWORD") ?: "gamma2026release"
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -51,6 +64,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.getByName("release")
         }
     }
     compileOptions {

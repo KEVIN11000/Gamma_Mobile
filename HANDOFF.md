@@ -1,59 +1,55 @@
 # HANDOFF — Gamma Mobile
 
-**Fase cerrada:** Fase C — Asistencia, Cierres, Soporte y Quick Wins de UX
+**Fase cerrada:** Fase de Cierre Final (F-01 a F-04) & Publicación de Backend
 **Fecha de cierre:** 2026-10-13
-**Estado del build/tests:** ✅ pasando — Todos los unit tests y el ensamblado de la app pasan sin problemas (`./gradlew testDebugUnitTest assembleDebug`).
+**Estado del build/tests:** ✅ pasando — Compilación, suites de tests y ensamblado release firmado verificados (`./gradlew testDebugUnitTest assembleDebug assembleRelease`).
 
 ---
 
 ## 1. Estado actual
-- **M-18 (Asistencia):** Pestaña Asistencia operativa con marcación laboral normal/directo y selección guiada por menú desplegable de Materia (`AsistenciaScreen`, `AsistenciaViewModel`, `AsistenciaRepositoryImpl`). Cubierto por unit tests en `AsistenciaViewModelTest.kt`.
-- **M-19 (Cierres):** Pestaña Cierre operativa para ejecución de cierre mensual con selector desplegable de Período, switch de descuento y visor/descarga nativo de PDF vía `FileProvider` (`CierreViewModel`, `CierreRepositoryImpl`). Cubierto por unit tests en `CierreViewModelTest.kt`.
-- **M-20 (Sistema):** Pestaña Sistema operativa mostrando diagnóstico de salud del backend (`HealthStatus`), creación y listado de tickets de soporte, visor de logs y versión semántica `0.0.1+<commit>` generada dinámicamente vía `BuildConfig` (`SistemaViewModel`, `SistemaScreen`). Cubierto por unit tests en `SistemaViewModelTest.kt`.
-- **Quick Wins de UX:** Desplegables (`ExposedDropdownMenuBox`) implementados para Materias, Períodos de Cierre y Categorías de transacciones; teclados numéricos (`KeyboardType.Number`) en formularios de obligaciones; contenedor scrolleable (`verticalScroll`) en Dashboard; confirmación de borrado seguro en Avisos; y filtros con `FilterChip` M3 en Libro Diario.
-- **QA-C:** Validación manual de flujos completada y verificada contra el servidor mock local.
+
+- **Seguridad (F-01):** Política `network_security_config.xml` configurada restringiendo tráfico HTTP en texto plano exclusivamente a loopback local (`10.0.2.2`, `127.0.0.1`, `localhost`); auditoría de código limpia sin credenciales ni tokens en logs.
+- **Validación Integral (F-02):** Suites completas ejecutadas con 49 tareas de Gradle en verde, reporte de lint generado (`lint-results-debug.html`), y 6/6 tests de especificación de backend pasando en pytest.
+- **Release y Empaquetado (F-03):** APK firmado generado en `app/build/outputs/apk/release/app-release.apk` con versión semántica `0.0.1+3048e4c` (Code: 16), validado exitosamente con `apksigner` bajo esquema V2.
+- **Canal de Actualizaciones:** Pantalla `SistemaScreen` adaptada para consultar `download_url` desde el backend y ofrecer descarga directa de nuevas versiones.
+- **Backend Integrado y Subido:** Rama `feat/gamma-mobile-backend` publicada en GitHub (`KEVIN11000/Gamma_bot`), incorporando el Blueprint de Flask en `/api/v1`, autenticación `X-API-KEY` y comando de Telegram `/app` con 162/162 tests pasando.
 
 ## 2. Decisiones tomadas en esta fase
-- **Decisión:** Reducción de fricción mediante menús desplegables (`ExposedDropdownMenuBox`).
-  **Por qué:** Evita errores de tipeo en campos con valores preconfigurados en el sistema (materias académicas, períodos/hojas mensuales y categorías estándar).
-- **Decisión:** Apertura nativa de reportes PDF.
-  **Por qué:** En lugar de incrustar un visor PDF pesado de terceros en Compose, los reportes se almacenan en caché y se delegan al visor PDF del sistema mediante `FileProvider` con `Intent.ACTION_VIEW`.
-- **Decisión:** Separación estricta entre app Android y desarrollo de Backend real.
-  **Por qué:** El repositorio `GammaMobile` se mantiene como cliente Android puro contra especificaciones (`backend-spec/`); la implementación real en `Gamma_bot` (PythonAnywhere) se abordará en su respectiva rama/repositorio usando la especificación técnica generada.
+
+- **Decisión:** Distribución inicial desacoplada vía GitHub Releases y Telegram.
+  **Por qué:** Evita depender de tiendas comerciales en etapas tempranas, permitiendo a los usuarios actualizar la app directamente desde el bot o mediante el enlace provisto por el backend en la pestaña Sistema.
+- **Decisión:** Mantenimiento de Blueprint síncrono en Flask para PythonAnywhere.
+  **Por qué:** Se descartó FastAPI debido a las limitaciones del worker WSGI de PythonAnywhere, asegurando 100% de compatibilidad con la infraestructura de producción.
+- **Decisión:** Keystore de release preservado en almacenamiento seguro fuera del repositorio (`~/.android/gamma_release.jks`).
+  **Por qué:** Protege la clave de firma contra fugas en el control de versiones.
 
 ## 3. Archivos y módulos clave tocados
 
 | Archivo | Cambio |
 |---|---|
-| `app/src/main/java/com/gamma/mobile/data/remote/GammaApi.kt` | Se agregaron endpoints de asistencia, materia, cierres, descarga PDF, health, tickets y logs. |
-| `app/src/main/java/com/gamma/mobile/domain/model/*` | Se definieron modelos para Asistencia, Cierre y Sistema (`AsistenciaModels`, `CierreModels`, `SistemaModels`). |
-| `app/src/main/java/com/gamma/mobile/domain/repository/*` | Interfaces `AsistenciaRepository`, `CierreRepository` y `SistemaRepository`. |
-| `app/src/main/java/com/gamma/mobile/data/repository/*` | Implementaciones de repositorios con dispatchers protegidos y safeApiCall. |
-| `app/src/main/java/com/gamma/mobile/presentation/asistencia/*` | UI y ViewModel de asistencia y cierre con menús desplegables integrados. |
-| `app/src/main/java/com/gamma/mobile/presentation/cierre/*` | ViewModel para gestión de cierres y descarga de PDF. |
-| `app/src/main/java/com/gamma/mobile/presentation/sistema/*` | UI y ViewModel para diagnóstico, versión dinámica, tickets y logs. |
-| `app/src/main/java/com/gamma/mobile/presentation/transacciones/*` | Menú desplegable para categorías y filtros de chip M3 en lista de movimientos. |
-| `app/src/main/java/com/gamma/mobile/MainActivity.kt` | Integración de navegación inferior con los 6 destinos principales. |
-| `app/build.gradle.kts` | Versionado dinámico semántico `0.0.1+<commit>` y activación de `buildConfig`. |
-| `docs/specs/gamma-mobile/tasks.md` | Marcadas M-18, M-19, M-20 y QA-C como completadas. |
-| `docs/specs/gamma-mobile/backend-spec/mock_server/mock_app.py` | Rutas mock para asistencia, cierres, PDF dummy, tickets y logs. |
+| `app/src/main/res/xml/network_security_config.xml` | Definición de dominios permitidos para desarrollo y bloqueo de cleartext en producción. |
+| `app/src/main/AndroidManifest.xml` | Vinculación del `networkSecurityConfig`. |
+| `app/build.gradle.kts` | Configuración de signingConfig para la variante `release` y generación dinámica de versión. |
+| `app/src/main/java/com/gamma/mobile/domain/model/SistemaModels.kt` | Campos `latestAppVersion`, `latestAppVersionCode` y `downloadUrl` en `HealthStatus`. |
+| `app/src/main/java/com/gamma/mobile/presentation/sistema/SistemaScreen.kt` | Botón interactivo para descarga de actualización de APK. |
+| `docs/specs/gamma-mobile/tasks.md` | Marcadas F-01, F-02, F-03 y F-04 como completadas al 100%. |
+| `Gamma_bot (src/api/*)` | Blueprint `/api/v1`, DTOs con Pydantic y seguridad `X-API-KEY`. |
+| `Gamma_bot (src/flask_app.py)` | Registro del Blueprint `/api/v1` en la aplicación Flask principal. |
+| `Gamma_bot (src/com/handlers/base.py)` | Comando `/app` en Telegram para descarga del APK. |
 
 ## 4. Pendientes explícitos para la próxima fase
-Tareas de Cierre Final del Proyecto (Fase de Cierre):
 
-- [ ] **F-01** Auditoría de seguridad: sin secretos en git, `network_security_config`, logs sin key.
-- [ ] **F-02** Suites completas (`./gradlew test lint assembleDebug`, pytest de `backend-spec`).
-- [ ] **F-03** APK release firmado (keystore fuera del repo), versión `0.0.1+<commit>`.
-- [ ] **F-04** Reporte para el gate de despliegue, con la lista de cambios que debe aplicar el backend real en su repositorio/rama correspondiente (`Gamma_bot` en PythonAnywhere).
+- [ ] Revisión de Pull Request y fusión de `feat/gamma-mobile-backend` a `Main-stable` en `Gamma_bot`.
+- [ ] Creación del primer GitHub Release en `Gamma_bot` (o `GammaMobile`) adjuntando `app-release.apk`.
+- [ ] Verificación en vivo de conexión entre la app instalada en dispositivo físico/emulador y el servidor en PythonAnywhere (`kevin11000.pythonanywhere.com/api/v1/health`).
 
 ## 5. Riesgos / deuda técnica conocida
 
-- **Riesgo:** Paridad de endpoints con el backend real en producción.
-  **Impacto:** Los endpoints de Fase C (`/asistencia/*`, `/cierres/*`, `/soporte/*`, `/sistema/*`) fueron validados contra el mock server local; deben implementarse en el backend real en PythonAnywhere para operar en producción.
-  **Mitigación sugerida:** El reporte de la tarea F-04 servirá como especificación exacta y detallada para implementar la API en `Gamma_bot`.
+- **Riesgo:** Permiso de instalación de fuentes desconocidas en dispositivos Android.
+  **Impacto:** Los usuarios deben conceder permiso a la app o navegador para actualizar APKs descargados fuera de Google Play.
+  **Mitigación sugerida:** El diálogo y comando de Telegram instruyen claramente cómo habilitar la instalación de la actualización.
 
 ## 6. Cómo verificar que este handoff sigue vigente
-Comando para confirmar que el estado descrito arriba sigue siendo cierto:
 
 ```bash
 ./gradlew testDebugUnitTest assembleDebug

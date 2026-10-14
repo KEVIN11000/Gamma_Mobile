@@ -4,6 +4,7 @@ import com.gamma.mobile.data.remote.NetworkResult
 import com.gamma.mobile.domain.model.HealthStatus
 import com.gamma.mobile.domain.model.LogEntry
 import com.gamma.mobile.domain.model.TicketItem
+import com.gamma.mobile.domain.repository.SecureStorageRepository
 import com.gamma.mobile.domain.repository.SistemaRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -48,17 +49,30 @@ class FakeSistemaRepository : SistemaRepository {
     override fun getAppVersion(): String = mockAppVersion
 }
 
+class FakeSistemaSecureStorage : SecureStorageRepository {
+    var savedKey: String? = null
+    var savedUrl: String = "https://kevin11000.pythonanywhere.com/api/v1/"
+
+    override fun saveApiKey(key: String) { savedKey = key }
+    override fun getApiKey(): String? = savedKey
+    override fun clearApiKey() { savedKey = null }
+    override fun saveBaseUrl(url: String) { savedUrl = url }
+    override fun getBaseUrl(): String = savedUrl
+}
+
 @OptIn(ExperimentalCoroutinesApi::class)
 class SistemaViewModelTest {
 
     private lateinit var viewModel: SistemaViewModel
     private lateinit var fakeRepo: FakeSistemaRepository
+    private lateinit var fakeStorage: FakeSistemaSecureStorage
     private val testDispatcher = StandardTestDispatcher()
 
     @Before
     fun setup() {
         Dispatchers.setMain(testDispatcher)
         fakeRepo = FakeSistemaRepository()
+        fakeStorage = FakeSistemaSecureStorage()
     }
 
     @After
@@ -78,7 +92,7 @@ class SistemaViewModelTest {
 
     @Test
     fun `initial load populates health, tickets, logs and version`() = runTest {
-        viewModel = SistemaViewModel(fakeRepo)
+        viewModel = SistemaViewModel(fakeRepo, fakeStorage)
         advanceUntilIdle()
 
         val state = viewModel.uiState.value
@@ -89,12 +103,26 @@ class SistemaViewModelTest {
         assertEquals("TCK-001", state.tickets[0].id)
         assertEquals(1, state.logs.size)
         assertEquals("Test log", state.logs[0].mensaje)
+        assertEquals("https://kevin11000.pythonanywhere.com/api/v1/", state.baseUrl)
+    }
+
+    @Test
+    fun `guardarConfiguracion updates storage and state`() = runTest {
+        viewModel = SistemaViewModel(fakeRepo, fakeStorage)
+        advanceUntilIdle()
+
+        viewModel.guardarConfiguracion("https://custom.server.com/api/v1/", "secret-123")
+        advanceUntilIdle()
+
+        assertEquals("secret-123", fakeStorage.savedKey)
+        assertEquals("https://custom.server.com/api/v1/", fakeStorage.savedUrl)
+        assertTrue(viewModel.uiState.value.isApiKeyConfigured)
     }
 
     @Test
     fun `health error updates state with error message`() = runTest {
         fakeRepo.healthResult = NetworkResult.Error(503, "Backend degradado")
-        viewModel = SistemaViewModel(fakeRepo)
+        viewModel = SistemaViewModel(fakeRepo, fakeStorage)
         advanceUntilIdle()
 
         val state = viewModel.uiState.value
@@ -103,7 +131,7 @@ class SistemaViewModelTest {
 
     @Test
     fun `crearTicket success prepends ticket to list and sets success message`() = runTest {
-        viewModel = SistemaViewModel(fakeRepo)
+        viewModel = SistemaViewModel(fakeRepo, fakeStorage)
         advanceUntilIdle()
 
         viewModel.crearTicket("Problema con login", "No acepta la API key")
@@ -120,7 +148,7 @@ class SistemaViewModelTest {
 
     @Test
     fun `crearTicket with blank asunto or descripcion sets error without calling repo`() = runTest {
-        viewModel = SistemaViewModel(fakeRepo)
+        viewModel = SistemaViewModel(fakeRepo, fakeStorage)
         advanceUntilIdle()
 
         viewModel.crearTicket("   ", "Descripcion valida")
@@ -136,7 +164,7 @@ class SistemaViewModelTest {
 
     @Test
     fun `crearTicket error sets error message`() = runTest {
-        viewModel = SistemaViewModel(fakeRepo)
+        viewModel = SistemaViewModel(fakeRepo, fakeStorage)
         advanceUntilIdle()
 
         fakeRepo.createTicketResult = NetworkResult.Error(500, "Error en base de datos")
@@ -149,7 +177,7 @@ class SistemaViewModelTest {
 
     @Test
     fun `limpiarMensajes clears error and success`() = runTest {
-        viewModel = SistemaViewModel(fakeRepo)
+        viewModel = SistemaViewModel(fakeRepo, fakeStorage)
         advanceUntilIdle()
 
         viewModel.crearTicket("Asunto", "Desc")

@@ -103,6 +103,88 @@ fun SistemaScreen(
                     }
                 }
 
+                // Card: Configuración de Conexión y API Key
+                var serverUrlInput by remember(uiState.baseUrl) { mutableStateOf(uiState.baseUrl) }
+                var apiKeyInput by remember(uiState.apiKey) { mutableStateOf(uiState.apiKey) }
+                var showKeyText by remember { mutableStateOf(false) }
+
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                "Conexión y API Key",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            AssistChip(
+                                onClick = {},
+                                label = { Text(if (uiState.isApiKeyConfigured) "CONFIGURADA" else "PENDIENTE") },
+                                leadingIcon = {
+                                    Icon(
+                                        if (uiState.isApiKeyConfigured) Icons.Default.CheckCircle else Icons.Default.Warning,
+                                        contentDescription = null,
+                                        tint = if (uiState.isApiKeyConfigured) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                                    )
+                                }
+                            )
+                        }
+
+                        OutlinedTextField(
+                            value = serverUrlInput,
+                            onValueChange = { serverUrlInput = it },
+                            label = { Text("URL del Servidor Backend") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        OutlinedTextField(
+                            value = apiKeyInput,
+                            onValueChange = { apiKeyInput = it },
+                            label = { Text("API Key (X-API-KEY)") },
+                            singleLine = true,
+                            visualTransformation = if (showKeyText) androidx.compose.ui.text.input.VisualTransformation.None else androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                            trailingIcon = {
+                                TextButton(onClick = { showKeyText = !showKeyText }) {
+                                    Text(if (showKeyText) "Ocultar" else "Ver")
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        Button(
+                            onClick = {
+                                viewModel.guardarConfiguracion(serverUrlInput, apiKeyInput)
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Guardar y Probar Conexión")
+                        }
+
+                        if (!uiState.configMessage.isNullOrBlank()) {
+                            Text(
+                                text = uiState.configMessage!!,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+                }
+
                 // Card 2: Salud del Backend
                 Card(
                     modifier = Modifier.fillMaxWidth(),

@@ -22,13 +22,17 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideApiKeyInterceptor(secureStorage: com.gamma.mobile.domain.repository.SecureStorageRepository): ApiKeyInterceptor {
-        return ApiKeyInterceptor { secureStorage.getApiKey() ?: "dev-key" }
+        return ApiKeyInterceptor { secureStorage.getApiKey() ?: "" }
     }
 
     @Provides
     @Singleton
-    fun provideOkHttpClient(apiKeyInterceptor: ApiKeyInterceptor): OkHttpClient {
+    fun provideOkHttpClient(
+        apiKeyInterceptor: ApiKeyInterceptor,
+        dynamicBaseUrlInterceptor: com.gamma.mobile.data.remote.DynamicBaseUrlInterceptor
+    ): OkHttpClient {
         return OkHttpClient.Builder()
+            .addInterceptor(dynamicBaseUrlInterceptor)
             .addInterceptor(apiKeyInterceptor)
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(15, TimeUnit.SECONDS)
@@ -40,7 +44,7 @@ object NetworkModule {
     @Singleton
     fun provideRetrofit(okHttpClient: OkHttpClient): Retrofit {
         return Retrofit.Builder()
-            .baseUrl("http://127.0.0.1:5000/api/v1/") // Mock server local (soporta adb reverse y emulador)
+            .baseUrl("https://kevin11000.pythonanywhere.com/api/v1/")
             .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create())
             .build()

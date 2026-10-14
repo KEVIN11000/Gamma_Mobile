@@ -6,6 +6,7 @@ import com.gamma.mobile.data.remote.NetworkResult
 import com.gamma.mobile.domain.model.HealthStatus
 import com.gamma.mobile.domain.model.LogEntry
 import com.gamma.mobile.domain.model.TicketItem
+import com.gamma.mobile.domain.repository.SecureStorageRepository
 import com.gamma.mobile.domain.repository.SistemaRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,21 +22,53 @@ data class SistemaUiState(
     val health: HealthStatus? = null,
     val tickets: List<TicketItem> = emptyList(),
     val logs: List<LogEntry> = emptyList(),
+    val baseUrl: String = "",
+    val apiKey: String = "",
+    val isApiKeyConfigured: Boolean = false,
+    val configMessage: String? = null,
     val error: String? = null,
     val ticketCreationSuccess: String? = null
 )
 
 @HiltViewModel
 class SistemaViewModel @Inject constructor(
-    private val repository: SistemaRepository
+    private val repository: SistemaRepository,
+    private val secureStorage: SecureStorageRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(
-        SistemaUiState(appVersion = repository.getAppVersion())
+        SistemaUiState(
+            appVersion = repository.getAppVersion(),
+            baseUrl = secureStorage.getBaseUrl(),
+            apiKey = secureStorage.getApiKey() ?: "",
+            isApiKeyConfigured = !secureStorage.getApiKey().isNullOrBlank()
+        )
     )
     val uiState: StateFlow<SistemaUiState> = _uiState.asStateFlow()
 
     init {
+        cargarDatosSistema()
+    }
+
+    fun guardarConfiguracion(url: String, key: String) {
+        val sanitizedUrl = url.trim()
+        val sanitizedKey = key.trim()
+
+        if (sanitizedUrl.isNotBlank()) {
+            secureStorage.saveBaseUrl(sanitizedUrl)
+        }
+        if (sanitizedKey.isNotBlank()) {
+            secureStorage.saveApiKey(sanitizedKey)
+        }
+
+        _uiState.update {
+            it.copy(
+                baseUrl = secureStorage.getBaseUrl(),
+                apiKey = secureStorage.getApiKey() ?: "",
+                isApiKeyConfigured = !secureStorage.getApiKey().isNullOrBlank(),
+                configMessage = "Configuración guardada. Probando conexión..."
+            )
+        }
         cargarDatosSistema()
     }
 
@@ -112,6 +145,6 @@ class SistemaViewModel @Inject constructor(
     }
 
     fun limpiarMensajes() {
-        _uiState.update { it.copy(error = null, ticketCreationSuccess = null) }
+        _uiState.update { it.copy(error = null, ticketCreationSuccess = null, configMessage = null) }
     }
 }

@@ -40,8 +40,19 @@ class SecureStorageRepositoryImpl @Inject constructor(
         sharedPreferences.edit().remove(KEY_API).apply()
     }
 
+    override fun saveBaseUrl(url: String) {
+        val sanitized = if (url.endsWith("/")) url else "$url/"
+        sharedPreferences.edit().putString(KEY_BASE_URL, sanitized).apply()
+    }
+
+    override fun getBaseUrl(): String {
+        return sharedPreferences.getString(KEY_BASE_URL, DEFAULT_BASE_URL) ?: DEFAULT_BASE_URL
+    }
+
     companion object {
         private const val KEY_API = "X-API-KEY-SECURE"
+        private const val KEY_BASE_URL = "BASE_URL_SECURE"
+        const val DEFAULT_BASE_URL = "https://kevin11000.pythonanywhere.com/api/v1/"
 
         private fun createEncryptedSharedPreferences(context: Context): SharedPreferences {
             val masterKey = MasterKey.Builder(context)

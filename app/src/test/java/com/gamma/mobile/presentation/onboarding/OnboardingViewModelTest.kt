@@ -108,6 +108,7 @@ class FakeGammaApi : GammaApi {
 
 class FakeSecureStorageRepository : SecureStorageRepository {
     private var key: String? = null
+    private var baseUrl: String = "https://kevin11000.pythonanywhere.com/api/v1/"
 
     override fun saveApiKey(key: String) {
         this.key = key
@@ -118,6 +119,10 @@ class FakeSecureStorageRepository : SecureStorageRepository {
     override fun clearApiKey() {
         key = null
     }
+
+    override fun saveBaseUrl(url: String) {
+        baseUrl = url
+    }
+
+    override fun getBaseUrl(): String = baseUrl
 }
-
-

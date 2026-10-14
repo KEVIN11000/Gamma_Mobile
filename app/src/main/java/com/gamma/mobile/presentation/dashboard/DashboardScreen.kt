@@ -10,6 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -41,7 +42,12 @@ fun DashboardScreen(
                 title = { Text("Gamma Dashboard", fontWeight = FontWeight.Bold) },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background
-                )
+                ),
+                actions = {
+                    IconButton(onClick = { viewModel.loadDashboard(forceRefresh = true) }) {
+                        Icon(Icons.Default.Refresh, contentDescription = "Refrescar")
+                    }
+                }
             )
         },
         floatingActionButton = {
@@ -79,13 +85,17 @@ fun DashboardScreen(
                         if (state.isOffline) {
                             Text("Estás offline. Revisa tu conexión.", style = MaterialTheme.typography.bodySmall)
                         }
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Button(onClick = { viewModel.loadDashboard(forceRefresh = true) }) {
+                            Text("Reintentar")
+                        }
                     }
                 }
                 is DashboardUiState.Empty -> {
-                    Text(
-                        "No hay datos registrados aún.",
-                        modifier = Modifier.align(Alignment.Center),
-                        style = MaterialTheme.typography.titleMedium
+                    DashboardContent(
+                        summary = DashboardSummary(0L, 0L, 0L, false),
+                        avisos = emptyList(),
+                        onNavigateToAvisos = onNavigateToAvisos
                     )
                 }
                 is DashboardUiState.Success -> {
@@ -112,11 +122,43 @@ fun DashboardContent(
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp)
     ) {
-        // Tarjeta de Posición Financiera
+        // Tarjeta de Balance Actual (Saldo Acumulado)
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 16.dp),
+                .padding(top = 16.dp, bottom = 8.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        ) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Balance Actual (Saldo Acumulado)", style = MaterialTheme.typography.labelLarge)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Icon(
+                        imageVector = Icons.Default.Info,
+                        contentDescription = "Saldo total acumulado en caja y cuentas",
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                    )
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    formatGuaranies(summary.saldoAcumulado),
+                    style = MaterialTheme.typography.displaySmall,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = if (summary.saldoAcumulado >= 0L) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                )
+            }
+        }
+
+        // Tarjeta de Margen Libre y Posición IVA
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp),
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.primaryContainer,
                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer

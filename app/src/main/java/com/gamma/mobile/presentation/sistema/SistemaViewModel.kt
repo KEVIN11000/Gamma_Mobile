@@ -69,10 +69,10 @@ class SistemaViewModel @Inject constructor(
                 configMessage = "Configuración guardada. Probando conexión..."
             )
         }
-        cargarDatosSistema()
+        cargarDatosSistema(isTestingConnection = true)
     }
 
-    fun cargarDatosSistema() {
+    fun cargarDatosSistema(isTestingConnection: Boolean = false) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
 
@@ -94,14 +94,27 @@ class SistemaViewModel @Inject constructor(
                 else -> null
             }
 
-            _uiState.update {
-                it.copy(
+            _uiState.update { state ->
+                val updatedConfigMessage = if (isTestingConnection) {
+                    if (healthResult is NetworkResult.Success) {
+                        "✅ Conexión establecida exitosamente con el backend"
+                    } else if (!errorMessage.isNullOrBlank()) {
+                        "❌ Error de conexión: $errorMessage"
+                    } else {
+                        "❌ No se pudo conectar con el backend"
+                    }
+                } else {
+                    state.configMessage
+                }
+
+                state.copy(
                     isLoading = false,
                     appVersion = repository.getAppVersion(),
                     health = healthData,
                     tickets = ticketsData,
                     logs = logsData,
-                    error = errorMessage
+                    error = errorMessage,
+                    configMessage = updatedConfigMessage
                 )
             }
         }

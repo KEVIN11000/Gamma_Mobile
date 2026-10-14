@@ -27,7 +27,7 @@ data class Movimiento(
     val id: String = "",
     @SerializedName("fecha")
     val fecha: String = "",
-    @SerializedName("tipo")
+    @SerializedName(value = "tipo", alternate = ["movimiento"])
     val tipo: String = "", // "Ingreso" o "Gasto"
     @SerializedName("categoria")
     val categoria: String = "",
@@ -38,14 +38,14 @@ data class Movimiento(
 )
 
 data class Obligacion(
-    @SerializedName("id")
+    @SerializedName(value = "id", alternate = ["ID_Obligacion"])
     val id: String = "",
-    @SerializedName("nombre")
+    @SerializedName(value = "nombre", alternate = ["Nombre"])
     val nombre: String = "",
-    @SerializedName("monto_inicial")
+    @SerializedName(value = "monto_inicial", alternate = ["Monto_Inicial"])
     val montoInicial: Int = 0,
-    @SerializedName("saldo_actual")
+    @SerializedName(value = "saldo_actual", alternate = ["Saldo_Actual"])
     val saldoActual: Int = 0,
-    @SerializedName("estado")
+    @SerializedName(value = "estado", alternate = ["Estado"])
     val estado: String = "" // "Activo", "Simulado", "Saldado"
 )

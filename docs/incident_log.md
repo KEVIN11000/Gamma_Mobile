@@ -35,3 +35,57 @@ Este documento registra anomalías, causas raíz, soluciones técnicas y leccion
 1. **Autonomía de configuración en clientes móviles:** Todo binario de release debe salir preconfigurado hacia el entorno de producción (`https`), pero **siempre** debe incluir una pantalla o sección de ajustes accesible para que el usuario pueda configurar/actualizar sus credenciales y host.
 2. **Auditoría e2e de enlaces:** Antes de cerrar cualquier fase de despliegue, todo link generado en bots de mensajería debe ser verificado empíricamente contra el repositorio final.
 3. **Manejo explícito de estado de credenciales:** Si la aplicación no tiene una API Key registrada, debe reflejar visualmente el estado "PENDIENTE" y facilitar la configuración en un solo toque.
+
+
+---
+
+## Incidente 002: Desalineación de esquemas en Libro Diario, serialización defectuosa en Obligaciones, stub en avisos IA y deficiencias de reactividad en UI de Sistema (Release v0.0.2)
+
+- **Fecha:** 14 de Octubre de 2026
+- **Severidad:** Alta (Afectación funcional de pantallas centrales: Dashboard, Diario, Deudas, Avisos y Sistema).
+- **Afectados:** Release v0.0.2 (Tickets TCK-001 y TCK-002).
+
+### 1. Síntomas Observados
+1. **Configuración colgada en UI:** Al pulsar *"Guardar y Probar Conexión"* en la pantalla de Sistema, el mensaje inferior se congela indefinidamente en *"Configuración guardada. Probando conexión..."* sin confirmar conexión exitosa ni reportar errores de red.
+2. **Falta de feedback de carga:** El botón de recarga superior en Sistema permanece completamente estático al pulsarse, sin animación de giro ni indicador visual de progreso mientras `isLoading` está activo.
+3. **Pérdida y desalineación de datos en Libro Diario:**
+   - La pantalla de Libro Diario muestra importes monetarios correspondientes al Neto y al IVA en las etiquetas destinadas a Categoría y Comprobante.
+   - El filtrado por tipo ("Ingresos" o "Gastos") oculta todas las transacciones porque el campo de tipo llega vacío, y todas las filas se muestran erróneamente con estilo de egreso.
+4. **Ceros en Obligaciones (Deudas) y Dashboard vacío:**
+   - En la pantalla de Obligaciones, todas las deudas muestran saldos en `0 ₲`, montos iniciales en `0 ₲` y títulos vacíos.
+   - En el Dashboard, los indicadores de Margen Libre y Saldo Acumulado reportan `0 ₲` o se presenta el estado vacío ("No hay datos registrados aún").
+5. **Avisos IA agendados en tiempo presente:** Al dictar un aviso a la IA con una fecha futura (ej. *"25 de octubre a las 10:00"*), el aviso se almacena con la fecha y hora exacta del sistema en el instante de la solicitud (`now`), provocando notificaciones inmediatas o erróneas.
+6. **Versión instalada congelada en 0.0.1:** A pesar de haber instalado el artefacto APK correspondiente al release v0.0.2, la pantalla de Sistema reporta `0.0.1+<commit>`, provocando desconfianza en el usuario sobre la actualización del software.
+
+### 2. Causa Raíz Técnica
+1. **Omisión de actualización de `configMessage` en ViewModel:** En `SistemaViewModel.kt`, `guardarConfiguracion()` asigna `configMessage = "Configuración guardada. Probando conexión..."`, pero la función asíncrona subsecuente `cargarDatosSistema()` no actualiza este campo al recibir el `NetworkResult`, dejándolo perpetuamente en estado transitorio.
+2. **Ausencia de modificadores reactivos en TopAppBar:** En `SistemaScreen.kt`, el `IconButton` de refresco no está conectado con un modificador de rotación dependiente de `uiState.isLoading` ni deshabilita eventos concurrentes mientras dura la sincronización.
+3. **Disparidad de contrato en `Libro_Diario` (`blueprint.py` vs `constants.py`):**
+   - El esquema canónico `ENCABEZADOS_LIBRO_DIARIO` define 16 columnas: `[Fecha, Movimiento, Proveedor/Cliente, Nro Factura, Neto, IVA, Total, Categoría, Comprobante, ...]`.
+   - El endpoint `GET /movimientos` en `src/api/blueprint.py` asumió un esquema de 7 columnas, leyendo `row[4]` (Neto) como categoría y `row[5]` (IVA) como comprobante, ignorando las columnas 7 y 8.
+   - El endpoint `POST /movimientos` insertaba sólo 7 campos, inyectando texto (categoría y comprobante) en columnas numéricas contables (`Neto` e `IVA`).
+   - La API emite la llave `"movimiento"`, mientras que el modelo Gson `Movimiento` en Android espera `@SerializedName("tipo")`. Al fallar el mapeo, `tipo` se asigna como cadena vacía `""`.
+4. **Discrepancia de Naming Convention en Obligaciones (PascalCase vs snake_case):**
+   - `GET /obligaciones` en `blueprint.py` devuelve directamente los registros crudos de Google Sheets cuyas llaves son los nombres de encabezado en PascalCase (`ID_Obligacion`, `Nombre`, `Monto_Inicial`, `Saldo_Actual`, `Estado`).
+   - El modelo `Obligacion` en Android utiliza anotaciones `@SerializedName` estrictamente en `snake_case` (`id`, `nombre`, `monto_inicial`, `saldo_actual`, `estado`). Gson, al ser sensible a mayúsculas y minúsculas, no mapeó ningún campo, asignando ceros y cadenas vacías por defecto.
+5. **Stub / Mock hardcodeado en interpretación de avisos:** El endpoint `POST /ia/interpretar/aviso` en `blueprint.py` es un stub de desarrollo no conectado a `AIService`, el cual genera estáticamente `"fecha_evento": get_now_py().strftime("%d/%m/%Y %H:%M")` sin procesar el texto agendado.
+6. **Hardcodeo de `versionName` en `app/build.gradle.kts`:** La configuración de Gradle conservó la cadena literal `"0.0.1+${getGitCommitHash()}"`, de modo que `BuildConfig.VERSION_NAME` nunca reflejó la versión semántica v0.0.2.
+
+### 3. Plan de Solución
+1. **En Backend Core (`Gamma_bot`):**
+   - Corregir `GET /movimientos` en `src/api/blueprint.py` para mapear los índices canónicos de `ENCABEZADOS_LIBRO_DIARIO` (col 7: Categoría, col 8: Comprobante) y proveer la clave `"tipo"` compatible con `"movimiento"`.
+   - Ajustar `POST /movimientos` para poblar el esquema completo de 16 columnas con cálculos fiscales Paraguay correctos (`Neto`, `IVA`, `Monto_Gravado`, `Monto_IVA`).
+   - Normalizar la respuesta de `GET /obligaciones` a formato JSON estándar con claves `snake_case`.
+   - Implementar la extracción real de fechas agendadas en `POST /ia/interpretar/aviso` mediante `AIService` o parser regex de fechas contextuales en Paraguay.
+2. **En Cliente Android (`GammaMobile`):**
+   - En `SistemaViewModel.kt`, actualizar `cargarDatosSistema()` para reportar explícitamente *"Conexión verificada con éxito"* o detallar el error de conexión en `configMessage`.
+   - En `SistemaScreen.kt`, implementar animación de rotación continua (`rememberInfiniteTransition`) en el ícono de refresco mientras `isLoading` sea `true`.
+   - Actualizar `app/build.gradle.kts` a `versionName = "0.0.2+${getGitCommitHash()}"`.
+   - Agregar tolerancia de nombres en los modelos de datos de Android (`Models.kt`) para blindar la deserialización ante variaciones en el casing.
+
+### 4. Lecciones Aprendidas y Reglas de Gobernanza
+1. **Prohibición de Stubs silenciosos en APIs de Producción:** Ningún endpoint expuesto en la API pública de `Gamma_bot` debe retornar marcas de tiempo simuladas mediante `get_now_py()` o datos fijos haciéndose pasar por servicios de IA operativos. Si un servicio dependiente no está listo, debe responder con código HTTP 501 / 503 explícito.
+2. **Gobernanza de Contratos de Serialización (Contract-First):** Todo modelo de datos expuesto por la API debe contar con esquemas Pydantic que garanticen respuestas normalizadas en `snake_case`. Queda prohibido devolver diccionarios crudos indexados por encabezados de Google Sheets.
+3. **Respeto Estricto de Esquemas Canónicos de Planillas:** Cualquier lectura o escritura en Google Sheets debe utilizar `ENCABEZADOS_*` de `constants.py` y resolver índices mediante nombres de columna (`index(header)`), nunca mediante números mágicos hardcodeados.
+4. **Validación de Versión Semántica en Pipelines CI/CD:** El número de versión semántica en `build.gradle.kts` debe derivarse de una única fuente de verdad (ej. archivo `VERSION` en la raíz o tag de Git) para evitar versiones desfasadas entre el release y el binario instalado.
+5. **Feedback Visual Incondicional en Acciones de Usuario:** Toda acción asíncrona disparada por el usuario (probar conexión, refrescar pantalla) debe proveer retroalimentación visual inmediata durante su ejecución y un estado final inequívoco (éxito o error).

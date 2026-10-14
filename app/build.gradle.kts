@@ -36,7 +36,7 @@ android {
         minSdk = 26
         targetSdk = 34
         versionCode = getGitCommitCount()
-        versionName = "0.0.1+${getGitCommitHash()}"
+        versionName = "0.0.2+${getGitCommitHash()}"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {

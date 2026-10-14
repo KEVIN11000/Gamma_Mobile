@@ -30,7 +30,10 @@ fun SistemaScreen(
             TopAppBar(
                 title = { Text("Sistema y Soporte", fontWeight = FontWeight.Bold) },
                 actions = {
-                    IconButton(onClick = { viewModel.cargarDatosSistema() }) {
+                    IconButton(
+                        onClick = { viewModel.cargarDatosSistema() },
+                        enabled = !uiState.isLoading
+                    ) {
                         Icon(Icons.Default.Refresh, contentDescription = "Refrescar sistema")
                     }
                 },
@@ -45,6 +48,13 @@ fun SistemaScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
+            if (uiState.isLoading) {
+                LinearProgressIndicator(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .align(Alignment.TopCenter)
+                )
+            }
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -78,7 +88,7 @@ fun SistemaScreen(
                             Spacer(modifier = Modifier.width(16.dp))
                             Column {
                                 Text("Gamma Mobile", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                                Text("Versión instalada: ${uiState.appVersion.ifEmpty { "0.0.1+debug" }}", fontWeight = FontWeight.SemiBold)
+                                Text("Versión instalada: ${uiState.appVersion.ifEmpty { "0.0.2+debug" }}", fontWeight = FontWeight.SemiBold)
                                 Text("Entorno: Android (minSdk 26, targetSdk 34)", style = MaterialTheme.typography.bodySmall)
                             }
                         }
@@ -175,10 +185,16 @@ fun SistemaScreen(
                         }
 
                         if (!uiState.configMessage.isNullOrBlank()) {
+                            val msg = uiState.configMessage!!
+                            val msgColor = when {
+                                msg.startsWith("✅") -> MaterialTheme.colorScheme.primary
+                                msg.startsWith("❌") -> MaterialTheme.colorScheme.error
+                                else -> MaterialTheme.colorScheme.tertiary
+                            }
                             Text(
-                                text = uiState.configMessage!!,
+                                text = msg,
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.primary,
+                                color = msgColor,
                                 fontWeight = FontWeight.SemiBold
                             )
                         }

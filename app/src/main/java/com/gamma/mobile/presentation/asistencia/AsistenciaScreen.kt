@@ -30,18 +30,21 @@ import java.io.FileOutputStream
 @Composable
 fun AsistenciaScreen(
     viewModel: AsistenciaViewModel,
-    cierreViewModel: CierreViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+    cierreViewModel: CierreViewModel = androidx.hilt.navigation.compose.hiltViewModel(),
+    showTopBar: Boolean = true
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Asistencia y RRHH", fontWeight = FontWeight.Bold) },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
+            if (showTopBar) {
+                TopAppBar(
+                    title = { Text("Asistencia y RRHH", fontWeight = FontWeight.Bold) },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.background
+                    )
                 )
-            )
+            }
         }
     ) { paddingValues ->
         Column(

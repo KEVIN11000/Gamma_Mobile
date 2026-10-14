@@ -4,11 +4,11 @@ import com.google.gson.annotations.SerializedName
 
 data class DashboardSummary(
     @SerializedName("margen_libre")
-    val margenLibreDisponible: Int = 0,
+    val margenLibreDisponible: Long = 0L,
     @SerializedName("saldo_acumulado")
-    val saldoAcumulado: Int = 0,
+    val saldoAcumulado: Long = 0L,
     @SerializedName("posicion_iva")
-    val posicionIva: Int = 0,
+    val posicionIva: Long = 0L,
     @SerializedName("es_debito_fiscal")
     val esDebitoFiscal: Boolean = false
 )
@@ -32,7 +32,7 @@ data class Movimiento(
     @SerializedName("categoria")
     val categoria: String = "",
     @SerializedName("total")
-    val total: Int = 0,
+    val total: Long = 0L,
     @SerializedName("comprobante")
     val comprobante: String = "" // "Virtual Legal", "Física Legal", "No Legal"
 )
@@ -43,9 +43,9 @@ data class Obligacion(
     @SerializedName(value = "nombre", alternate = ["Nombre"])
     val nombre: String = "",
     @SerializedName(value = "monto_inicial", alternate = ["Monto_Inicial"])
-    val montoInicial: Int = 0,
+    val montoInicial: Long = 0L,
     @SerializedName(value = "saldo_actual", alternate = ["Saldo_Actual"])
-    val saldoActual: Int = 0,
+    val saldoActual: Long = 0L,
     @SerializedName(value = "estado", alternate = ["Estado"])
     val estado: String = "" // "Activo", "Simulado", "Saldado"
 )

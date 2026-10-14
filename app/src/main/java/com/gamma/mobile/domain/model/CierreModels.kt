@@ -17,5 +17,5 @@ data class CierreResponse(
     @SerializedName("total_horas")
     val totalHoras: Double = 0.0,
     @SerializedName("total_monto")
-    val totalMonto: Int = 0
+    val totalMonto: Long = 0L
 )

@@ -39,10 +39,11 @@ class MovimientoRepositoryImpl @Inject constructor(
         return when (val response = safeApiCall(dispatcher) { api.getMovimientos() }) {
             is NetworkResult.Success -> {
                 val remoteData = response.data
-                movimientoDao.deleteAll()
-                movimientoDao.insertAll(remoteData.map { it.toEntity() })
+                movimientoDao.deleteSynced()
+                movimientoDao.insertAll(remoteData.map { it.toEntity("SYNCED") })
                 syncStateDao.insert(SyncStateEntity(SYNC_KEY, System.currentTimeMillis()))
-                NetworkResult.Success(remoteData)
+                val allLocal = movimientoDao.getAll().map { it.toDomain() }
+                NetworkResult.Success(allLocal)
             }
             is NetworkResult.Error -> {
                 // If API fails, try to return cache even if expired

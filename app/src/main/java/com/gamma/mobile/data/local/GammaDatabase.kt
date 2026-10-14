@@ -18,7 +18,7 @@ import com.gamma.mobile.data.local.entity.SyncStateEntity
         ObligacionEntity::class,
         SyncStateEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class GammaDatabase : RoomDatabase() {

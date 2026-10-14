@@ -23,7 +23,7 @@ sealed class ObligacionesUiState {
 enum class NivelRiesgo { VERDE, AMARILLO, ROJO }
 
 data class SimulacionResult(
-    val cuotaMensual: Int,
+    val cuotaMensual: Long,
     val nivelRiesgo: NivelRiesgo,
     val mensaje: String
 )
@@ -63,8 +63,8 @@ class ObligacionesViewModel @Inject constructor(
         }
     }
 
-    fun simularCuota(monto: Int, cuotas: Int) {
-        if (monto <= 0 || cuotas <= 0) {
+    fun simularCuota(monto: Long, cuotas: Int) {
+        if (monto <= 0L || cuotas <= 0) {
             _simulacionResult.value = null
             return
         }
@@ -73,7 +73,7 @@ class ObligacionesViewModel @Inject constructor(
             val margen = if (summaryResult is NetworkResult.Success) {
                 summaryResult.data.margenLibreDisponible
             } else {
-                0 // Si falla, asumimos margen 0
+                0L // Si falla, asumimos margen 0
             }
 
             val cuota = monto / cuotas
@@ -91,7 +91,7 @@ class ObligacionesViewModel @Inject constructor(
         _simulacionResult.value = null
     }
 
-    fun crearObligacion(nombre: String, montoInicial: Int) {
+    fun crearObligacion(nombre: String, montoInicial: Long) {
         val currentState = _uiState.value
         if (currentState is ObligacionesUiState.Success) {
             val nueva = Obligacion(
@@ -120,11 +120,11 @@ class ObligacionesViewModel @Inject constructor(
         }
     }
 
-    fun abonarObligacion(obligacion: Obligacion, montoAbono: Int) {
+    fun abonarObligacion(obligacion: Obligacion, montoAbono: Long) {
         val currentState = _uiState.value
         if (currentState is ObligacionesUiState.Success && obligacion.estado == "Activo") {
-            val nuevoSaldo = (obligacion.saldoActual - montoAbono).coerceAtLeast(0)
-            val nuevoEstado = if (nuevoSaldo == 0) "Saldado" else "Activo"
+            val nuevoSaldo = (obligacion.saldoActual - montoAbono).coerceAtLeast(0L)
+            val nuevoEstado = if (nuevoSaldo == 0L) "Saldado" else "Activo"
             
             val actualizada = obligacion.copy(saldoActual = nuevoSaldo, estado = nuevoEstado)
             updateInListAndRemote(currentState.obligaciones, actualizada)

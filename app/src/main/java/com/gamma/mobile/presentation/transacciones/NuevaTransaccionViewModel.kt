@@ -18,8 +18,8 @@ import java.util.UUID
 import javax.inject.Inject
 
 data class IvaPreview(
-    val montoGravado: Int = 0,
-    val montoIva: Int = 0
+    val montoGravado: Long = 0L,
+    val montoIva: Long = 0L
 )
 
 data class NuevaTransaccionUiState(
@@ -32,11 +32,11 @@ data class NuevaTransaccionUiState(
     val isSuccess: Boolean = false,
     val errorMessage: String? = null
 ) {
-    val totalParsed: Int
-        get() = totalInput.toIntOrNull() ?: 0
+    val totalParsed: Long
+        get() = totalInput.toLongOrNull() ?: 0L
         
     val isValid: Boolean
-        get() = totalParsed > 0 && categoria.isNotBlank()
+        get() = totalParsed > 0L && categoria.isNotBlank()
         
     val ivaPreview: IvaPreview
         get() {
@@ -51,7 +51,7 @@ data class NuevaTransaccionUiState(
                     IvaPreview(montoGravado = total - iva, montoIva = iva)
                 }
                 else -> { // Exento
-                    IvaPreview(montoGravado = total, montoIva = 0)
+                    IvaPreview(montoGravado = total, montoIva = 0L)
                 }
             }
         }
@@ -102,7 +102,7 @@ class NuevaTransaccionViewModel @Inject constructor(
                         it.copy(
                             tipo = if (propuesta.tipo.isNotBlank()) propuesta.tipo else it.tipo,
                             categoria = propuesta.categoria,
-                            totalInput = if (propuesta.total > 0) propuesta.total.toString() else it.totalInput,
+                            totalInput = if (propuesta.total > 0L) propuesta.total.toString() else it.totalInput,
                             isLoading = false
                         ) 
                     }
@@ -127,7 +127,7 @@ class NuevaTransaccionViewModel @Inject constructor(
                         it.copy(
                             tipo = if (propuesta.tipo.isNotBlank()) propuesta.tipo else it.tipo,
                             categoria = propuesta.categoria,
-                            totalInput = if (propuesta.total > 0) propuesta.total.toString() else it.totalInput,
+                            totalInput = if (propuesta.total > 0L) propuesta.total.toString() else it.totalInput,
                             isLoading = false
                         ) 
                     }

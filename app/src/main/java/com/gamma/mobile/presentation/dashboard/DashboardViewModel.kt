@@ -46,7 +46,7 @@ class DashboardViewModel @Inject constructor(
 
             if (summaryResult is NetworkResult.Success && avisosResult is NetworkResult.Success) {
                 // Determine if it's considered Empty
-                if (summaryResult.data.saldoAcumulado == 0 && summaryResult.data.margenLibreDisponible == 0) {
+                if (summaryResult.data.saldoAcumulado == 0L && summaryResult.data.margenLibreDisponible == 0L) {
                     _uiState.value = DashboardUiState.Empty
                 } else {
                     val avisosUi = avisosResult.data.filterAndSortForDashboard(clock)

@@ -18,7 +18,10 @@ import androidx.compose.ui.text.input.KeyboardType
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ObligacionesScreen(viewModel: ObligacionesViewModel) {
+fun ObligacionesScreen(
+    viewModel: ObligacionesViewModel,
+    showTopBar: Boolean = true
+) {
     var showCrearModal by remember { mutableStateOf(false) }
     var showSimulador by remember { mutableStateOf(false) }
     var selectedObligacionToAbonar by remember { mutableStateOf<Obligacion?>(null) }
@@ -28,12 +31,14 @@ fun ObligacionesScreen(viewModel: ObligacionesViewModel) {
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Obligaciones", fontWeight = FontWeight.Bold) },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
+            if (showTopBar) {
+                TopAppBar(
+                    title = { Text("Obligaciones", fontWeight = FontWeight.Bold) },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.background
+                    )
                 )
-            )
+            }
         },
         floatingActionButton = {
             Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -172,7 +177,7 @@ fun ObligacionItem(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CrearObligacionModal(onDismiss: () -> Unit, onConfirm: (String, Int) -> Unit) {
+fun CrearObligacionModal(onDismiss: () -> Unit, onConfirm: (String, Long) -> Unit) {
     var nombre by remember { mutableStateOf("") }
     var monto by remember { mutableStateOf("") }
 
@@ -193,8 +198,8 @@ fun CrearObligacionModal(onDismiss: () -> Unit, onConfirm: (String, Int) -> Unit
         },
         confirmButton = {
             Button(onClick = {
-                val m = monto.toIntOrNull() ?: 0
-                if (nombre.isNotBlank() && m > 0) {
+                val m = monto.toLongOrNull() ?: 0L
+                if (nombre.isNotBlank() && m > 0L) {
                     onConfirm(nombre, m)
                 }
             }) { Text("Crear") }
@@ -207,7 +212,7 @@ fun CrearObligacionModal(onDismiss: () -> Unit, onConfirm: (String, Int) -> Unit
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AbonarModal(obligacion: Obligacion, onDismiss: () -> Unit, onConfirm: (Int) -> Unit) {
+fun AbonarModal(obligacion: Obligacion, onDismiss: () -> Unit, onConfirm: (Long) -> Unit) {
     var monto by remember { mutableStateOf("") }
 
     AlertDialog(
@@ -227,8 +232,8 @@ fun AbonarModal(obligacion: Obligacion, onDismiss: () -> Unit, onConfirm: (Int) 
         },
         confirmButton = {
             Button(onClick = {
-                val m = monto.toIntOrNull() ?: 0
-                if (m > 0) {
+                val m = monto.toLongOrNull() ?: 0L
+                if (m > 0L) {
                     onConfirm(m)
                 }
             }) { Text("Confirmar") }
@@ -244,7 +249,7 @@ fun AbonarModal(obligacion: Obligacion, onDismiss: () -> Unit, onConfirm: (Int) 
 @Composable
 fun SimuladorCuotasModal(
     simulacionResult: SimulacionResult?,
-    onSimular: (Int, Int) -> Unit,
+    onSimular: (Long, Int) -> Unit,
     onDismiss: () -> Unit
 ) {
     var monto by remember { mutableStateOf("") }
@@ -295,9 +300,9 @@ fun SimuladorCuotasModal(
         },
         confirmButton = {
             Button(onClick = {
-                val m = monto.toIntOrNull() ?: 0
+                val m = monto.toLongOrNull() ?: 0L
                 val c = cuotas.toIntOrNull() ?: 0
-                if (m > 0 && c > 0) {
+                if (m > 0L && c > 0) {
                     onSimular(m, c)
                 }
             }) { Text("Calcular") }

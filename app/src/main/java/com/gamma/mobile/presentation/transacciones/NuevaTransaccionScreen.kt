@@ -14,6 +14,7 @@ import androidx.compose.ui.platform.LocalContext
 import android.net.Uri
 import androidx.core.content.FileProvider
 import java.io.File
+import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -27,10 +28,11 @@ fun NuevaTransaccionScreen(
     viewModel: NuevaTransaccionViewModel,
     onSave: () -> Unit,
     onBack: () -> Unit,
-    onProcessIA: (String) -> Unit
+    onProcessIA: (String) -> Unit,
+    onScanQr: () -> Unit = {}
 ) {
     var selectedTabIndex by remember { mutableStateOf(0) }
-    val tabs = listOf("IA", "Foto", "Manual")
+    val tabs = listOf("IA", "SIFEN QR", "Foto", "Manual")
     val uiState by viewModel.uiState.collectAsState()
 
     LaunchedEffect(uiState.isSuccess) {
@@ -53,7 +55,7 @@ fun NuevaTransaccionScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Nueva TransacciÃ³n") },
+                title = { Text("Nueva Transacción") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
@@ -81,19 +83,57 @@ fun NuevaTransaccionScreen(
             }
 
             Box(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-                                if (selectedTabIndex == 0) {
-                    CargaAsistidaIA(onProcessIA)
-                } else if (selectedTabIndex == 1) {
-                    val context = LocalContext.current
-                    CargaOcrUI { uri ->
-                        val bytes = context.contentResolver.openInputStream(uri)?.readBytes()
-                        if (bytes != null) {
-                            viewModel.interpretarImagenOcr(bytes, "comprobante.jpg")
-                            selectedTabIndex = 2
+                when (selectedTabIndex) {
+                    0 -> CargaAsistidaIA(onProcessIA)
+                    1 -> {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.QrCodeScanner,
+                                contentDescription = "SIFEN QR",
+                                modifier = Modifier.size(72.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(
+                                text = "Escaneo Instantáneo SIFEN",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Apunta al código QR de una factura legal paraguaya (DNIT / e-Kuatia) para extraer el RUC, número de factura, total e IVA automáticamente.",
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(24.dp))
+                            Button(
+                                onClick = onScanQr,
+                                modifier = Modifier.fillMaxWidth(0.85f)
+                            ) {
+                                Icon(Icons.Default.QrCodeScanner, contentDescription = null)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Abrir Cámara y Escanear")
+                            }
                         }
                     }
-                } else {
-                    CargaManual(viewModel, uiState)
+                    2 -> {
+                        val context = LocalContext.current
+                        CargaOcrUI { uri ->
+                            val bytes = context.contentResolver.openInputStream(uri)?.readBytes()
+                            if (bytes != null) {
+                                viewModel.interpretarImagenOcr(bytes, "comprobante.jpg")
+                                selectedTabIndex = 3
+                            }
+                        }
+                    }
+                    else -> CargaManual(viewModel, uiState)
                 }
             }
         }

@@ -10,7 +10,7 @@ data class MovimientoEntity(
     val fecha: String,
     val tipo: String,
     val categoria: String,
-    val total: Int,
+    val total: Long,
     val comprobante: String,
     val syncStatus: String = "SYNCED"
 )

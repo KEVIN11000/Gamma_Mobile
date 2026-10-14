@@ -23,6 +23,9 @@ interface MovimientoDao {
     @Query("UPDATE movimientos SET syncStatus = 'SYNCED' WHERE id = :id")
     suspend fun updateSyncStatus(id: String)
 
+    @Query("DELETE FROM movimientos WHERE syncStatus = 'SYNCED'")
+    suspend fun deleteSynced()
+
     @Query("DELETE FROM movimientos")
     suspend fun deleteAll()
 }

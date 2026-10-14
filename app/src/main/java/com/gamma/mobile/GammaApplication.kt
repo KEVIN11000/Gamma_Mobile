@@ -36,7 +36,30 @@ class GammaApplication : Application(), Configuration.Provider {
             defaultHandler?.uncaughtException(thread, throwable)
         }
 
+        createNotificationChannels()
         scheduleAvisosWorker()
+    }
+
+    private fun createNotificationChannels() {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            val notificationManager = getSystemService(android.app.NotificationManager::class.java) ?: return
+            val channelAvisos = android.app.NotificationChannel(
+                "avisos_channel",
+                "Avisos y Vencimientos",
+                android.app.NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Notificaciones de vencimientos, compromisos y avisos programados"
+            }
+            val channelSync = android.app.NotificationChannel(
+                "sync_channel",
+                "Sincronización en Segundo Plano",
+                android.app.NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                description = "Estado de sincronización de movimientos con el servidor"
+            }
+            notificationManager.createNotificationChannel(channelAvisos)
+            notificationManager.createNotificationChannel(channelSync)
+        }
     }
 
     private fun scheduleAvisosWorker() {

@@ -40,7 +40,7 @@ class MovimientoRepositoryTest {
 
     @Test
     fun `getMovimientos without cache fetches from API and saves to cache`() = runTest(dispatcher) {
-        val networkData = listOf(Movimiento("1", "2026-01-01", "Ingreso", "Venta", 100, "Virtual Legal"))
+        val networkData = listOf(Movimiento("1", "2026-01-01", "Ingreso", "Venta", 100L, "Virtual Legal"))
         fakeApi.movimientosResponse = Response.success(networkData)
 
         val result = repository.getMovimientos(forceRefresh = false)
@@ -53,7 +53,7 @@ class MovimientoRepositoryTest {
 
     @Test
     fun `getMovimientos with valid cache returns local data without calling API`() = runTest(dispatcher) {
-        fakeDao.data.add(MovimientoEntity("2", "2026-01-02", "Gasto", "Compra", 50, "No Legal"))
+        fakeDao.data.add(MovimientoEntity("2", "2026-01-02", "Gasto", "Compra", 50L, "No Legal"))
         fakeSyncDao.data["movimientos"] = SyncStateEntity("movimientos", System.currentTimeMillis() - 1000)
         
         fakeApi.shouldThrow = true // Si llama a la API fallará el test
@@ -66,7 +66,7 @@ class MovimientoRepositoryTest {
 
     @Test
     fun `getMovimientos network error falls back to expired cache`() = runTest(dispatcher) {
-        fakeDao.data.add(MovimientoEntity("3", "2026-01-03", "Ingreso", "Servicio", 200, "Virtual Legal"))
+        fakeDao.data.add(MovimientoEntity("3", "2026-01-03", "Ingreso", "Servicio", 200L, "Virtual Legal"))
         // Expired cache (6 minutes ago)
         fakeSyncDao.data["movimientos"] = SyncStateEntity("movimientos", System.currentTimeMillis() - (6 * 60 * 1000))
         
@@ -77,6 +77,37 @@ class MovimientoRepositoryTest {
         // API will throw, but repository intercepts and returns cache
         assertTrue(result is NetworkResult.Success)
         assertEquals("3", (result as NetworkResult.Success).data[0].id)
+    }
+
+    @Test
+    fun `getMovimientos preserves pending local transactions when fetching remote data`() = runTest(dispatcher) {
+        // Given: una transacción local no sincronizada (creada en modo offline)
+        fakeDao.data.add(
+            MovimientoEntity(
+                id = "pending-1",
+                fecha = "2026-01-01",
+                tipo = "Gasto",
+                categoria = "Comida",
+                total = 50000L,
+                comprobante = "Física Legal",
+                syncStatus = "PENDING"
+            )
+        )
+        
+        // When: el repositorio sincroniza con el servidor
+        val remoteData = listOf(
+            Movimiento("remote-1", "2026-01-02", "Ingreso", "Honorarios", 1500000L, "Virtual Legal")
+        )
+        fakeApi.movimientosResponse = Response.success(remoteData)
+        val result = repository.getMovimientos(forceRefresh = true)
+
+        // Then: el resultado y el DAO local conservan TANTO la remota COMO la pendiente local
+        assertTrue(result is NetworkResult.Success)
+        val list = (result as NetworkResult.Success).data
+        assertEquals(2, list.size)
+        assertTrue(list.any { it.id == "pending-1" })
+        assertTrue(list.any { it.id == "remote-1" })
+        assertTrue(fakeDao.data.any { it.id == "pending-1" && it.syncStatus == "PENDING" })
     }
 }
 
@@ -137,6 +168,10 @@ class FakeMovimientoDao : MovimientoDao {
         }
     }
 
+    override suspend fun deleteSynced() {
+        data.removeAll { it.syncStatus == "SYNCED" }
+    }
+
     override suspend fun deleteAll() {
         data.clear()
     }
@@ -151,5 +186,3 @@ class FakeSyncStateDao : SyncStateDao {
         data[syncState.key] = syncState
     }
 }
-
-

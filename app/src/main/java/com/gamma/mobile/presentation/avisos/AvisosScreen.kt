@@ -1,16 +1,25 @@
 package com.gamma.mobile.presentation.avisos
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import com.gamma.mobile.domain.model.Aviso
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -18,13 +27,37 @@ import com.gamma.mobile.domain.model.Aviso
 fun AvisosScreen(
     viewModel: AvisosViewModel
 ) {
+    val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
     val isCreating by viewModel.isCreating.collectAsState()
     val createError by viewModel.createError.collectAsState()
 
+    var hasNotificationPermission by remember {
+        mutableStateOf(
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) == PackageManager.PERMISSION_GRANTED
+            } else {
+                true
+            }
+        )
+    }
+
+    var showPermissionRationale by remember { mutableStateOf(false) }
     var showDialog by remember { mutableStateOf(false) }
     var textoIa by remember { mutableStateOf("") }
     val snackbarHostState = remember { SnackbarHostState() }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        hasNotificationPermission = isGranted
+        if (isGranted) {
+            showDialog = true
+        }
+    }
 
     LaunchedEffect(createError) {
         if (createError != null) {
@@ -35,7 +68,13 @@ fun AvisosScreen(
 
     Scaffold(
         floatingActionButton = {
-            FloatingActionButton(onClick = { showDialog = true }) {
+            FloatingActionButton(onClick = {
+                if (!hasNotificationPermission && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    showPermissionRationale = true
+                } else {
+                    showDialog = true
+                }
+            }) {
                 Icon(Icons.Default.Add, contentDescription = "Nuevo Aviso")
             }
         },
@@ -47,11 +86,24 @@ fun AvisosScreen(
                     CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
                 }
                 is AvisosUiState.Empty -> {
-                    Text(
-                        "No hay avisos",
-                        style = MaterialTheme.typography.bodyLarge,
-                        modifier = Modifier.align(Alignment.Center)
-                    )
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        if (!hasNotificationPermission && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            PermissionBanner(onEnable = {
+                                permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                            })
+                            Spacer(modifier = Modifier.height(16.dp))
+                        }
+                        Text(
+                            "No hay avisos registrados",
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    }
                 }
                 is AvisosUiState.Error -> {
                     Text(
@@ -62,6 +114,14 @@ fun AvisosScreen(
                 }
                 is AvisosUiState.Success -> {
                     LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+                        if (!hasNotificationPermission && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            item {
+                                PermissionBanner(onEnable = {
+                                    permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                })
+                                Spacer(modifier = Modifier.height(12.dp))
+                            }
+                        }
                         items(state.avisos) { aviso ->
                             AvisoItem(
                                 aviso = aviso,
@@ -83,6 +143,38 @@ fun AvisosScreen(
         }
     }
 
+    if (showPermissionRationale) {
+        AlertDialog(
+            onDismissRequest = {
+                showPermissionRationale = false
+                showDialog = true
+            },
+            icon = { Icon(Icons.Default.Notifications, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+            title = { Text("Activar Notificaciones") },
+            text = {
+                Text("Para recibir alarmas sobre el vencimiento de tus obligaciones y avisos, Gamma Mobile necesita permiso para enviarte notificaciones en este dispositivo.")
+            },
+            confirmButton = {
+                Button(onClick = {
+                    showPermissionRationale = false
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    }
+                }) {
+                    Text("Activar")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showPermissionRationale = false
+                    showDialog = true
+                }) {
+                    Text("Continuar sin avisos")
+                }
+            }
+        )
+    }
+
     if (showDialog) {
         AlertDialog(
             onDismissRequest = { showDialog = false },
@@ -91,7 +183,8 @@ fun AvisosScreen(
                 OutlinedTextField(
                     value = textoIa,
                     onValueChange = { textoIa = it },
-                    label = { Text("Texto libre") }
+                    label = { Text("Texto libre (ej. Pagar ANDE el 25 a las 10:00)") },
+                    modifier = Modifier.fillMaxWidth()
                 )
             },
             confirmButton = {
@@ -111,6 +204,39 @@ fun AvisosScreen(
                 }
             }
         )
+    }
+}
+
+@Composable
+fun PermissionBanner(onEnable: () -> Unit) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
+        modifier = Modifier.fillMaxWidth(),
+        onClick = onEnable
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                Icons.Default.NotificationsActive,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onTertiaryContainer
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Column {
+                Text(
+                    "Notificaciones desactivadas",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                )
+                Text(
+                    "Toca aquí para activarlas y recibir alarmas de tus vencimientos.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                )
+            }
+        }
     }
 }
 
@@ -172,7 +298,6 @@ fun AvisoItem(aviso: Aviso, onDelete: () -> Unit) {
                     Text("Título: ${aviso.titulo}", style = MaterialTheme.typography.bodyLarge)
                     Spacer(modifier = Modifier.height(8.dp))
                     Text("Fecha Evento: ${aviso.fechaEvento}")
-                    
                 }
             },
             confirmButton = {
@@ -183,5 +308,3 @@ fun AvisoItem(aviso: Aviso, onDelete: () -> Unit) {
         )
     }
 }
-
-

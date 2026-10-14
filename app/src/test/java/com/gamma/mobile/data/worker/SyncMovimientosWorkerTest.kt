@@ -44,7 +44,7 @@ class SyncMovimientosWorkerTest {
 
     @Test
     fun `doWork returns success and updates status when API succeeds`() = runBlocking {
-        val pendingEntity = MovimientoEntity("1", "2026-10-06", "Gasto", "Test", 100, "Legal", "PENDING")
+        val pendingEntity = MovimientoEntity("1", "2026-10-06", "Gasto", "Test", 100L, "Legal", "PENDING")
         fakeDao.insert(pendingEntity)
         fakeApi.shouldSucceed = true
 
@@ -61,7 +61,7 @@ class SyncMovimientosWorkerTest {
 
     @Test
     fun `doWork returns retry when API fails`() = runBlocking {
-        val pendingEntity = MovimientoEntity("1", "2026-10-06", "Gasto", "Test", 100, "Legal", "PENDING")
+        val pendingEntity = MovimientoEntity("1", "2026-10-06", "Gasto", "Test", 100L, "Legal", "PENDING")
         fakeDao.insert(pendingEntity)
         fakeApi.shouldSucceed = false
 
@@ -74,6 +74,27 @@ class SyncMovimientosWorkerTest {
         assertTrue(result is ListenableWorker.Result.Retry)
         assertEquals("PENDING", fakeDao.data[0].syncStatus)
         assertEquals(1, fakeApi.callCount)
+    }
+
+    @Test
+    fun `doWork handles exception and returns retry`() = runBlocking {
+        val pendingEntity = MovimientoEntity("1", "2026-10-06", "Gasto", "Test", 100L, "Legal", "PENDING")
+        fakeDao.insert(pendingEntity)
+        
+        val fakeApiThrowing = object : FakeWorkerApi() {
+            override suspend fun createMovimiento(movimiento: Movimiento): Response<Unit> {
+                throw RuntimeException("Network breakdown")
+            }
+        }
+
+        val worker = TestListenableWorkerBuilder<SyncMovimientosWorker>(context)
+            .setWorkerFactory(SyncWorkerFactory(fakeDao, fakeApiThrowing))
+            .build()
+
+        val result = worker.doWork()
+        
+        assertTrue(result is ListenableWorker.Result.Retry)
+        assertEquals("PENDING", fakeDao.data[0].syncStatus)
     }
 }
 
@@ -115,12 +136,16 @@ class FakeWorkerDao : MovimientoDao {
         }
     }
 
+    override suspend fun deleteSynced() {
+        data.removeAll { it.syncStatus == "SYNCED" }
+    }
+
     override suspend fun deleteAll() {
         data.clear()
     }
 }
 
-class FakeWorkerApi : GammaApi {
+open class FakeWorkerApi : GammaApi {
     var shouldSucceed = true
     var callCount = 0
 
@@ -155,7 +180,3 @@ class FakeWorkerApi : GammaApi {
     override suspend fun createTicket(request: com.gamma.mobile.domain.model.TicketCreate) = throw NotImplementedError()
     override suspend fun getLogs() = throw NotImplementedError()
 }
-
-
-
-

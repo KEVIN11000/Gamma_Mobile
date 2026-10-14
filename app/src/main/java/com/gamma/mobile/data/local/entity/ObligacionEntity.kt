@@ -8,8 +8,8 @@ import com.gamma.mobile.domain.model.Obligacion
 data class ObligacionEntity(
     @PrimaryKey val id: String,
     val nombre: String,
-    val montoInicial: Int,
-    val saldoActual: Int,
+    val montoInicial: Long,
+    val saldoActual: Long,
     val estado: String
 )
 

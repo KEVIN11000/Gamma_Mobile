@@ -13,5 +13,6 @@ class FormatUtilsTest {
         assertEquals("12.345 ₲", formatGuaranies(12345))
         assertEquals("-500 ₲", formatGuaranies(-500))
         assertEquals("-1.500 ₲", formatGuaranies(-1500))
+        assertEquals("2.500.000.000 ₲", formatGuaranies(2500000000L))
     }
 }

@@ -18,6 +18,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -25,6 +26,7 @@ import androidx.compose.ui.Modifier
 import com.gamma.mobile.domain.model.Aviso
 import com.gamma.mobile.domain.model.DashboardSummary
 import com.gamma.mobile.domain.model.Movimiento
+import com.gamma.mobile.presentation.compromisos.CompromisosScreen
 import com.gamma.mobile.presentation.dashboard.DashboardScreen
 import com.gamma.mobile.presentation.obligaciones.ObligacionesScreen
 import com.gamma.mobile.presentation.transacciones.NuevaTransaccionScreen
@@ -40,9 +42,8 @@ enum class Screen {
     Dashboard,
     Transacciones,
     NuevaTransaccion,
-    Obligaciones,
-    Avisos,
-    Asistencia,
+    SifenScanner,
+    Compromisos,
     Sistema
 }
 
@@ -63,12 +64,11 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun GammaApp() {
     var currentScreen by remember { mutableStateOf(Screen.Dashboard) }
-
-
+    var compromisosTab by remember { mutableIntStateOf(0) }
 
     Scaffold(
         bottomBar = {
-            if (currentScreen != Screen.NuevaTransaccion) {
+            if (currentScreen != Screen.NuevaTransaccion && currentScreen != Screen.SifenScanner) {
                 NavigationBar {
                     NavigationBarItem(
                         selected = currentScreen == Screen.Dashboard,
@@ -83,22 +83,10 @@ fun GammaApp() {
                         label = { Text("Diario") }
                     )
                     NavigationBarItem(
-                        selected = currentScreen == Screen.Obligaciones,
-                        onClick = { currentScreen = Screen.Obligaciones },
-                        icon = { Icon(Icons.Default.Info, contentDescription = "Obligaciones") },
-                        label = { Text("Deudas") }
-                    )
-                    NavigationBarItem(
-                        selected = currentScreen == Screen.Avisos,
-                        onClick = { currentScreen = Screen.Avisos },
-                        icon = { Icon(Icons.Default.Notifications, contentDescription = "Avisos") },
-                        label = { Text("Avisos") }
-                    )
-                    NavigationBarItem(
-                        selected = currentScreen == Screen.Asistencia,
-                        onClick = { currentScreen = Screen.Asistencia },
-                        icon = { Icon(Icons.Default.DateRange, contentDescription = "Asistencia") },
-                        label = { Text("Asistencia") }
+                        selected = currentScreen == Screen.Compromisos,
+                        onClick = { currentScreen = Screen.Compromisos },
+                        icon = { Icon(Icons.Default.DateRange, contentDescription = "Compromisos") },
+                        label = { Text("Compromisos") }
                     )
                     NavigationBarItem(
                         selected = currentScreen == Screen.Sistema,
@@ -117,14 +105,21 @@ fun GammaApp() {
                     DashboardScreen(
                         viewModel = dashboardViewModel,
                         onNuevaTransaccion = { currentScreen = Screen.NuevaTransaccion },
-                        onNuevoRecordatorio = { currentScreen = Screen.Obligaciones },
-                        onNavigateToAvisos = { currentScreen = Screen.Avisos }
+                        onNuevoRecordatorio = {
+                            compromisosTab = 0
+                            currentScreen = Screen.Compromisos
+                        },
+                        onNavigateToAvisos = {
+                            compromisosTab = 1
+                            currentScreen = Screen.Compromisos
+                        }
                     )
                 }
                 Screen.Transacciones -> {
                     val transaccionesViewModel: com.gamma.mobile.presentation.transacciones.TransaccionesViewModel = androidx.hilt.navigation.compose.hiltViewModel()
                     TransaccionesScreen(
-                        viewModel = transaccionesViewModel
+                        viewModel = transaccionesViewModel,
+                        onScanQr = { currentScreen = Screen.SifenScanner }
                     )
                 }
                 Screen.NuevaTransaccion -> {
@@ -133,17 +128,20 @@ fun GammaApp() {
                         viewModel = nuevaTransaccionViewModel,
                         onSave = { currentScreen = Screen.Transacciones },
                         onBack = { currentScreen = Screen.Dashboard },
-                        onProcessIA = { texto -> nuevaTransaccionViewModel.interpretarTextoIa(texto) }
+                        onProcessIA = { texto -> nuevaTransaccionViewModel.interpretarTextoIa(texto) },
+                        onScanQr = { currentScreen = Screen.SifenScanner }
                     )
                 }
-                Screen.Obligaciones -> {
-                    val obligacionesViewModel: com.gamma.mobile.presentation.obligaciones.ObligacionesViewModel = androidx.hilt.navigation.compose.hiltViewModel()
-                    ObligacionesScreen(viewModel = obligacionesViewModel)
+                Screen.SifenScanner -> {
+                    val sifenViewModel: com.gamma.mobile.presentation.sifen.SifenScannerViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+                    com.gamma.mobile.presentation.sifen.SifenScannerScreen(
+                        viewModel = sifenViewModel,
+                        onBack = { currentScreen = Screen.Transacciones },
+                        onSavedSuccess = { currentScreen = Screen.Transacciones }
+                    )
                 }
-                Screen.Avisos -> { val viewModel: com.gamma.mobile.presentation.avisos.AvisosViewModel = androidx.hilt.navigation.compose.hiltViewModel(); com.gamma.mobile.presentation.avisos.AvisosScreen(viewModel) }
-                Screen.Asistencia -> {
-                    val asistenciaViewModel: com.gamma.mobile.presentation.asistencia.AsistenciaViewModel = androidx.hilt.navigation.compose.hiltViewModel()
-                    com.gamma.mobile.presentation.asistencia.AsistenciaScreen(viewModel = asistenciaViewModel)
+                Screen.Compromisos -> {
+                    CompromisosScreen(initialTab = compromisosTab)
                 }
                 Screen.Sistema -> com.gamma.mobile.presentation.sistema.SistemaScreen()
             }

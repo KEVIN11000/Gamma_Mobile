@@ -25,7 +25,7 @@ object DatabaseModule {
             context,
             GammaDatabase::class.java,
             "gamma_database"
-        ).build()
+        ).fallbackToDestructiveMigration().build()
     }
 
     @Provides

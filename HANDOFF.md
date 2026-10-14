@@ -1,63 +1,72 @@
 # HANDOFF — Gamma Mobile
 
-**Fase cerrada:** Despliegue de App, Fusión Backend Core y Configuración de Conexión (v0.0.2)
+**Fase cerrada:** Refinamiento Operativo del Dashboard y Sistema (v0.0.4)
 **Fecha de cierre:** 2026-10-14
-**Estado del build/tests:** ✅ pasando — Compilación y suites de tests unitarios verificados exitosamente (`./gradlew testDebugUnitTest assembleDebug`).
+**Estado del build/tests:** ✅ pasando — Compilación y suites de tests unitarios verificados exitosamente (`./gradlew testDebugUnitTest assembleDebug` en GammaMobile y `pytest tests/test_mobile_api.py` en Gamma_bot).
 
 ---
 
 ## 1. Estado actual
 
-- **Repositorio Dedicado Gamma_Mobile:** Vinculado y sincronizado en `origin/main` (`https://github.com/KEVIN11000/Gamma_Mobile.git`) con `README.md`, `ARCHITECTURE.md`, `CONTRIBUTING.md`, `.gitignore` y pipeline de CI en `.github/workflows/android.yml`.
-- **Backend Integrado y Desplegado:** Rama `Main-stable` en `Gamma_bot` fusionada y desplegada automáticamente en PythonAnywhere (`https://kevin11000.pythonanywhere.com/api/v1/health`), protegida por autenticación con `X-API-KEY`.
-- **Configuración Dinámica y UI de Conexión:** Pantalla `SistemaScreen` equipada con tarjeta "Conexión y API Key" que permite editar la URL del servidor (default `https://kevin11000.pythonanywhere.com/api/v1/`), ingresar la `X-API-KEY` de forma segura, y probar conectividad en vivo.
-- **Intercepción de Red Dinámica:** `DynamicBaseUrlInterceptor` operativo en OkHttp para reescribir scheme, host y puerto en tiempo de ejecución sin recompilar el APK.
-- **Persistencia Segura:** Credenciales almacenadas mediante `EncryptedSharedPreferences` y `MasterKey` AES-256 en el dispositivo.
-- **Releases Oficiales Publicados:** Versión `v0.0.1` y `v0.0.2` publicadas en GitHub Releases con binarios firmados (`app-release.apk`) bajo esquema V2 (`versionCode` 23).
-- **Incident Log Documentado:** Registrado el Incidente 001 con análisis de causa raíz y reglas de gobernanza en `docs/incident_log.md`.
+- **Atajo de Marcación Laboral en Dashboard:** Tarjeta destacada "Marcación Laboral de Hoy" visible de Lunes a Viernes para registro rápido de entrada/salida, cubierta por tests en `DashboardViewModelTest`.
+- **Orden Cronológico Real en Libro Diario:** Parser multi-formato (`dd/MM/yyyy`, `d/M/yyyy`, `yyyy-MM-dd`, `dd/MM`) en `TransaccionesViewModel` que corrige la distorsión lexicográfica de agosto y prioriza fechas recientes, cubierto por tests en `TransaccionesViewModelTest`.
+- **Métricas de Margen Libre e IVA:** Tarjetas en Guaraníes (`₲`) con badges de Crédito/Débito fiscal en Dashboard, y cálculo en backend (`financiero.py` y `blueprint.py`) cubierto por tests en `test_mobile_api.py`.
+- **Filtros de Deudas y ExtendedFAB:** Barra de chips (`Todas`, `Activas`, `Saldadas`, `Simuladas`) y botón flotante extendido en Compromisos, cubierto por tests en `ObligacionesViewModelTest`.
+- **Materias Académicas Oficiales:** Conexión dinámica desde la hoja `Config_bot` en Google Sheets vía `GET /asistencia/materias`, eliminando mock data, cubierto por tests en `AsistenciaViewModelTest`.
+- **Cierre Dual:** Soporte de cierre Laboral (horas) y Contable (Libro Diario) en backend y UI móvil, cubierto por tests en `CierreViewModelTest`.
+- **Google Calendar en Avisos:** Combinación reactiva de eventos de Google Calendar en `GET /avisos` vía `AgenteAutonomoHoras.obtener_avisos_calendar()`.
+- **Seguridad y Ergonomía en Sistema:** Candado de solo lectura por defecto en URL/API Key con desbloqueo explícito, y acordeón colapsable con badge de conteo para tickets de soporte en `SistemaScreen.kt`.
+- **Release y Tags:** Rama `main` en `Gamma_Mobile` sincronizada, APK compilado en `app/build/outputs/apk/debug/app-debug.apk` y tag `v0.0.4` publicado en GitHub.
 
 ## 2. Decisiones tomadas en esta fase
 
-- **Decisión:** Repositorio independiente en GitHub (`Gamma_Mobile`) para el cliente Android.
-  **Por qué:** Desacopla el ciclo de vida, versionado y pipelines del frontend móvil del backend de Telegram/Flask (`Gamma_bot`).
-  **Alternativas descartadas:** Mantener estructura de monorepo mezclando Gradle y Python.
-- **Decisión:** Interceptor dinámico en OkHttp para host y scheme.
-  **Por qué:** Permite a los usuarios o desarrolladores cambiar de servidor de desarrollo a producción desde la propia app sin necesidad de generar múltiples variantes de compilación.
-- **Decisión:** Preconfiguración de URL oficial de producción por defecto.
-  **Por qué:** Evita errores silenciosos por consultas a `localhost` en dispositivos físicos donde no corre servidor local.
+- **Decisión:** Comparador cronológico con parsing multi-formato en `TransaccionesViewModel`.
+  **Por qué:** El ordenamiento de strings `sortedByDescending { it.fecha }` ordenaba alfabéticamente ("31/08" antes que "14/10").
+  **Alternativas descartadas:** Delegar el ordenamiento al backend de Sheets (inestable ante ediciones manuales).
+- **Decisión:** Candado de edición en `SistemaScreen`.
+  **Por qué:** Proteger los campos críticos de conexión contra modificaciones táctiles accidentales.
+  **Alternativas descartadas:** Ocultar los campos en otra pantalla.
+- **Decisión:** Acordeón colapsable para tickets de soporte.
+  **Por qué:** Evitar sobrecargar el scroll vertical cuando existen múltiples tickets acumulados.
 
 ## 3. Archivos y módulos clave tocados
 
 | Archivo | Cambio |
 |---|---|
-| `app/src/main/java/com/gamma/mobile/data/remote/DynamicBaseUrlInterceptor.kt` | Interceptor OkHttp para reescritura dinámica de la URL base según configuración del usuario. |
-| `app/src/main/java/com/gamma/mobile/data/repository/SecureStorageRepositoryImpl.kt` | Métodos `saveBaseUrl` y `getBaseUrl` con fallback por defecto al host de producción. |
-| `app/src/main/java/com/gamma/mobile/domain/repository/SecureStorageRepository.kt` | Contrato de interfaz ampliado para gestión de URL base. |
-| `app/src/main/java/com/gamma/mobile/di/NetworkModule.kt` | Configuración de baseUrl oficial y registro de `DynamicBaseUrlInterceptor`. |
-| `app/src/main/java/com/gamma/mobile/presentation/sistema/SistemaScreen.kt` | Tarjeta visual interactiva de configuración de conexión, servidor y API Key con toggle de visualización y botón de prueba. |
-| `app/src/main/java/com/gamma/mobile/presentation/sistema/SistemaViewModel.kt` | Manejo de estado de credenciales y lógica de guardado y recarga de diagnóstico. |
-| `docs/incident_log.md` | Documentación exhaustiva del Incidente 001. |
-| `Gamma_bot (src/com/handlers/base.py)` | Corrección del comando `/app` con enlaces oficiales hacia `Gamma_Mobile`. |
-| `Gamma_bot (src/api/blueprint.py)` | Actualización de `download_url` y versión en endpoint `/health`. |
-| `Gamma_bot (src/config.py & security.py)` | Soporte para `.env` en raíz/src y alias `GAMMA_MOBILE_API_KEY`. |
+| `app/src/main/java/com/gamma/mobile/presentation/dashboard/DashboardScreen.kt` | Atajo de marcación laboral de lunes a viernes y tarjetas de Margen Libre e IVA en Guaraníes. |
+| `app/src/main/java/com/gamma/mobile/presentation/dashboard/DashboardViewModel.kt` | Inyección de `AsistenciaRepository` para marcación directa desde el inicio. |
+| `app/src/main/java/com/gamma/mobile/presentation/transacciones/TransaccionesViewModel.kt` | Función `parseFecha` y orden cronológico real descendente. |
+| `app/src/main/java/com/gamma/mobile/presentation/obligaciones/ObligacionesScreen.kt` | Fila de chips de filtro (`Todas`, `Activas`, `Saldadas`, `Simuladas`) y ExtendedFAB. |
+| `app/src/main/java/com/gamma/mobile/presentation/obligaciones/ObligacionesViewModel.kt` | Estado de filtrado reactivo de deudas. |
+| `app/src/main/java/com/gamma/mobile/presentation/asistencia/AsistenciaViewModel.kt` | Carga de materias oficiales desde el repositorio. |
+| `app/src/main/java/com/gamma/mobile/presentation/asistencia/AsistenciaScreen.kt` | Selector de cierre dual (Laboral vs Contable). |
+| `app/src/main/java/com/gamma/mobile/presentation/sistema/SistemaScreen.kt` | Candado de configuración y acordeón para tickets de soporte. |
+| `Gamma_bot (src/logic/financiero.py)` | Cálculo de posición neta de IVA del período no cerrado. |
+| `Gamma_bot (src/api/blueprint.py)` | Endpoint `GET /asistencia/materias`, combinación de Calendar en `/avisos` y cierre dual en `/cierres/ejecutar`. |
 
 ## 4. Pendientes explícitos para la próxima fase
 
-- [ ] Verificar en el dispositivo la carga y renderizado de datos reales del Dashboard (flujo de caja, balance, IVA y margen libre).
-- [ ] Verificar el libro diario de Transacciones con datos reales del Google Sheets del usuario.
-- [ ] Validar la creación de una transacción real con cálculo de IVA y su sincronización hacia el backend.
-- [ ] Evaluar la ergonomía UX/UI y rendimiento de navegación en dispositivo físico Android en condiciones reales de uso.
+- [ ] Implementar pipeline en `Gamma_bot` que al detectar un ingreso en `Libro_Diario` con categoría/motivo "Salario" (o "Sueldo"), actualice o inserte automáticamente la fila salarial en la hoja `Presupuesto_Base` (`Monto_Mensual_Gs`).
+- [ ] Implementar fallback dinámico en `calcular_margen_de_ataque()` para leer el último salario percibido desde `Libro_Diario` si `Presupuesto_Base` no tiene ingreso registrado (`Margen = Salario - Gastos Fijos - Cuotas Activas`).
+- [ ] Corregir el comando de cierre contable en el core de `Gamma_bot` para permitir el corte mensual de ingresos/egresos del Libro Diario.
+- [ ] Ejecutar despliegue en servidor PythonAnywhere (`cd ~/Gamma_bot && git pull origin Main-stable` y recarga del worker WSGI).
+- [ ] Instalar el APK `v0.0.4` generado en el teléfono físico y verificar visualización de las nuevas tarjetas y filtros.
+- [ ] Implementar sincronización bidireccional del estado de los tickets de soporte con GitHub Issues (Abierto / Cerrado).
 
 ## 5. Riesgos / deuda técnica conocida
 
-- **Riesgo:** Limitación de concurrencia en worker WSGI único de PythonAnywhere.
-  **Impacto:** Si se ejecutan múltiples peticiones pesadas simultáneas (ej. bot de Telegram + app móvil), puede haber latencia o encolamiento.
-  **Mitigación sugerida:** El cliente móvil ya implementa `Dispatchers.IO.limitedParallelism(1)` y timeout de 15 segundos con política offline-first en Room.
+- **Riesgo:** Desincronización del backend en PythonAnywhere respecto al repositorio GitHub.
+  **Impacto:** Hasta que no se ejecute el pull y reload en PythonAnywhere, los endpoints responderán con la versión anterior (margen libre en 0 y 404 en materias oficiales).
+  **Mitigación sugerida:** Realizar `git pull origin Main-stable` y recargar la Web App en la consola de PythonAnywhere.
 
 ## 6. Cómo verificar que este handoff sigue vigente
 
 ```bash
+# En GammaMobile:
 ./gradlew testDebugUnitTest assembleDebug
+
+# En Gamma_bot:
+pytest tests/test_mobile_api.py
 ```
 
 ---

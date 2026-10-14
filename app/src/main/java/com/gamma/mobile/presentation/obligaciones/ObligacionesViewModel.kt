@@ -22,6 +22,10 @@ sealed class ObligacionesUiState {
 
 enum class NivelRiesgo { VERDE, AMARILLO, ROJO }
 
+enum class FiltroObligacion {
+    TODAS, ACTIVAS, SALDADAS, SIMULADAS
+}
+
 data class SimulacionResult(
     val cuotaMensual: Long,
     val nivelRiesgo: NivelRiesgo,
@@ -40,6 +44,10 @@ class ObligacionesViewModel @Inject constructor(
     private val _simulacionResult = MutableStateFlow<SimulacionResult?>(null)
     val simulacionResult: StateFlow<SimulacionResult?> = _simulacionResult.asStateFlow()
 
+    private var todasLasObligaciones: List<Obligacion> = emptyList()
+    private val _filtroActual = MutableStateFlow(FiltroObligacion.TODAS)
+    val filtroActual: StateFlow<FiltroObligacion> = _filtroActual.asStateFlow()
+
     init {
         loadObligaciones()
     }
@@ -51,7 +59,8 @@ class ObligacionesViewModel @Inject constructor(
         viewModelScope.launch {
             when (val result = repository.getObligaciones(forceRefresh)) {
                 is NetworkResult.Success -> {
-                    _uiState.value = ObligacionesUiState.Success(result.data)
+                    todasLasObligaciones = result.data
+                    emitFilteredState()
                 }
                 is NetworkResult.Exception -> {
                     _uiState.value = ObligacionesUiState.Error("Fallo de red al obtener deudas.")
@@ -61,6 +70,22 @@ class ObligacionesViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    fun setFiltro(filtro: FiltroObligacion) {
+        if (_filtroActual.value == filtro) return
+        _filtroActual.value = filtro
+        emitFilteredState()
+    }
+
+    private fun emitFilteredState() {
+        val filtered = when (_filtroActual.value) {
+            FiltroObligacion.TODAS -> todasLasObligaciones
+            FiltroObligacion.ACTIVAS -> todasLasObligaciones.filter { it.estado.equals("Activo", ignoreCase = true) }
+            FiltroObligacion.SALDADAS -> todasLasObligaciones.filter { it.estado.equals("Saldado", ignoreCase = true) }
+            FiltroObligacion.SIMULADAS -> todasLasObligaciones.filter { it.estado.equals("Simulado", ignoreCase = true) }
+        }
+        _uiState.value = ObligacionesUiState.Success(filtered)
     }
 
     fun simularCuota(monto: Long, cuotas: Int) {
@@ -103,8 +128,8 @@ class ObligacionesViewModel @Inject constructor(
             )
             
             // Actualización optimista local
-            val newList = currentState.obligaciones.toMutableList().apply { add(nueva) }
-            _uiState.value = ObligacionesUiState.Success(newList)
+            todasLasObligaciones = todasLasObligaciones + nueva
+            emitFilteredState()
 
             viewModelScope.launch {
                 repository.createObligacion(nueva)
@@ -116,7 +141,7 @@ class ObligacionesViewModel @Inject constructor(
         val currentState = _uiState.value
         if (currentState is ObligacionesUiState.Success && obligacion.estado == "Simulado") {
             val aprobada = obligacion.copy(estado = "Activo")
-            updateInListAndRemote(currentState.obligaciones, aprobada)
+            updateInListAndRemote(aprobada)
         }
     }
 
@@ -127,13 +152,13 @@ class ObligacionesViewModel @Inject constructor(
             val nuevoEstado = if (nuevoSaldo == 0L) "Saldado" else "Activo"
             
             val actualizada = obligacion.copy(saldoActual = nuevoSaldo, estado = nuevoEstado)
-            updateInListAndRemote(currentState.obligaciones, actualizada)
+            updateInListAndRemote(actualizada)
         }
     }
 
-    private fun updateInListAndRemote(currentList: List<Obligacion>, updated: Obligacion) {
-        val newList = currentList.map { if (it.id == updated.id) updated else it }
-        _uiState.value = ObligacionesUiState.Success(newList)
+    private fun updateInListAndRemote(updated: Obligacion) {
+        todasLasObligaciones = todasLasObligaciones.map { if (it.id == updated.id) updated else it }
+        emitFilteredState()
         
         viewModelScope.launch {
             repository.updateObligacion(updated)

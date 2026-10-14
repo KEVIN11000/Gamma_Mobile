@@ -27,6 +27,7 @@ fun ObligacionesScreen(
     var selectedObligacionToAbonar by remember { mutableStateOf<Obligacion?>(null) }
     
     val uiState by viewModel.uiState.collectAsState()
+    val filtroActual by viewModel.filtroActual.collectAsState()
     val simulacionResult by viewModel.simulacionResult.collectAsState()
 
     Scaffold(
@@ -49,46 +50,58 @@ fun ObligacionesScreen(
                 ) {
                     Text("Simular Cuota")
                 }
-                FloatingActionButton(onClick = { showCrearModal = true }) {
-                    Icon(Icons.Default.Add, contentDescription = "Crear Deuda")
-                }
+                ExtendedFloatingActionButton(
+                    onClick = { showCrearModal = true },
+                    icon = { Icon(Icons.Default.Add, contentDescription = null) },
+                    text = { Text("Nueva Obligación") },
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                )
             }
         }
     ) { padding ->
-        Box(
+        Column(
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
         ) {
-            when (val state = uiState) {
-                is ObligacionesUiState.Loading -> {
-                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-                }
-                is ObligacionesUiState.Error -> {
-                    Text(
-                        state.message, 
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.align(Alignment.Center)
-                    )
-                }
-                is ObligacionesUiState.Success -> {
-                    if (state.obligaciones.isEmpty()) {
+            // Chips de filtrado por estado
+            FilterTabsObligaciones(
+                selectedFiltro = filtroActual,
+                onFilterSelected = { viewModel.setFiltro(it) }
+            )
+
+            Box(modifier = Modifier.fillMaxSize()) {
+                when (val state = uiState) {
+                    is ObligacionesUiState.Loading -> {
+                        CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                    }
+                    is ObligacionesUiState.Error -> {
                         Text(
-                            "No tienes obligaciones registradas.",
+                            state.message, 
+                            color = MaterialTheme.colorScheme.error,
                             modifier = Modifier.align(Alignment.Center)
                         )
-                    } else {
-                        LazyColumn(
-                            contentPadding = PaddingValues(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(16.dp),
-                            modifier = Modifier.fillMaxSize()
-                        ) {
-                            items(state.obligaciones) { obligacion ->
-                                ObligacionItem(
-                                    obligacion = obligacion,
-                                    onAprobar = { viewModel.aprobarObligacion(obligacion) },
-                                    onAbonarClick = { selectedObligacionToAbonar = obligacion }
-                                )
+                    }
+                    is ObligacionesUiState.Success -> {
+                        if (state.obligaciones.isEmpty()) {
+                            Text(
+                                "No hay obligaciones en esta categoría.",
+                                modifier = Modifier.align(Alignment.Center)
+                            )
+                        } else {
+                            LazyColumn(
+                                contentPadding = PaddingValues(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(16.dp),
+                                modifier = Modifier.fillMaxSize()
+                            ) {
+                                items(state.obligaciones) { obligacion ->
+                                    ObligacionItem(
+                                        obligacion = obligacion,
+                                        onAprobar = { viewModel.aprobarObligacion(obligacion) },
+                                        onAbonarClick = { selectedObligacionToAbonar = obligacion }
+                                    )
+                                }
                             }
                         }
                     }
@@ -311,4 +324,32 @@ fun SimuladorCuotasModal(
             TextButton(onClick = onDismiss) { Text("Cerrar") }
         }
     )
+}
+
+@Composable
+fun FilterTabsObligaciones(
+    selectedFiltro: FiltroObligacion,
+    onFilterSelected: (FiltroObligacion) -> Unit
+) {
+    val filters = listOf(
+        FiltroObligacion.TODAS to "Todas",
+        FiltroObligacion.ACTIVAS to "Activas",
+        FiltroObligacion.SALDADAS to "Saldadas",
+        FiltroObligacion.SIMULADAS to "Simuladas"
+    )
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        filters.forEach { (filtro, title) ->
+            FilterChip(
+                selected = selectedFiltro == filtro,
+                onClick = { onFilterSelected(filtro) },
+                label = { Text(title, fontWeight = if (selectedFiltro == filtro) FontWeight.Bold else FontWeight.Normal) }
+            )
+        }
+    }
 }

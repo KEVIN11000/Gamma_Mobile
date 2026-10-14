@@ -31,11 +31,13 @@ class FakeCierreRepository : CierreRepository {
 
     var lastHojaCalled: String? = null
     var lastDescuentoCalled: Boolean? = null
+    var lastTipoCalled: String? = null
     var lastUrlCalled: String? = null
 
-    override suspend fun ejecutarCierre(hoja: String, aplicarDescuento: Boolean): NetworkResult<CierreResponse> {
+    override suspend fun ejecutarCierre(hoja: String, aplicarDescuento: Boolean, tipo: String): NetworkResult<CierreResponse> {
         lastHojaCalled = hoja
         lastDescuentoCalled = aplicarDescuento
+        lastTipoCalled = tipo
         return cierreResult
     }
 
@@ -72,12 +74,15 @@ class CierreViewModelTest {
     }
 
     @Test
-    fun `setHoja and setAplicarDescuento update properties`() {
+    fun `setHoja, setAplicarDescuento and setTipoCierre update properties`() {
         viewModel.setHoja("Setiembre 2026")
         assertEquals("Setiembre 2026", viewModel.hoja.value)
 
         viewModel.setAplicarDescuento(true)
         assertEquals(true, viewModel.aplicarDescuento.value)
+
+        viewModel.setTipoCierre("contable")
+        assertEquals("contable", viewModel.tipoCierre.value)
     }
 
     @Test

@@ -7,4 +7,5 @@ import com.gamma.mobile.domain.model.AsistenciaMateriaResponse
 interface AsistenciaRepository {
     suspend fun marcarAsistencia(modo: String): NetworkResult<AsistenciaMarcaResponse>
     suspend fun marcarMateria(materia: String): NetworkResult<AsistenciaMateriaResponse>
+    suspend fun getMaterias(): NetworkResult<List<String>>
 }

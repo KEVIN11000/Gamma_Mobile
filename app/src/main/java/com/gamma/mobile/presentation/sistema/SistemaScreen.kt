@@ -1,12 +1,18 @@
 package com.gamma.mobile.presentation.sistema
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
@@ -24,6 +30,7 @@ fun SistemaScreen(
     val uiState by viewModel.uiState.collectAsState()
     val scrollState = rememberScrollState()
     var showNewTicketDialog by remember { mutableStateOf(false) }
+    var isTicketsExpanded by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -117,6 +124,7 @@ fun SistemaScreen(
                 var serverUrlInput by remember(uiState.baseUrl) { mutableStateOf(uiState.baseUrl) }
                 var apiKeyInput by remember(uiState.apiKey) { mutableStateOf(uiState.apiKey) }
                 var showKeyText by remember { mutableStateOf(false) }
+                var isConfigLocked by remember(uiState.isApiKeyConfigured) { mutableStateOf(uiState.isApiKeyConfigured) }
 
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -135,28 +143,52 @@ fun SistemaScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                "Conexión y API Key",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
-                            )
-                            AssistChip(
-                                onClick = {},
-                                label = { Text(if (uiState.isApiKeyConfigured) "CONFIGURADA" else "PENDIENTE") },
-                                leadingIcon = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = if (isConfigLocked) Icons.Default.Lock else Icons.Default.LockOpen,
+                                    contentDescription = null,
+                                    tint = if (isConfigLocked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    "Conexión y API Key",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                AssistChip(
+                                    onClick = {},
+                                    label = { Text(if (uiState.isApiKeyConfigured) "CONFIGURADA" else "PENDIENTE") },
+                                    leadingIcon = {
+                                        Icon(
+                                            if (uiState.isApiKeyConfigured) Icons.Default.CheckCircle else Icons.Default.Warning,
+                                            contentDescription = null,
+                                            tint = if (uiState.isApiKeyConfigured) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                                        )
+                                    }
+                                )
+                                IconButton(
+                                    onClick = { isConfigLocked = !isConfigLocked }
+                                ) {
                                     Icon(
-                                        if (uiState.isApiKeyConfigured) Icons.Default.CheckCircle else Icons.Default.Warning,
-                                        contentDescription = null,
-                                        tint = if (uiState.isApiKeyConfigured) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                                        imageVector = if (isConfigLocked) Icons.Default.LockOpen else Icons.Default.Lock,
+                                        contentDescription = if (isConfigLocked) "Desbloquear edición" else "Bloquear edición",
+                                        tint = MaterialTheme.colorScheme.primary
                                     )
                                 }
-                            )
+                            }
                         }
 
                         OutlinedTextField(
                             value = serverUrlInput,
                             onValueChange = { serverUrlInput = it },
                             label = { Text("URL del Servidor Backend") },
+                            readOnly = isConfigLocked,
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -165,6 +197,7 @@ fun SistemaScreen(
                             value = apiKeyInput,
                             onValueChange = { apiKeyInput = it },
                             label = { Text("API Key (X-API-KEY)") },
+                            readOnly = isConfigLocked,
                             singleLine = true,
                             visualTransformation = if (showKeyText) androidx.compose.ui.text.input.VisualTransformation.None else androidx.compose.ui.text.input.PasswordVisualTransformation(),
                             trailingIcon = {
@@ -175,13 +208,25 @@ fun SistemaScreen(
                             modifier = Modifier.fillMaxWidth()
                         )
 
-                        Button(
-                            onClick = {
-                                viewModel.guardarConfiguracion(serverUrlInput, apiKeyInput)
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("Guardar y Probar Conexión")
+                        if (isConfigLocked) {
+                            FilledTonalButton(
+                                onClick = { isConfigLocked = false },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(Icons.Default.LockOpen, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Desbloquear para Editar")
+                            }
+                        } else {
+                            Button(
+                                onClick = {
+                                    viewModel.guardarConfiguracion(serverUrlInput, apiKeyInput)
+                                    isConfigLocked = true
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("Guardar y Probar Conexión")
+                            }
                         }
 
                         if (!uiState.configMessage.isNullOrBlank()) {
@@ -274,42 +319,69 @@ fun SistemaScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { isTicketsExpanded = !isTicketsExpanded },
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("Tickets de Soporte", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                            FilledTonalButton(onClick = { showNewTicketDialog = true }) {
-                                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Nuevo")
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("Tickets de Soporte", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Badge(
+                                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                ) {
+                                    Text("${uiState.tickets.size}")
+                                }
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                FilledTonalButton(
+                                    onClick = { showNewTicketDialog = true },
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                                ) {
+                                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Nuevo")
+                                }
+                                IconButton(onClick = { isTicketsExpanded = !isTicketsExpanded }) {
+                                    Icon(
+                                        imageVector = if (isTicketsExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                        contentDescription = if (isTicketsExpanded) "Colapsar tickets" else "Expandir tickets"
+                                    )
+                                }
                             }
                         }
 
-                        if (uiState.tickets.isEmpty()) {
-                            Text("No hay tickets reportados.", style = MaterialTheme.typography.bodySmall)
-                        } else {
-                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                uiState.tickets.forEach { ticket ->
-                                    Card(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                                    ) {
-                                        Column(modifier = Modifier.padding(12.dp)) {
-                                            Row(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                horizontalArrangement = Arrangement.SpaceBetween
-                                            ) {
-                                                Text(ticket.id, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                                                Text(ticket.estado, style = MaterialTheme.typography.labelSmall)
-                                            }
-                                            Text(ticket.asunto, fontWeight = FontWeight.SemiBold)
-                                            Text(ticket.descripcion, style = MaterialTheme.typography.bodySmall)
-                                            if (ticket.fecha.isNotEmpty()) {
-                                                Text("Fecha: ${ticket.fecha}", style = MaterialTheme.typography.labelSmall)
+                        AnimatedVisibility(visible = isTicketsExpanded) {
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                if (uiState.tickets.isEmpty()) {
+                                    Text("No hay tickets reportados.", style = MaterialTheme.typography.bodySmall)
+                                } else {
+                                    uiState.tickets.forEach { ticket ->
+                                        Card(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                                        ) {
+                                            Column(modifier = Modifier.padding(12.dp)) {
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.SpaceBetween
+                                                ) {
+                                                    Text(ticket.id, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                                    Text(ticket.estado, style = MaterialTheme.typography.labelSmall)
+                                                }
+                                                Text(ticket.asunto, fontWeight = FontWeight.SemiBold)
+                                                Text(ticket.descripcion, style = MaterialTheme.typography.bodySmall)
+                                                if (ticket.fecha.isNotEmpty()) {
+                                                    Text("Fecha: ${ticket.fecha}", style = MaterialTheme.typography.labelSmall)
+                                                }
                                             }
                                         }
                                     }

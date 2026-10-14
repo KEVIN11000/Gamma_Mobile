@@ -32,7 +32,7 @@ class AsistenciaViewModel @Inject constructor(
     private val _materia = MutableStateFlow("")
     val materia: StateFlow<String> = _materia.asStateFlow()
 
-    val materiasDisponibles: List<String> = listOf(
+    private val fallbackMaterias = listOf(
         "Algoritmos y Estructuras de Datos",
         "Base de Datos",
         "Inteligencia Artificial",
@@ -44,6 +44,28 @@ class AsistenciaViewModel @Inject constructor(
         "Física",
         "Cálculo"
     )
+
+    private val _materiasDisponibles = MutableStateFlow<List<String>>(fallbackMaterias)
+    val materiasDisponibles: StateFlow<List<String>> = _materiasDisponibles.asStateFlow()
+
+    init {
+        loadMaterias()
+    }
+
+    fun loadMaterias() {
+        viewModelScope.launch {
+            when (val result = repository.getMaterias()) {
+                is NetworkResult.Success -> {
+                    if (result.data.isNotEmpty()) {
+                        _materiasDisponibles.value = result.data
+                    }
+                }
+                else -> {
+                    // Mantener fallback
+                }
+            }
+        }
+    }
 
     fun setModo(nuevoModo: String) {
         _modo.value = nuevoModo

@@ -134,6 +134,7 @@ class FakeApiForRepo : GammaApi {
     override suspend fun getObligaciones() = throw NotImplementedError()
     override suspend fun createObligacion(obligacion: com.gamma.mobile.domain.model.Obligacion) = throw NotImplementedError()
     override suspend fun updateObligacion(id: String, obligacion: com.gamma.mobile.domain.model.Obligacion) = throw NotImplementedError()
+    override suspend fun getMaterias(): Response<List<String>> = Response.success(emptyList())
     override suspend fun marcarAsistencia(request: com.gamma.mobile.domain.model.AsistenciaMarcaRequest) = throw NotImplementedError()
     override suspend fun marcarMateria(request: com.gamma.mobile.domain.model.AsistenciaMateriaRequest) = throw NotImplementedError()
     override suspend fun ejecutarCierre(request: com.gamma.mobile.domain.model.CierreRequest) = throw NotImplementedError()

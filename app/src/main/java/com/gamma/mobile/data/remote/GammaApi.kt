@@ -58,6 +58,9 @@ interface GammaApi {
         @Body obligacion: com.gamma.mobile.domain.model.Obligacion
     ): Response<Unit>
 
+    @GET("asistencia/materias")
+    suspend fun getMaterias(): Response<List<String>>
+
     @POST("asistencia/marcar")
     suspend fun marcarAsistencia(@Body request: com.gamma.mobile.domain.model.AsistenciaMarcaRequest): Response<com.gamma.mobile.domain.model.AsistenciaMarcaResponse>
 

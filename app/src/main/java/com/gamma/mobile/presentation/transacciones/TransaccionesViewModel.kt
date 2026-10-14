@@ -82,16 +82,23 @@ class TransaccionesViewModel @Inject constructor(
             todosLosMovimientos
         } else {
             val tipoString = if (filtroActual == FiltroTipo.INGRESO) "Ingreso" else "Gasto"
-            todosLosMovimientos.filter { it.tipo == tipoString }
+            todosLosMovimientos.filter { it.tipo.equals(tipoString, ignoreCase = true) }
         }
 
         if (filtered.isEmpty()) {
             _uiState.value = TransaccionesUiState.Empty
         } else {
-            // Agrupar por fecha, ordenado descendente (fechas más recientes primero)
-            val agrupados = filtered
-                .sortedByDescending { it.fecha }
-                .groupBy { it.fecha }
+            // Agrupar por fecha, ordenado cronológicamente descendente (más recientes primero)
+            val sortedList = filtered.sortedWith(
+                compareByDescending<Movimiento> { parseFecha(it.fecha) }
+                    .thenByDescending { it.id }
+            )
+
+            // Mantener el orden de inserción de las fechas ordenadas
+            val agrupados = LinkedHashMap<String, MutableList<Movimiento>>()
+            for (mov in sortedList) {
+                agrupados.getOrPut(mov.fecha) { mutableListOf() }.add(mov)
+            }
             
             _uiState.value = TransaccionesUiState.Success(
                 movimientosAgrupados = agrupados,
@@ -100,4 +107,34 @@ class TransaccionesViewModel @Inject constructor(
             )
         }
     }
+
+    private fun parseFecha(fechaStr: String): Long {
+        if (fechaStr.isBlank()) return 0L
+        val clean = fechaStr.trim()
+        val currentYear = java.time.LocalDate.now().year
+        
+        val patterns = listOf(
+            "dd/MM/yyyy",
+            "d/M/yyyy",
+            "yyyy-MM-dd",
+            "dd-MM-yyyy",
+            "dd/MM",
+            "d/M"
+        )
+        for (pattern in patterns) {
+            try {
+                if (pattern == "dd/MM" || pattern == "d/M") {
+                    val formatter = java.time.format.DateTimeFormatter.ofPattern(pattern, java.util.Locale.getDefault())
+                    val monthDay = java.time.MonthDay.parse(clean, formatter)
+                    return monthDay.atYear(currentYear).toEpochDay()
+                } else {
+                    val formatter = java.time.format.DateTimeFormatter.ofPattern(pattern, java.util.Locale.getDefault())
+                    val localDate = java.time.LocalDate.parse(clean, formatter)
+                    return localDate.toEpochDay()
+                }
+            } catch (_: Exception) {}
+        }
+        return 0L
+    }
 }
+

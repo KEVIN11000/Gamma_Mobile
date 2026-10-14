@@ -116,6 +116,29 @@ class TransaccionesViewModelTest {
         assertTrue(state is TransaccionesUiState.Success)
         assertEquals(1, (state as TransaccionesUiState.Success).movimientosAgrupados.size)
     }
+
+    @Test
+    fun `loadMovimientos sorts Latin American dates chronologically instead of alphabetically`() = runTest {
+        val movimientos = listOf(
+            Movimiento("1", "31/08/2026", "Gasto", "Super", 50000, "Legal"),
+            Movimiento("2", "14/10/2026", "Gasto", "Farmacia", 80000, "Legal"),
+            Movimiento("3", "05/10/2026", "Ingreso", "Honorarios", 2000000, "Legal"),
+            Movimiento("4", "25/08/2026", "Gasto", "Combustible", 100000, "Legal")
+        )
+        fakeRepo.result = NetworkResult.Success(movimientos)
+
+        viewModel = TransaccionesViewModel(fakeRepo)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value as TransaccionesUiState.Success
+        val dates = state.movimientosAgrupados.keys.toList()
+
+        // 14/10/2026 debe ser primera, luego 05/10/2026, luego 31/08/2026 y 25/08/2026
+        assertEquals("14/10/2026", dates[0])
+        assertEquals("05/10/2026", dates[1])
+        assertEquals("31/08/2026", dates[2])
+        assertEquals("25/08/2026", dates[3])
+    }
 }
 
 class FakeMovimientoRepository : MovimientoRepository {

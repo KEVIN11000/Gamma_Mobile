@@ -28,4 +28,10 @@ class AsistenciaRepositoryImpl @Inject constructor(
             api.marcarMateria(AsistenciaMateriaRequest(materia = materia))
         }
     }
+
+    override suspend fun getMaterias(): NetworkResult<List<String>> {
+        return safeApiCall(dispatcher) {
+            api.getMaterias()
+        }
+    }
 }

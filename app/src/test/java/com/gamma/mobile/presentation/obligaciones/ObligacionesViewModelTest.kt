@@ -134,6 +134,40 @@ class ObligacionesViewModelTest {
         advanceUntilIdle()
         assertEquals(NivelRiesgo.ROJO, viewModel.simulacionResult.value?.nivelRiesgo)
     }
+
+    @Test
+    fun `setFiltro filters list by Activas Saldadas and Simuladas`() = runTest {
+        val list = listOf(
+            Obligacion("1", "Deuda 1", 100000, 100000, "Activo"),
+            Obligacion("2", "Deuda 2", 200000, 0, "Saldado"),
+            Obligacion("3", "Deuda 3", 300000, 300000, "Simulado")
+        )
+        fakeRepo.data = list
+        viewModel = ObligacionesViewModel(fakeRepo, fakeDashboardRepo)
+        advanceUntilIdle()
+
+        // Por defecto: TODAS (size 3)
+        var state = viewModel.uiState.value as ObligacionesUiState.Success
+        assertEquals(3, state.obligaciones.size)
+
+        // Filtrar ACTIVAS (size 1)
+        viewModel.setFiltro(FiltroObligacion.ACTIVAS)
+        state = viewModel.uiState.value as ObligacionesUiState.Success
+        assertEquals(1, state.obligaciones.size)
+        assertEquals("Activo", state.obligaciones[0].estado)
+
+        // Filtrar SALDADAS (size 1)
+        viewModel.setFiltro(FiltroObligacion.SALDADAS)
+        state = viewModel.uiState.value as ObligacionesUiState.Success
+        assertEquals(1, state.obligaciones.size)
+        assertEquals("Saldado", state.obligaciones[0].estado)
+
+        // Filtrar SIMULADAS (size 1)
+        viewModel.setFiltro(FiltroObligacion.SIMULADAS)
+        state = viewModel.uiState.value as ObligacionesUiState.Success
+        assertEquals(1, state.obligaciones.size)
+        assertEquals("Simulado", state.obligaciones[0].estado)
+    }
 }
 
 class FakeDashboardRepository : com.gamma.mobile.domain.repository.DashboardRepository {

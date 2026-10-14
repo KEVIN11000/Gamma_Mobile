@@ -20,11 +20,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import com.gamma.mobile.domain.model.Aviso
 import com.gamma.mobile.domain.model.DashboardSummary
 import com.gamma.mobile.utils.formatGuaranies
 import java.text.NumberFormat
 import java.util.Locale
+
+import androidx.compose.material.icons.filled.AccessTime
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Work
+import java.time.DayOfWeek
+import java.time.LocalDate
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -35,6 +42,8 @@ fun DashboardScreen(
     onNavigateToAvisos: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val asistenciaMessage by viewModel.asistenciaMessage.collectAsState()
+    val isMarkingAsistencia by viewModel.isMarkingAsistencia.collectAsState()
 
     Scaffold(
         topBar = {
@@ -95,14 +104,22 @@ fun DashboardScreen(
                     DashboardContent(
                         summary = DashboardSummary(0L, 0L, 0L, false),
                         avisos = emptyList(),
-                        onNavigateToAvisos = onNavigateToAvisos
+                        onNavigateToAvisos = onNavigateToAvisos,
+                        onMarcarAsistencia = { viewModel.marcarAsistencia() },
+                        isMarkingAsistencia = isMarkingAsistencia,
+                        asistenciaMessage = asistenciaMessage,
+                        onDismissAsistenciaMessage = { viewModel.dismissAsistenciaMessage() }
                     )
                 }
                 is DashboardUiState.Success -> {
                     DashboardContent(
                         summary = state.summary, 
                         avisos = state.avisos,
-                        onNavigateToAvisos = onNavigateToAvisos
+                        onNavigateToAvisos = onNavigateToAvisos,
+                        onMarcarAsistencia = { viewModel.marcarAsistencia() },
+                        isMarkingAsistencia = isMarkingAsistencia,
+                        asistenciaMessage = asistenciaMessage,
+                        onDismissAsistenciaMessage = { viewModel.dismissAsistenciaMessage() }
                     )
                 }
             }
@@ -114,14 +131,106 @@ fun DashboardScreen(
 fun DashboardContent(
     summary: DashboardSummary, 
     avisos: List<com.gamma.mobile.presentation.dashboard.AvisoUiModel>,
-    onNavigateToAvisos: () -> Unit
+    onNavigateToAvisos: () -> Unit,
+    onMarcarAsistencia: () -> Unit = {},
+    isMarkingAsistencia: Boolean = false,
+    asistenciaMessage: String? = null,
+    onDismissAsistenciaMessage: () -> Unit = {}
 ) {
+    val dayOfWeek = remember { LocalDate.now().dayOfWeek }
+    val esDiaLaboral = remember(dayOfWeek) {
+        dayOfWeek != DayOfWeek.SATURDAY && dayOfWeek != DayOfWeek.SUNDAY
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp)
     ) {
+        // Atajo de Marcación Laboral (Visible de Lunes a Viernes)
+        if (esDiaLaboral) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 16.dp, bottom = 4.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Work,
+                                contentDescription = null,
+                                modifier = Modifier.size(24.dp),
+                                tint = MaterialTheme.colorScheme.secondary
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text(
+                                    "Marcación Laboral de Hoy",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    "Turno Lunes a Viernes",
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
+                        }
+
+                        Button(
+                            onClick = onMarcarAsistencia,
+                            enabled = !isMarkingAsistencia,
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+                        ) {
+                            if (isMarkingAsistencia) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(16.dp),
+                                    strokeWidth = 2.dp,
+                                    color = MaterialTheme.colorScheme.onPrimary
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Marcando...")
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Default.AccessTime,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Marcar")
+                            }
+                        }
+                    }
+
+                    if (!asistenciaMessage.isNullOrBlank()) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = asistenciaMessage,
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            TextButton(onClick = onDismissAsistenciaMessage) {
+                                Text("OK", style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
+                    }
+                }
+            }
+        }
         // Tarjeta de Balance Actual (Saldo Acumulado)
         Card(
             modifier = Modifier

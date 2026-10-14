@@ -16,6 +16,8 @@ import javax.inject.Inject
 
 import java.time.Clock
 
+import com.gamma.mobile.domain.repository.AsistenciaRepository
+
 sealed class DashboardUiState {
     object Loading : DashboardUiState()
     data class Success(val summary: DashboardSummary, val avisos: List<AvisoUiModel>) : DashboardUiState()
@@ -27,11 +29,25 @@ sealed class DashboardUiState {
 class DashboardViewModel @Inject constructor(
     private val dashboardRepository: DashboardRepository,
     private val avisoRepository: AvisoRepository,
-    private val clock: Clock
+    private val clock: Clock,
+    private val asistenciaRepository: AsistenciaRepository? = null
 ) : ViewModel() {
+
+    // Constructor secundario para compatibilidad con tests unitarios existentes
+    constructor(
+        dashboardRepository: DashboardRepository,
+        avisoRepository: AvisoRepository,
+        clock: Clock
+    ) : this(dashboardRepository, avisoRepository, clock, null)
 
     private val _uiState = MutableStateFlow<DashboardUiState>(DashboardUiState.Loading)
     val uiState: StateFlow<DashboardUiState> = _uiState.asStateFlow()
+
+    private val _asistenciaMessage = MutableStateFlow<String?>(null)
+    val asistenciaMessage: StateFlow<String?> = _asistenciaMessage.asStateFlow()
+
+    private val _isMarkingAsistencia = MutableStateFlow(false)
+    val isMarkingAsistencia: StateFlow<Boolean> = _isMarkingAsistencia.asStateFlow()
 
     init {
         loadDashboard()
@@ -57,5 +73,30 @@ class DashboardViewModel @Inject constructor(
                 _uiState.value = DashboardUiState.Error("No se pudo cargar el dashboard", isOffline)
             }
         }
+    }
+
+    fun marcarAsistencia(modo: String = "normal") {
+        if (asistenciaRepository == null) return
+        viewModelScope.launch {
+            _isMarkingAsistencia.value = true
+            when (val res = asistenciaRepository.marcarAsistencia(modo)) {
+                is NetworkResult.Success -> {
+                    val data = res.data
+                    val hora = data.hora
+                    _asistenciaMessage.value = "✅ ${data.mensaje.ifEmpty { "Marcación registrada" }}${if (hora.isNotEmpty()) " a las $hora" else ""}"
+                }
+                is NetworkResult.Error -> {
+                    _asistenciaMessage.value = "❌ ${res.message.ifEmpty { "Error al marcar" }}"
+                }
+                is NetworkResult.Exception -> {
+                    _asistenciaMessage.value = "❌ Error de conexión al marcar asistencia"
+                }
+            }
+            _isMarkingAsistencia.value = false
+        }
+    }
+
+    fun dismissAsistenciaMessage() {
+        _asistenciaMessage.value = null
     }
 }

@@ -63,6 +63,9 @@ class CierreViewModel @Inject constructor(
     private val _aplicarDescuento = MutableStateFlow(false)
     val aplicarDescuento: StateFlow<Boolean> = _aplicarDescuento.asStateFlow()
 
+    private val _tipoCierre = MutableStateFlow("horas") // "horas" o "contable"
+    val tipoCierre: StateFlow<String> = _tipoCierre.asStateFlow()
+
     fun setHoja(nuevaHoja: String) {
         _hoja.value = nuevaHoja
     }
@@ -71,7 +74,15 @@ class CierreViewModel @Inject constructor(
         _aplicarDescuento.value = aplicar
     }
 
-    fun ejecutarCierre(hojaCierre: String = _hoja.value, conDescuento: Boolean = _aplicarDescuento.value) {
+    fun setTipoCierre(nuevoTipo: String) {
+        _tipoCierre.value = nuevoTipo
+    }
+
+    fun ejecutarCierre(
+        hojaCierre: String = _hoja.value,
+        conDescuento: Boolean = _aplicarDescuento.value,
+        tipo: String = _tipoCierre.value
+    ) {
         val hojaValida = hojaCierre.trim()
         if (hojaValida.isEmpty()) {
             _uiState.value = CierreUiState.Error("Debe indicar la hoja o período para el cierre")
@@ -80,7 +91,7 @@ class CierreViewModel @Inject constructor(
 
         viewModelScope.launch {
             _uiState.value = CierreUiState.LoadingCierre
-            when (val result = repository.ejecutarCierre(hojaValida, conDescuento)) {
+            when (val result = repository.ejecutarCierre(hojaValida, conDescuento, tipo)) {
                 is NetworkResult.Success -> {
                     _uiState.value = CierreUiState.CierreSuccess(result.data)
                 }

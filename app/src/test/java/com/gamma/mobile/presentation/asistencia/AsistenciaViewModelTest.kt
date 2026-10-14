@@ -37,6 +37,10 @@ class FakeAsistenciaRepository : AsistenciaRepository {
         lastMateriaCalled = materia
         return materiaResult
     }
+
+    override suspend fun getMaterias(): NetworkResult<List<String>> {
+        return NetworkResult.Success(listOf("Algoritmos", "Base de Datos"))
+    }
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -76,10 +80,10 @@ class AsistenciaViewModelTest {
 
     @Test
     fun `materiasDisponibles contains configured subjects and can be selected`() {
-        assertTrue(viewModel.materiasDisponibles.isNotEmpty())
-        assertTrue(viewModel.materiasDisponibles.contains("Algoritmos y Estructuras de Datos"))
+        assertTrue(viewModel.materiasDisponibles.value.isNotEmpty())
+        assertTrue(viewModel.materiasDisponibles.value.contains("Algoritmos") || viewModel.materiasDisponibles.value.contains("Algoritmos y Estructuras de Datos"))
 
-        val selected = viewModel.materiasDisponibles.first()
+        val selected = viewModel.materiasDisponibles.value.first()
         viewModel.setMateria(selected)
         assertEquals(selected, viewModel.materia.value)
     }

@@ -185,6 +185,7 @@ fun MarcacionesTabContent(viewModel: AsistenciaViewModel) {
                     )
 
                     var expandedMateria by remember { mutableStateOf(false) }
+                    val materiasDisponibles by viewModel.materiasDisponibles.collectAsState()
 
                     ExposedDropdownMenuBox(
                         expanded = expandedMateria,
@@ -208,7 +209,7 @@ fun MarcacionesTabContent(viewModel: AsistenciaViewModel) {
                             expanded = expandedMateria,
                             onDismissRequest = { expandedMateria = false }
                         ) {
-                            viewModel.materiasDisponibles.forEach { mat ->
+                            materiasDisponibles.forEach { mat ->
                                 DropdownMenuItem(
                                     text = { Text(mat) },
                                     onClick = {
@@ -309,6 +310,7 @@ fun CierreTabContent(cierreViewModel: CierreViewModel) {
     val uiState by cierreViewModel.uiState.collectAsState()
     val hoja by cierreViewModel.hoja.collectAsState()
     val aplicarDescuento by cierreViewModel.aplicarDescuento.collectAsState()
+    val tipoCierre by cierreViewModel.tipoCierre.collectAsState()
     val context = LocalContext.current
     val scrollState = rememberScrollState()
 
@@ -366,8 +368,28 @@ fun CierreTabContent(cierreViewModel: CierreViewModel) {
                         fontWeight = FontWeight.Bold
                     )
 
+                    // Selector de Tipo de Cierre
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        FilterChip(
+                            selected = tipoCierre == "horas",
+                            onClick = { cierreViewModel.setTipoCierre("horas") },
+                            label = { Text("Laboral (Horas)") }
+                        )
+                        FilterChip(
+                            selected = tipoCierre == "contable",
+                            onClick = { cierreViewModel.setTipoCierre("contable") },
+                            label = { Text("Contable (Libro Diario)") }
+                        )
+                    }
+
                     Text(
-                        "Selecciona el período para generar el consolidado de horas y PDF:",
+                        if (tipoCierre == "horas") 
+                            "Consolida horas trabajadas, asistencias y reporte de nómina:" 
+                        else 
+                            "Consolida ingresos, gastos y posición fiscal del Libro Diario:",
                         style = MaterialTheme.typography.bodyMedium
                     )
 
@@ -406,23 +428,25 @@ fun CierreTabContent(cierreViewModel: CierreViewModel) {
                         }
                     }
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("Aplicar descuento", fontWeight = FontWeight.SemiBold)
-                            Text(
-                                "Descuenta horas faltantes o no computadas",
-                                style = MaterialTheme.typography.bodySmall
+                    if (tipoCierre == "horas") {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Aplicar descuento", fontWeight = FontWeight.SemiBold)
+                                Text(
+                                    "Descuenta horas faltantes o no computadas",
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
+                            Switch(
+                                checked = aplicarDescuento,
+                                onCheckedChange = { cierreViewModel.setAplicarDescuento(it) },
+                                enabled = uiState !is CierreUiState.LoadingCierre
                             )
                         }
-                        Switch(
-                            checked = aplicarDescuento,
-                            onCheckedChange = { cierreViewModel.setAplicarDescuento(it) },
-                            enabled = uiState !is CierreUiState.LoadingCierre
-                        )
                     }
 
                     Button(
@@ -432,7 +456,7 @@ fun CierreTabContent(cierreViewModel: CierreViewModel) {
                     ) {
                         Icon(Icons.Default.DateRange, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Ejecutar Cierre Mensual")
+                        Text(if (tipoCierre == "horas") "Ejecutar Cierre Laboral" else "Ejecutar Cierre Contable")
                     }
                 }
             }

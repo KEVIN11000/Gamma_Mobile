@@ -16,9 +16,9 @@ class CierreRepositoryImpl @Inject constructor(
     @Named("NetworkDispatcher") private val dispatcher: CoroutineDispatcher
 ) : CierreRepository {
 
-    override suspend fun ejecutarCierre(hoja: String, aplicarDescuento: Boolean): NetworkResult<CierreResponse> {
+    override suspend fun ejecutarCierre(hoja: String, aplicarDescuento: Boolean, tipo: String): NetworkResult<CierreResponse> {
         return safeApiCall(dispatcher) {
-            api.ejecutarCierre(CierreRequest(hoja = hoja, aplicarDescuento = aplicarDescuento))
+            api.ejecutarCierre(CierreRequest(hoja = hoja, tipo = tipo, aplicarDescuento = aplicarDescuento))
         }
     }
 

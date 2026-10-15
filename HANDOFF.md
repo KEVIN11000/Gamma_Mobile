@@ -53,8 +53,8 @@
 ## 4. Pendientes explícitos para la próxima fase
 
 - [ ] Sincronizar y recargar worker WSGI en PythonAnywhere (`TCK-006`).
-- [ ] Configurar webhook receptor en `Gamma_bot` para recibir eventos de cierre de issues desde GitHub (`issues.closed`) hacia `tickets.json`.
-- [ ] Incorporar visualización de comprobante PDF del cierre contable mensual generado directamente desde la pantalla de Sistema de Gamma Mobile.
+- [x] Configurar webhook receptor en `Gamma_bot` para recibir eventos de cierre de issues desde GitHub (`issues.closed`) hacia `tickets.json`.
+- [x] Incorporar visualización de comprobante PDF del cierre contable mensual generado directamente desde la pantalla de Sistema de Gamma Mobile.
 
 ## 5. Riesgos / deuda técnica conocida
 

@@ -60,6 +60,15 @@ class FakeSistemaRepository : SistemaRepository {
     var logsResult: NetworkResult<List<LogEntry>> = NetworkResult.Success(
         listOf(LogEntry(timestamp = "12/10/2026 10:00", nivel = "INFO", mensaje = "Test log"))
     )
+    var cierreResult: NetworkResult<com.gamma.mobile.domain.model.CierreResponse> = NetworkResult.Success(
+        com.gamma.mobile.domain.model.CierreResponse(
+            resumen = "Cierre contable completado",
+            pdfUrl = "/api/v1/cierres/reportes/test.pdf",
+            totalMonto = 3500000L,
+            tipo = "contable"
+        )
+    )
+    var lastHojaCierre: String? = null
     var mockAppVersion: String = "0.0.4+6bb982e"
 
     var lastAsuntoCreated: String? = null
@@ -82,6 +91,10 @@ class FakeSistemaRepository : SistemaRepository {
         return updateTicketResult
     }
     override suspend fun getLogs(): NetworkResult<List<LogEntry>> = logsResult
+    override suspend fun ejecutarCierreContable(hoja: String): NetworkResult<com.gamma.mobile.domain.model.CierreResponse> {
+        lastHojaCierre = hoja
+        return cierreResult
+    }
     override fun getAppVersion(): String = mockAppVersion
 }
 
@@ -332,5 +345,38 @@ class SistemaViewModelTest {
 
         viewModel.setFiltroTickets("Todos")
         assertEquals(3, viewModel.uiState.value.ticketsFiltrados.size)
+    }
+
+    @Test
+    fun `ejecutarCierreContable actualiza uiState con exito y url absoluta`() = runTest {
+        viewModel = SistemaViewModel(fakeRepo, fakeStorage, checkAppUpdateUseCase)
+        advanceUntilIdle()
+
+        viewModel.ejecutarCierreContable("Período Octubre")
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(false, state.isEjecutandoCierre)
+        assertNotNull(state.cierreContable)
+        assertEquals("Cierre contable completado", state.cierreContable?.resumen)
+        assertEquals(3500000L, state.cierreContable?.totalMonto)
+        assertTrue(state.cierreMensaje?.startsWith("✅") == true)
+
+        val fullPdf = viewModel.obtenerUrlAbsolutaPdf(state.cierreContable?.pdfUrl)
+        assertEquals("https://kevin11000.pythonanywhere.com/api/v1/api/v1/cierres/reportes/test.pdf", fullPdf)
+    }
+
+    @Test
+    fun `ejecutarCierreContable maneja error de red`() = runTest {
+        fakeRepo.cierreResult = NetworkResult.Error(500, "Error en el servidor de cierre")
+        viewModel = SistemaViewModel(fakeRepo, fakeStorage, checkAppUpdateUseCase)
+        advanceUntilIdle()
+
+        viewModel.ejecutarCierreContable()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(false, state.isEjecutandoCierre)
+        assertTrue(state.cierreMensaje?.contains("Error 500") == true)
     }
 }

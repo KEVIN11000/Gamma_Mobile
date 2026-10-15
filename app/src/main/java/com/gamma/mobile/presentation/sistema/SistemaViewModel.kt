@@ -3,6 +3,7 @@ package com.gamma.mobile.presentation.sistema
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.gamma.mobile.data.remote.NetworkResult
+import com.gamma.mobile.domain.model.CierreResponse
 import com.gamma.mobile.domain.model.HealthStatus
 import com.gamma.mobile.domain.model.LogEntry
 import com.gamma.mobile.domain.model.TicketItem
@@ -32,7 +33,10 @@ data class SistemaUiState(
     val error: String? = null,
     val ticketCreationSuccess: String? = null,
     val ticketActionMessage: String? = null,
-    val updateStatus: UpdateStatus = UpdateStatus.Idle
+    val updateStatus: UpdateStatus = UpdateStatus.Idle,
+    val cierreContable: CierreResponse? = null,
+    val isEjecutandoCierre: Boolean = false,
+    val cierreMensaje: String? = null
 ) {
     val ticketsFiltrados: List<TicketItem>
         get() = when (ticketFiltro) {
@@ -211,13 +215,58 @@ class SistemaViewModel @Inject constructor(
         }
     }
 
+    fun ejecutarCierreContable(hoja: String = "Período Actual") {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isEjecutandoCierre = true, cierreMensaje = null) }
+            when (val result = repository.ejecutarCierreContable(hoja)) {
+                is NetworkResult.Success -> {
+                    _uiState.update { state ->
+                        state.copy(
+                            isEjecutandoCierre = false,
+                            cierreContable = result.data,
+                            cierreMensaje = "✅ Cierre contable completado exitosamente"
+                        )
+                    }
+                }
+                is NetworkResult.Error -> {
+                    _uiState.update {
+                        it.copy(
+                            isEjecutandoCierre = false,
+                            cierreMensaje = "❌ Error ${result.code}: ${result.message.ifEmpty { "Error ejecutando cierre" }}"
+                        )
+                    }
+                }
+                is NetworkResult.Exception -> {
+                    _uiState.update {
+                        it.copy(
+                            isEjecutandoCierre = false,
+                            cierreMensaje = "❌ Fallo de red: ${result.e.localizedMessage ?: "Error de conexión"}"
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    fun obtenerUrlAbsolutaPdf(pdfUrlRelativa: String?): String? {
+        if (pdfUrlRelativa.isNullOrBlank()) return null
+        if (pdfUrlRelativa.startsWith("http://") || pdfUrlRelativa.startsWith("https://")) {
+            return pdfUrlRelativa
+        }
+        val base = _uiState.value.baseUrl.trimEnd('/')
+        if (base.isBlank()) return null
+        val rel = pdfUrlRelativa.trimStart('/')
+        return "$base/$rel"
+    }
+
     fun limpiarMensajes() {
         _uiState.update {
             it.copy(
                 error = null,
                 ticketCreationSuccess = null,
                 ticketActionMessage = null,
-                configMessage = null
+                configMessage = null,
+                cierreMensaje = null
             )
         }
     }

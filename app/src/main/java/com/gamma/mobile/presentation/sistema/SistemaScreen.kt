@@ -28,6 +28,7 @@ fun SistemaScreen(
     viewModel: SistemaViewModel = androidx.hilt.navigation.compose.hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val context = androidx.compose.ui.platform.LocalContext.current
     val scrollState = rememberScrollState()
     var showNewTicketDialog by remember { mutableStateOf(false) }
     var isTicketsExpanded by remember { mutableStateOf(false) }
@@ -100,8 +101,6 @@ fun SistemaScreen(
                                 Text("Entorno: Android (minSdk 26, targetSdk 34)", style = MaterialTheme.typography.bodySmall)
                             }
                         }
-
-                        val context = androidx.compose.ui.platform.LocalContext.current
 
                         when (val status = uiState.updateStatus) {
                             is com.gamma.mobile.domain.model.UpdateStatus.UpdateAvailable -> {
@@ -375,6 +374,126 @@ fun SistemaScreen(
                             }
                         } else {
                             Text("Sin conexión con el servicio de diagnóstico.", style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }
+
+                // Card: Cierre Contable Mensual y Comprobante PDF
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                "Cierre Contable Mensual",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            if (uiState.isEjecutandoCierre) {
+                                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                            }
+                        }
+
+                        Text(
+                            "Genera el balance contable consolidado del período actual y emite el comprobante oficial en formato PDF.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        val cierre = uiState.cierreContable
+                        if (cierre != null) {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surface,
+                                    contentColor = MaterialTheme.colorScheme.onSurface
+                                )
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(12.dp),
+                                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Text(
+                                        "Resumen del Cierre:",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                    Text(cierre.resumen, style = MaterialTheme.typography.bodySmall)
+
+                                    if (cierre.totalMonto > 0) {
+                                        Text(
+                                            "Monto Total: ₲ ${java.lang.String.format(java.util.Locale.GERMAN, "%,d", cierre.totalMonto)}",
+                                            fontWeight = FontWeight.Bold,
+                                            style = MaterialTheme.typography.bodyMedium
+                                        )
+                                    }
+
+                                    val fullPdfUrl = viewModel.obtenerUrlAbsolutaPdf(cierre.pdfUrl)
+                                    if (!fullPdfUrl.isNullOrBlank()) {
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Button(
+                                            onClick = {
+                                                try {
+                                                    val intent = android.content.Intent(
+                                                        android.content.Intent.ACTION_VIEW,
+                                                        android.net.Uri.parse(fullPdfUrl)
+                                                    )
+                                                    context.startActivity(intent)
+                                                } catch (e: Exception) {
+                                                    android.widget.Toast.makeText(
+                                                        context,
+                                                        "No se encontró aplicación para abrir PDF",
+                                                        android.widget.Toast.LENGTH_SHORT
+                                                    ).show()
+                                                }
+                                            },
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Text("Ver Comprobante PDF 📄")
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        if (!uiState.cierreMensaje.isNullOrBlank()) {
+                            val msg = uiState.cierreMensaje!!
+                            val color = if (msg.startsWith("✅")) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.error
+                            }
+                            Text(
+                                text = msg,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = color,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+
+                        FilledTonalButton(
+                            onClick = { viewModel.ejecutarCierreContable() },
+                            enabled = !uiState.isEjecutandoCierre,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                if (cierre != null) "Regenerar Cierre Contable" else "Ejecutar Cierre Contable"
+                            )
                         }
                     }
                 }

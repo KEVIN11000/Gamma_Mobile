@@ -4,6 +4,8 @@ import com.gamma.mobile.BuildConfig
 import com.gamma.mobile.data.remote.GammaApi
 import com.gamma.mobile.data.remote.NetworkResult
 import com.gamma.mobile.data.remote.safeApiCall
+import com.gamma.mobile.domain.model.CierreRequest
+import com.gamma.mobile.domain.model.CierreResponse
 import com.gamma.mobile.domain.model.HealthStatus
 import com.gamma.mobile.domain.model.LogEntry
 import com.gamma.mobile.domain.model.TicketCreate
@@ -40,6 +42,12 @@ class SistemaRepositoryImpl @Inject constructor(
 
     override suspend fun getLogs(): NetworkResult<List<LogEntry>> {
         return safeApiCall(dispatcher) { api.getLogs() }
+    }
+
+    override suspend fun ejecutarCierreContable(hoja: String): NetworkResult<CierreResponse> {
+        return safeApiCall(dispatcher) {
+            api.ejecutarCierre(CierreRequest(hoja = hoja, tipo = "contable"))
+        }
     }
 
     override fun getAppVersion(): String {

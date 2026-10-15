@@ -27,16 +27,27 @@ fun getGitCommitCount(): Int {
     }
 }
 
+fun getAppVersion(): String {
+    val versionFile = rootProject.file("VERSION")
+    return if (versionFile.exists()) {
+        versionFile.readText().trim()
+    } else {
+        "0.0.4"
+    }
+}
+
 android {
     namespace = "com.gamma.mobile"
     compileSdk = 34
+
+    val appVersion = getAppVersion()
 
     defaultConfig {
         applicationId = "com.gamma.mobile"
         minSdk = 26
         targetSdk = 34
         versionCode = getGitCommitCount()
-        versionName = "0.0.3+${getGitCommitHash()}"
+        versionName = "$appVersion+${getGitCommitHash()}"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -80,6 +91,24 @@ android {
     }
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.11"
+    }
+
+    applicationVariants.all {
+        val variantName = name
+        outputs.all {
+            val output = this as? com.android.build.gradle.internal.api.BaseVariantOutputImpl
+            output?.outputFileName = "gamma-mobile-v${appVersion}-${variantName}.apk"
+        }
+        assembleProvider.configure {
+            doLast {
+                val outputDir = layout.buildDirectory.dir("outputs/apk/$variantName").get().asFile
+                val versionedApk = File(outputDir, "gamma-mobile-v${appVersion}-${variantName}.apk")
+                val legacyApk = File(outputDir, "app-${variantName}.apk")
+                if (versionedApk.exists()) {
+                    versionedApk.copyTo(legacyApk, overwrite = true)
+                }
+            }
+        }
     }
 }
 

@@ -95,7 +95,7 @@ fun SistemaScreen(
                             Spacer(modifier = Modifier.width(16.dp))
                             Column {
                                 Text("Gamma Mobile", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                                Text("Versión instalada: ${uiState.appVersion.ifEmpty { "0.0.2+debug" }}", fontWeight = FontWeight.SemiBold)
+                                Text("Versión instalada: ${uiState.appVersion.ifEmpty { "0.0.4+debug" }}", fontWeight = FontWeight.SemiBold)
                                 Text("Entorno: Android (minSdk 26, targetSdk 34)", style = MaterialTheme.typography.bodySmall)
                             }
                         }

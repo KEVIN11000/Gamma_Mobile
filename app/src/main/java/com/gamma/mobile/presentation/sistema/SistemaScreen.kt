@@ -69,7 +69,7 @@ fun SistemaScreen(
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // Card 1: Versión de la Aplicación
+                // Card 1: Versión de la Aplicación y Estado de Actualizaciones
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
@@ -93,28 +93,98 @@ fun SistemaScreen(
                                 modifier = Modifier.size(36.dp)
                             )
                             Spacer(modifier = Modifier.width(16.dp))
-                            Column {
+                            Column(modifier = Modifier.weight(1f)) {
                                 Text("Gamma Mobile", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                                 Text("Versión instalada: ${uiState.appVersion.ifEmpty { "0.0.4+debug" }}", fontWeight = FontWeight.SemiBold)
                                 Text("Entorno: Android (minSdk 26, targetSdk 34)", style = MaterialTheme.typography.bodySmall)
                             }
                         }
 
-                        val downloadUrl = uiState.health?.downloadUrl
-                        if (!downloadUrl.isNullOrBlank()) {
-                            val context = androidx.compose.ui.platform.LocalContext.current
-                            Spacer(modifier = Modifier.height(12.dp))
-                            FilledTonalButton(
-                                onClick = {
-                                    val intent = android.content.Intent(
-                                        android.content.Intent.ACTION_VIEW,
-                                        android.net.Uri.parse(downloadUrl)
+                        val context = androidx.compose.ui.platform.LocalContext.current
+
+                        when (val status = uiState.updateStatus) {
+                            is com.gamma.mobile.domain.model.UpdateStatus.UpdateAvailable -> {
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = MaterialTheme.colorScheme.surface,
+                                        contentColor = MaterialTheme.colorScheme.onSurface
                                     )
-                                    context.startActivity(intent)
-                                },
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text("Descargar actualización oficial (APK)")
+                                ) {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(12.dp),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Warning,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.primary
+                                            )
+                                            Text(
+                                                "¡Nueva versión ${status.version} disponible!",
+                                                style = MaterialTheme.typography.titleSmall,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                        Text(
+                                            "Paquete: ${status.assetName} (${status.sizeMb} MB)",
+                                            style = MaterialTheme.typography.bodySmall
+                                        )
+                                        Button(
+                                            onClick = {
+                                                val intent = android.content.Intent(
+                                                    android.content.Intent.ACTION_VIEW,
+                                                    android.net.Uri.parse(status.downloadUrl)
+                                                )
+                                                context.startActivity(intent)
+                                            },
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Text("Descargar actualización (${status.version})")
+                                        }
+                                    }
+                                }
+                            }
+                            is com.gamma.mobile.domain.model.UpdateStatus.UpToDate -> {
+                                Spacer(modifier = Modifier.height(10.dp))
+                                SuggestionChip(
+                                    onClick = {},
+                                    label = { Text("Versión al día con GitHub Releases", fontWeight = FontWeight.Medium) },
+                                    icon = {
+                                        Icon(
+                                            Icons.Default.CheckCircle,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                            else -> {
+                                val fallbackUrl = uiState.health?.downloadUrl
+                                if (!fallbackUrl.isNullOrBlank()) {
+                                    Spacer(modifier = Modifier.height(10.dp))
+                                    FilledTonalButton(
+                                        onClick = {
+                                            val intent = android.content.Intent(
+                                                android.content.Intent.ACTION_VIEW,
+                                                android.net.Uri.parse(fallbackUrl)
+                                            )
+                                            context.startActivity(intent)
+                                        },
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Text("Descargar actualización oficial (APK)")
+                                    }
+                                }
                             }
                         }
                     }

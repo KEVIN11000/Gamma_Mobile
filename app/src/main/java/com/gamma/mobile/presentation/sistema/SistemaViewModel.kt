@@ -8,6 +8,8 @@ import com.gamma.mobile.domain.model.LogEntry
 import com.gamma.mobile.domain.model.TicketItem
 import com.gamma.mobile.domain.repository.SecureStorageRepository
 import com.gamma.mobile.domain.repository.SistemaRepository
+import com.gamma.mobile.domain.model.UpdateStatus
+import com.gamma.mobile.domain.usecase.CheckAppUpdateUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -27,13 +29,15 @@ data class SistemaUiState(
     val isApiKeyConfigured: Boolean = false,
     val configMessage: String? = null,
     val error: String? = null,
-    val ticketCreationSuccess: String? = null
+    val ticketCreationSuccess: String? = null,
+    val updateStatus: UpdateStatus = UpdateStatus.Idle
 )
 
 @HiltViewModel
 class SistemaViewModel @Inject constructor(
     private val repository: SistemaRepository,
-    private val secureStorage: SecureStorageRepository
+    private val secureStorage: SecureStorageRepository,
+    private val checkAppUpdateUseCase: CheckAppUpdateUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(
@@ -88,6 +92,9 @@ class SistemaViewModel @Inject constructor(
             val logsResult = repository.getLogs()
             val logsData = if (logsResult is NetworkResult.Success) logsResult.data else emptyList()
 
+            // 4. Comprobación autónoma de Release en GitHub
+            val updateStatus = checkAppUpdateUseCase(repository.getAppVersion())
+
             val errorMessage = when {
                 healthResult is NetworkResult.Error -> healthResult.message
                 healthResult is NetworkResult.Exception -> healthResult.e.localizedMessage
@@ -114,7 +121,8 @@ class SistemaViewModel @Inject constructor(
                     tickets = ticketsData,
                     logs = logsData,
                     error = errorMessage,
-                    configMessage = updatedConfigMessage
+                    configMessage = updatedConfigMessage,
+                    updateStatus = updateStatus
                 )
             }
         }

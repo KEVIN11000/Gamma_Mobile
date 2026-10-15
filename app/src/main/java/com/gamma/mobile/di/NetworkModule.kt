@@ -58,6 +58,29 @@ object NetworkModule {
 
     @Provides
     @Singleton
+    fun provideGitHubReleaseApi(): com.gamma.mobile.data.remote.GitHubReleaseApi {
+        val client = OkHttpClient.Builder()
+            .connectTimeout(10, TimeUnit.SECONDS)
+            .readTimeout(10, TimeUnit.SECONDS)
+            .addInterceptor { chain ->
+                val request = chain.request().newBuilder()
+                    .header("User-Agent", "GammaMobile")
+                    .header("Accept", "application/vnd.github+json")
+                    .build()
+                chain.proceed(request)
+            }
+            .build()
+
+        return Retrofit.Builder()
+            .baseUrl("https://api.github.com/")
+            .client(client)
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+            .create(com.gamma.mobile.data.remote.GitHubReleaseApi::class.java)
+    }
+
+    @Provides
+    @Singleton
     @Named("NetworkDispatcher")
     fun provideNetworkDispatcher(): CoroutineDispatcher {
         // PythonAnywhere solo soporta 1 worker WSGI concurrente

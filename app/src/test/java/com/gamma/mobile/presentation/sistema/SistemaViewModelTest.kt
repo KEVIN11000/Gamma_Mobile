@@ -1,11 +1,16 @@
 package com.gamma.mobile.presentation.sistema
 
+import com.gamma.mobile.data.remote.GitHubReleaseApi
 import com.gamma.mobile.data.remote.NetworkResult
+import com.gamma.mobile.domain.model.GitHubAssetDto
+import com.gamma.mobile.domain.model.GitHubReleaseDto
 import com.gamma.mobile.domain.model.HealthStatus
 import com.gamma.mobile.domain.model.LogEntry
 import com.gamma.mobile.domain.model.TicketItem
+import com.gamma.mobile.domain.model.UpdateStatus
 import com.gamma.mobile.domain.repository.SecureStorageRepository
 import com.gamma.mobile.domain.repository.SistemaRepository
+import com.gamma.mobile.domain.usecase.CheckAppUpdateUseCase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -19,6 +24,25 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import retrofit2.Response
+
+class FakeGitHubReleaseApi : GitHubReleaseApi {
+    var response: Response<GitHubReleaseDto> = Response.success(
+        GitHubReleaseDto(
+            tagName = "v0.0.4",
+            name = "v0.0.4",
+            assets = listOf(
+                GitHubAssetDto(
+                    name = "gamma-mobile-v0.0.4-release.apk",
+                    size = 33246834L,
+                    browserDownloadUrl = "https://github.com/KEVIN11000/Gamma_Mobile/releases/download/v0.0.4/gamma-mobile-v0.0.4-release.apk"
+                )
+            )
+        )
+    )
+
+    override suspend fun getLatestRelease(): Response<GitHubReleaseDto> = response
+}
 
 class FakeSistemaRepository : SistemaRepository {
     var healthResult: NetworkResult<HealthStatus> = NetworkResult.Success(
@@ -33,7 +57,7 @@ class FakeSistemaRepository : SistemaRepository {
     var logsResult: NetworkResult<List<LogEntry>> = NetworkResult.Success(
         listOf(LogEntry(timestamp = "12/10/2026 10:00", nivel = "INFO", mensaje = "Test log"))
     )
-    var mockAppVersion: String = "0.0.1+90efaab"
+    var mockAppVersion: String = "0.0.4+6bb982e"
 
     var lastAsuntoCreated: String? = null
     var lastDescripcionCreated: String? = null
@@ -66,6 +90,8 @@ class SistemaViewModelTest {
     private lateinit var viewModel: SistemaViewModel
     private lateinit var fakeRepo: FakeSistemaRepository
     private lateinit var fakeStorage: FakeSistemaSecureStorage
+    private lateinit var fakeGitHubApi: FakeGitHubReleaseApi
+    private lateinit var checkAppUpdateUseCase: CheckAppUpdateUseCase
     private val testDispatcher = StandardTestDispatcher()
 
     @Before
@@ -73,6 +99,8 @@ class SistemaViewModelTest {
         Dispatchers.setMain(testDispatcher)
         fakeRepo = FakeSistemaRepository()
         fakeStorage = FakeSistemaSecureStorage()
+        fakeGitHubApi = FakeGitHubReleaseApi()
+        checkAppUpdateUseCase = CheckAppUpdateUseCase(fakeGitHubApi, testDispatcher)
     }
 
     @After
@@ -82,21 +110,21 @@ class SistemaViewModelTest {
 
     @Test
     fun `versionName adheres to semantic git version format`() {
-        fakeRepo.mockAppVersion = "0.0.1+90efaab"
-        val regex = Regex("""^0\.0\.1\+([0-9a-f]{7}|nogit)$""")
+        fakeRepo.mockAppVersion = "0.0.4+6bb982e"
+        val regex = Regex("""^0\.0\.4\+([0-9a-f]{7}|nogit)$""")
         assertTrue(regex.matches(fakeRepo.mockAppVersion))
 
-        val nogitVersion = "0.0.1+nogit"
+        val nogitVersion = "0.0.4+nogit"
         assertTrue(regex.matches(nogitVersion))
     }
 
     @Test
     fun `initial load populates health, tickets, logs and version`() = runTest {
-        viewModel = SistemaViewModel(fakeRepo, fakeStorage)
+        viewModel = SistemaViewModel(fakeRepo, fakeStorage, checkAppUpdateUseCase)
         advanceUntilIdle()
 
         val state = viewModel.uiState.value
-        assertEquals("0.0.1+90efaab", state.appVersion)
+        assertEquals("0.0.4+6bb982e", state.appVersion)
         assertNotNull(state.health)
         assertEquals("ok", state.health?.status)
         assertEquals(1, state.tickets.size)
@@ -108,7 +136,7 @@ class SistemaViewModelTest {
 
     @Test
     fun `guardarConfiguracion updates storage and state`() = runTest {
-        viewModel = SistemaViewModel(fakeRepo, fakeStorage)
+        viewModel = SistemaViewModel(fakeRepo, fakeStorage, checkAppUpdateUseCase)
         advanceUntilIdle()
 
         viewModel.guardarConfiguracion("https://custom.server.com/api/v1/", "secret-123")
@@ -122,7 +150,7 @@ class SistemaViewModelTest {
     @Test
     fun `health error updates state with error message`() = runTest {
         fakeRepo.healthResult = NetworkResult.Error(503, "Backend degradado")
-        viewModel = SistemaViewModel(fakeRepo, fakeStorage)
+        viewModel = SistemaViewModel(fakeRepo, fakeStorage, checkAppUpdateUseCase)
         advanceUntilIdle()
 
         val state = viewModel.uiState.value
@@ -131,7 +159,7 @@ class SistemaViewModelTest {
 
     @Test
     fun `crearTicket success prepends ticket to list and sets success message`() = runTest {
-        viewModel = SistemaViewModel(fakeRepo, fakeStorage)
+        viewModel = SistemaViewModel(fakeRepo, fakeStorage, checkAppUpdateUseCase)
         advanceUntilIdle()
 
         viewModel.crearTicket("Problema con login", "No acepta la API key")
@@ -148,7 +176,7 @@ class SistemaViewModelTest {
 
     @Test
     fun `crearTicket with blank asunto or descripcion sets error without calling repo`() = runTest {
-        viewModel = SistemaViewModel(fakeRepo, fakeStorage)
+        viewModel = SistemaViewModel(fakeRepo, fakeStorage, checkAppUpdateUseCase)
         advanceUntilIdle()
 
         viewModel.crearTicket("   ", "Descripcion valida")
@@ -164,7 +192,7 @@ class SistemaViewModelTest {
 
     @Test
     fun `crearTicket error sets error message`() = runTest {
-        viewModel = SistemaViewModel(fakeRepo, fakeStorage)
+        viewModel = SistemaViewModel(fakeRepo, fakeStorage, checkAppUpdateUseCase)
         advanceUntilIdle()
 
         fakeRepo.createTicketResult = NetworkResult.Error(500, "Error en base de datos")
@@ -177,7 +205,7 @@ class SistemaViewModelTest {
 
     @Test
     fun `limpiarMensajes clears error and success`() = runTest {
-        viewModel = SistemaViewModel(fakeRepo, fakeStorage)
+        viewModel = SistemaViewModel(fakeRepo, fakeStorage, checkAppUpdateUseCase)
         advanceUntilIdle()
 
         viewModel.crearTicket("Asunto", "Desc")
@@ -187,5 +215,50 @@ class SistemaViewModelTest {
         viewModel.limpiarMensajes()
         assertEquals(null, viewModel.uiState.value.ticketCreationSuccess)
         assertEquals(null, viewModel.uiState.value.error)
+    }
+
+    @Test
+    fun `initial load sets updateStatus to UpToDate when remote and local versions match`() = runTest {
+        fakeRepo.mockAppVersion = "0.0.4+6bb982e"
+        fakeGitHubApi.response = Response.success(
+            GitHubReleaseDto(
+                tagName = "v0.0.4",
+                name = "v0.0.4",
+                assets = listOf(GitHubAssetDto(name = "gamma-mobile-v0.0.4-release.apk", size = 33246834L))
+            )
+        )
+        viewModel = SistemaViewModel(fakeRepo, fakeStorage, checkAppUpdateUseCase)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertTrue(state.updateStatus is UpdateStatus.UpToDate)
+        assertEquals("0.0.4+6bb982e", (state.updateStatus as UpdateStatus.UpToDate).version)
+    }
+
+    @Test
+    fun `initial load sets updateStatus to UpdateAvailable when remote release is newer`() = runTest {
+        fakeRepo.mockAppVersion = "0.0.4+6bb982e"
+        fakeGitHubApi.response = Response.success(
+            GitHubReleaseDto(
+                tagName = "v0.0.5",
+                name = "v0.0.5",
+                assets = listOf(
+                    GitHubAssetDto(
+                        name = "gamma-mobile-v0.0.5-release.apk",
+                        size = 35000000L,
+                        browserDownloadUrl = "https://github.com/KEVIN11000/Gamma_Mobile/releases/download/v0.0.5/gamma-mobile-v0.0.5-release.apk"
+                    )
+                )
+            )
+        )
+        viewModel = SistemaViewModel(fakeRepo, fakeStorage, checkAppUpdateUseCase)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertTrue(state.updateStatus is UpdateStatus.UpdateAvailable)
+        val update = state.updateStatus as UpdateStatus.UpdateAvailable
+        assertEquals("v0.0.5", update.version)
+        assertEquals("gamma-mobile-v0.0.5-release.apk", update.assetName)
+        assertEquals("https://github.com/KEVIN11000/Gamma_Mobile/releases/download/v0.0.5/gamma-mobile-v0.0.5-release.apk", update.downloadUrl)
     }
 }

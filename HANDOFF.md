@@ -15,8 +15,8 @@
 - **Materias Académicas Oficiales:** Conexión dinámica desde la hoja `Config_bot` en Google Sheets vía `GET /asistencia/materias`, eliminando mock data, cubierto por tests en `AsistenciaViewModelTest`.
 - **Cierre Dual:** Soporte de cierre Laboral (horas) y Contable (Libro Diario) en backend y UI móvil, cubierto por tests en `CierreViewModelTest`.
 - **Google Calendar en Avisos:** Combinación reactiva de eventos de Google Calendar en `GET /avisos` vía `AgenteAutonomoHoras.obtener_avisos_calendar()`.
-- **Seguridad y Ergonomía en Sistema:** Candado de solo lectura por defecto en URL/API Key con desbloqueo explícito, y acordeón colapsable con badge de conteo para tickets de soporte en `SistemaScreen.kt`.
-- **Release y Tags:** Rama `main` en `Gamma_Mobile` sincronizada, APK compilado en `app/build/outputs/apk/debug/app-debug.apk` y tag `v0.0.4` publicado en GitHub.
+- **Distribuibles Versionados y SSOT:** Archivo `VERSION` (`0.0.4`) como fuente única de verdad, y nomenclatura automática de artefactos `gamma-mobile-v0.0.4-release.apk` (33.2 MB firmado) y `gamma-mobile-v0.0.4-debug.apk` (39.8 MB) preservando compatibilidad con `app-[variant].apk`.
+- **Release y Tags:** Rama `main` en `Gamma_Mobile` actualizada en commit `6bb982e`, APKs listos para distribución y tag `v0.0.4` sincronizado localmente.
 
 ## 2. Decisiones tomadas en esta fase
 

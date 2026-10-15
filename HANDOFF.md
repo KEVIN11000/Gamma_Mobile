@@ -1,8 +1,8 @@
 # HANDOFF — Gamma Mobile
 
-**Fase cerrada:** Gestión, Atención y Verificación de Tickets de Soporte y Normalización de Estados de Deuda
+**Fase cerrada:** Gestión, Atención y Verificación de Tickets de Soporte y Normalización de Estados de Deuda (v0.0.5)
 **Fecha de cierre:** 2026-10-15
-**Estado del build/tests:** ✅ pasando — Compilación y suites de tests unitarios verificados exitosamente (`./gradlew testDebugUnitTest assembleDebug` en GammaMobile en 29s; 164 tests de `pytest tests/` en Gamma_bot).
+**Estado del build/tests:** ✅ pasando — Compilación y suites de tests unitarios verificados exitosamente (`./gradlew testDebugUnitTest assembleRelease assembleDebug` en GammaMobile; 164 tests de `pytest tests/` en Gamma_bot).
 
 ---
 

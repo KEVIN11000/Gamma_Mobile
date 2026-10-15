@@ -46,9 +46,9 @@
 
 ## 4. Pendientes explícitos para la próxima fase
 
-- [ ] Generar e inspeccionar el APK firmado de release v0.0.7 (`gamma-mobile-v0.0.7-release.apk`) para distribución.
-- [ ] Incorporar notificación push local en Android al completar la descarga de comprobantes en segundo plano.
-- [ ] Explorar visor de PDF en miniatura (thumbnail) para previsualización directa en Compose si se requiere en el futuro.
+- [x] Generar e inspeccionar el APK firmado de release v0.0.7 (`gamma-mobile-v0.0.7-release.apk`) para distribución (Generado exitosamente: 33.27 MB firmado bajo esquema V2).
+- [ ] *(Opcional / Evolución futura)* Incorporar notificación push local en Android al completar la descarga de comprobantes en segundo plano.
+- [ ] *(Opcional / Evolución futura)* Explorar visor de PDF en miniatura (thumbnail) para previsualización directa en Compose si se requiere.
 
 ## 5. Riesgos / deuda técnica conocida
 

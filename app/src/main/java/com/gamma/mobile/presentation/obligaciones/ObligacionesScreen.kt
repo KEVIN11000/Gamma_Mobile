@@ -174,11 +174,11 @@ fun ObligacionItem(
             Spacer(modifier = Modifier.height(16.dp))
             
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (obligacion.estado == "Simulado") {
+                if (obligacion.esSimulada) {
                     Button(onClick = onAprobar, modifier = Modifier.weight(1f)) {
                         Text("Aprobar")
                     }
-                } else if (obligacion.estado == "Activo") {
+                } else if (obligacion.esActiva) {
                     Button(onClick = onAbonarClick, modifier = Modifier.weight(1f)) {
                         Text("Abonar")
                     }

@@ -81,9 +81,9 @@ class ObligacionesViewModel @Inject constructor(
     private fun emitFilteredState() {
         val filtered = when (_filtroActual.value) {
             FiltroObligacion.TODAS -> todasLasObligaciones
-            FiltroObligacion.ACTIVAS -> todasLasObligaciones.filter { it.estado.equals("Activo", ignoreCase = true) }
-            FiltroObligacion.SALDADAS -> todasLasObligaciones.filter { it.estado.equals("Saldado", ignoreCase = true) }
-            FiltroObligacion.SIMULADAS -> todasLasObligaciones.filter { it.estado.equals("Simulado", ignoreCase = true) }
+            FiltroObligacion.ACTIVAS -> todasLasObligaciones.filter { it.esActiva }
+            FiltroObligacion.SALDADAS -> todasLasObligaciones.filter { it.esSaldada }
+            FiltroObligacion.SIMULADAS -> todasLasObligaciones.filter { it.esSimulada }
         }
         _uiState.value = ObligacionesUiState.Success(filtered)
     }
@@ -139,7 +139,7 @@ class ObligacionesViewModel @Inject constructor(
 
     fun aprobarObligacion(obligacion: Obligacion) {
         val currentState = _uiState.value
-        if (currentState is ObligacionesUiState.Success && obligacion.estado == "Simulado") {
+        if (currentState is ObligacionesUiState.Success && obligacion.esSimulada) {
             val aprobada = obligacion.copy(estado = "Activo")
             updateInListAndRemote(aprobada)
         }
@@ -147,9 +147,9 @@ class ObligacionesViewModel @Inject constructor(
 
     fun abonarObligacion(obligacion: Obligacion, montoAbono: Long) {
         val currentState = _uiState.value
-        if (currentState is ObligacionesUiState.Success && obligacion.estado == "Activo") {
+        if (currentState is ObligacionesUiState.Success && obligacion.esActiva) {
             val nuevoSaldo = (obligacion.saldoActual - montoAbono).coerceAtLeast(0L)
-            val nuevoEstado = if (nuevoSaldo == 0L) "Saldado" else "Activo"
+            val nuevoEstado = if (nuevoSaldo == 0L) "Saldada" else "Activo"
             
             val actualizada = obligacion.copy(saldoActual = nuevoSaldo, estado = nuevoEstado)
             updateInListAndRemote(actualizada)

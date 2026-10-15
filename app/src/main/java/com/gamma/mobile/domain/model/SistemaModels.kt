@@ -23,7 +23,16 @@ data class TicketCreate(
     @SerializedName("asunto")
     val asunto: String,
     @SerializedName("descripcion")
-    val descripcion: String
+    val descripcion: String,
+    @SerializedName("origen")
+    val origen: String = "app"
+)
+
+data class TicketUpdate(
+    @SerializedName("estado")
+    val estado: String,
+    @SerializedName("resolucion")
+    val resolucion: String? = null
 )
 
 data class TicketItem(
@@ -36,7 +45,11 @@ data class TicketItem(
     @SerializedName("estado")
     val estado: String = "Abierto", // "Abierto", "En proceso", "Cerrado"
     @SerializedName("fecha")
-    val fecha: String = ""
+    val fecha: String = "",
+    @SerializedName("origen")
+    val origen: String = "app", // "app", "telegram", "ci", "servidor"
+    @SerializedName("resolucion")
+    val resolucion: String? = null
 )
 
 data class LogEntry(

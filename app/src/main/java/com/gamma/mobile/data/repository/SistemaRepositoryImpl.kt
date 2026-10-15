@@ -32,6 +32,12 @@ class SistemaRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun updateTicket(id: String, estado: String, resolucion: String?): NetworkResult<TicketItem> {
+        return safeApiCall(dispatcher) {
+            api.updateTicket(id, com.gamma.mobile.domain.model.TicketUpdate(estado = estado, resolucion = resolucion))
+        }
+    }
+
     override suspend fun getLogs(): NetworkResult<List<LogEntry>> {
         return safeApiCall(dispatcher) { api.getLogs() }
     }

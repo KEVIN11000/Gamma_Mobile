@@ -142,6 +142,7 @@ class FakeApiForRepo : GammaApi {
     override suspend fun getHealthStatus() = throw NotImplementedError()
     override suspend fun getTickets() = throw NotImplementedError()
     override suspend fun createTicket(request: com.gamma.mobile.domain.model.TicketCreate) = throw NotImplementedError()
+    override suspend fun updateTicket(id: String, request: com.gamma.mobile.domain.model.TicketUpdate) = throw NotImplementedError()
     override suspend fun getLogs() = throw NotImplementedError()
 }
 

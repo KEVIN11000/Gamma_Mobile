@@ -54,6 +54,9 @@ class FakeSistemaRepository : SistemaRepository {
     var createTicketResult: NetworkResult<TicketItem> = NetworkResult.Success(
         TicketItem(id = "TCK-002", asunto = "Nuevo", descripcion = "Desc", estado = "Abierto", fecha = "12/10/2026")
     )
+    var updateTicketResult: NetworkResult<TicketItem> = NetworkResult.Success(
+        TicketItem(id = "TCK-001", asunto = "Fallo", descripcion = "Detalle", estado = "Cerrado", fecha = "12/10/2026")
+    )
     var logsResult: NetworkResult<List<LogEntry>> = NetworkResult.Success(
         listOf(LogEntry(timestamp = "12/10/2026 10:00", nivel = "INFO", mensaje = "Test log"))
     )
@@ -61,6 +64,9 @@ class FakeSistemaRepository : SistemaRepository {
 
     var lastAsuntoCreated: String? = null
     var lastDescripcionCreated: String? = null
+    var lastTicketUpdatedId: String? = null
+    var lastTicketUpdatedEstado: String? = null
+    var lastTicketUpdatedResolucion: String? = null
 
     override suspend fun getHealthStatus(): NetworkResult<HealthStatus> = healthResult
     override suspend fun getTickets(): NetworkResult<List<TicketItem>> = ticketsResult
@@ -68,6 +74,12 @@ class FakeSistemaRepository : SistemaRepository {
         lastAsuntoCreated = asunto
         lastDescripcionCreated = descripcion
         return createTicketResult
+    }
+    override suspend fun updateTicket(id: String, estado: String, resolucion: String?): NetworkResult<TicketItem> {
+        lastTicketUpdatedId = id
+        lastTicketUpdatedEstado = estado
+        lastTicketUpdatedResolucion = resolucion
+        return updateTicketResult
     }
     override suspend fun getLogs(): NetworkResult<List<LogEntry>> = logsResult
     override fun getAppVersion(): String = mockAppVersion
@@ -260,5 +272,65 @@ class SistemaViewModelTest {
         assertEquals("v0.0.5", update.version)
         assertEquals("gamma-mobile-v0.0.5-release.apk", update.assetName)
         assertEquals("https://github.com/KEVIN11000/Gamma_Mobile/releases/download/v0.0.5/gamma-mobile-v0.0.5-release.apk", update.downloadUrl)
+    }
+
+    @Test
+    fun `actualizarEstadoTicket updates ticket state and sets action message on success`() = runTest {
+        viewModel = SistemaViewModel(fakeRepo, fakeStorage, checkAppUpdateUseCase)
+        advanceUntilIdle()
+
+        fakeRepo.updateTicketResult = NetworkResult.Success(
+            TicketItem(id = "TCK-001", asunto = "Fallo", descripcion = "Detalle", estado = "Cerrado", fecha = "12/10/2026", resolucion = "Solucionado")
+        )
+
+        viewModel.actualizarEstadoTicket("TCK-001", "Cerrado", "Solucionado")
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals("TCK-001", fakeRepo.lastTicketUpdatedId)
+        assertEquals("Cerrado", fakeRepo.lastTicketUpdatedEstado)
+        assertEquals("Solucionado", fakeRepo.lastTicketUpdatedResolucion)
+        assertEquals("Cerrado", state.tickets.first { it.id == "TCK-001" }.estado)
+        assertEquals("Ticket TCK-001 actualizado a 'Cerrado'", state.ticketActionMessage)
+    }
+
+    @Test
+    fun `actualizarEstadoTicket sets error when repository fails`() = runTest {
+        viewModel = SistemaViewModel(fakeRepo, fakeStorage, checkAppUpdateUseCase)
+        advanceUntilIdle()
+
+        fakeRepo.updateTicketResult = NetworkResult.Error(500, "Error de base de datos")
+
+        viewModel.actualizarEstadoTicket("TCK-001", "Cerrado")
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals("Error de base de datos", state.error)
+    }
+
+    @Test
+    fun `setFiltroTickets filters tickets correctly`() = runTest {
+        fakeRepo.ticketsResult = NetworkResult.Success(
+            listOf(
+                TicketItem(id = "TCK-001", asunto = "Ticket 1", estado = "Abierto"),
+                TicketItem(id = "TCK-002", asunto = "Ticket 2", estado = "En proceso"),
+                TicketItem(id = "TCK-003", asunto = "Ticket 3", estado = "Cerrado")
+            )
+        )
+        viewModel = SistemaViewModel(fakeRepo, fakeStorage, checkAppUpdateUseCase)
+        advanceUntilIdle()
+
+        assertEquals(3, viewModel.uiState.value.ticketsFiltrados.size)
+
+        viewModel.setFiltroTickets("Abierto")
+        assertEquals(1, viewModel.uiState.value.ticketsFiltrados.size)
+        assertEquals("TCK-001", viewModel.uiState.value.ticketsFiltrados.first().id)
+
+        viewModel.setFiltroTickets("Cerrado")
+        assertEquals(1, viewModel.uiState.value.ticketsFiltrados.size)
+        assertEquals("TCK-003", viewModel.uiState.value.ticketsFiltrados.first().id)
+
+        viewModel.setFiltroTickets("Todos")
+        assertEquals(3, viewModel.uiState.value.ticketsFiltrados.size)
     }
 }

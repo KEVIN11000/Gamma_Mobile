@@ -9,6 +9,7 @@ interface SistemaRepository {
     suspend fun getHealthStatus(): NetworkResult<HealthStatus>
     suspend fun getTickets(): NetworkResult<List<TicketItem>>
     suspend fun createTicket(asunto: String, descripcion: String): NetworkResult<TicketItem>
+    suspend fun updateTicket(id: String, estado: String, resolucion: String? = null): NetworkResult<TicketItem>
     suspend fun getLogs(): NetworkResult<List<LogEntry>>
     fun getAppVersion(): String
 }

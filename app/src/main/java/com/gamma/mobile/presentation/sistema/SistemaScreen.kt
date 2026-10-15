@@ -31,6 +31,7 @@ fun SistemaScreen(
     val scrollState = rememberScrollState()
     var showNewTicketDialog by remember { mutableStateOf(false) }
     var isTicketsExpanded by remember { mutableStateOf(false) }
+    var selectedTicketForAction by remember { mutableStateOf<com.gamma.mobile.domain.model.TicketItem?>(null) }
 
     Scaffold(
         topBar = {
@@ -405,7 +406,12 @@ fun SistemaScreen(
                                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                                 ) {
-                                    Text("${uiState.tickets.size}")
+                                    val countText = if (uiState.ticketFiltro == "Todos") {
+                                        "${uiState.tickets.size}"
+                                    } else {
+                                        "${uiState.ticketsFiltrados.size}/${uiState.tickets.size}"
+                                    }
+                                    Text(countText)
                                 }
                             }
                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -429,28 +435,123 @@ fun SistemaScreen(
                         AnimatedVisibility(visible = isTicketsExpanded) {
                             Column(
                                 modifier = Modifier.fillMaxWidth(),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
-                                if (uiState.tickets.isEmpty()) {
-                                    Text("No hay tickets reportados.", style = MaterialTheme.typography.bodySmall)
+                                // Barra de Chips de Filtro
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    listOf("Todos", "Abierto", "En proceso", "Cerrado").forEach { filtro ->
+                                        FilterChip(
+                                            selected = uiState.ticketFiltro == filtro,
+                                            onClick = { viewModel.setFiltroTickets(filtro) },
+                                            label = { Text(filtro, style = MaterialTheme.typography.labelSmall) }
+                                        )
+                                    }
+                                }
+
+                                if (uiState.ticketsFiltrados.isEmpty()) {
+                                    Text(
+                                        if (uiState.tickets.isEmpty()) "No hay tickets reportados." else "No hay tickets con estado '${uiState.ticketFiltro}'.",
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
                                 } else {
-                                    uiState.tickets.forEach { ticket ->
+                                    uiState.ticketsFiltrados.forEach { ticket ->
                                         Card(
-                                            modifier = Modifier.fillMaxWidth(),
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clickable { selectedTicketForAction = ticket },
                                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                                         ) {
-                                            Column(modifier = Modifier.padding(12.dp)) {
+                                            Column(
+                                                modifier = Modifier.padding(12.dp),
+                                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                                            ) {
                                                 Row(
                                                     modifier = Modifier.fillMaxWidth(),
-                                                    horizontalArrangement = Arrangement.SpaceBetween
+                                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                                    verticalAlignment = Alignment.CenterVertically
                                                 ) {
-                                                    Text(ticket.id, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                                                    Text(ticket.estado, style = MaterialTheme.typography.labelSmall)
+                                                    Row(
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                                    ) {
+                                                        Text(
+                                                            ticket.id,
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = MaterialTheme.colorScheme.primary
+                                                        )
+                                                        val origenLabel = when (ticket.origen.lowercase()) {
+                                                            "telegram" -> "✈️ Telegram"
+                                                            "ci" -> "🤖 CI/CD"
+                                                            "servidor" -> "🚨 Servidor"
+                                                            else -> "📱 App"
+                                                        }
+                                                        AssistChip(
+                                                            onClick = { selectedTicketForAction = ticket },
+                                                            label = { Text(origenLabel, style = MaterialTheme.typography.labelSmall) },
+                                                            modifier = Modifier.height(24.dp)
+                                                        )
+                                                    }
+
+                                                    val (estadoContainer, estadoContent) = when (ticket.estado) {
+                                                        "Cerrado" -> MaterialTheme.colorScheme.primaryContainer to MaterialTheme.colorScheme.onPrimaryContainer
+                                                        "En proceso" -> MaterialTheme.colorScheme.tertiaryContainer to MaterialTheme.colorScheme.onTertiaryContainer
+                                                        else -> MaterialTheme.colorScheme.errorContainer to MaterialTheme.colorScheme.onErrorContainer
+                                                    }
+                                                    SuggestionChip(
+                                                        onClick = { selectedTicketForAction = ticket },
+                                                        label = {
+                                                            Text(
+                                                                ticket.estado,
+                                                                style = MaterialTheme.typography.labelSmall,
+                                                                fontWeight = FontWeight.Bold
+                                                            )
+                                                        },
+                                                        colors = SuggestionChipDefaults.suggestionChipColors(
+                                                            containerColor = estadoContainer,
+                                                            labelColor = estadoContent
+                                                        ),
+                                                        modifier = Modifier.height(24.dp)
+                                                    )
                                                 }
+
                                                 Text(ticket.asunto, fontWeight = FontWeight.SemiBold)
-                                                Text(ticket.descripcion, style = MaterialTheme.typography.bodySmall)
-                                                if (ticket.fecha.isNotEmpty()) {
-                                                    Text("Fecha: ${ticket.fecha}", style = MaterialTheme.typography.labelSmall)
+                                                if (ticket.descripcion.isNotEmpty()) {
+                                                    Text(ticket.descripcion, style = MaterialTheme.typography.bodySmall)
+                                                }
+
+                                                if (!ticket.resolucion.isNullOrBlank()) {
+                                                    Card(
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                                                    ) {
+                                                        Text(
+                                                            "💡 Resolución: ${ticket.resolucion}",
+                                                            style = MaterialTheme.typography.bodySmall,
+                                                            modifier = Modifier.padding(8.dp),
+                                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                        )
+                                                    }
+                                                }
+
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Text(
+                                                        if (ticket.fecha.isNotEmpty()) "📅 ${ticket.fecha}" else "",
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        color = MaterialTheme.colorScheme.outline
+                                                    )
+                                                    Text(
+                                                        "Toca para atender ✏️",
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        color = MaterialTheme.colorScheme.primary,
+                                                        fontWeight = FontWeight.Medium
+                                                    )
                                                 }
                                             }
                                         }
@@ -540,6 +641,98 @@ fun SistemaScreen(
                     dismissButton = {
                         TextButton(onClick = { showNewTicketDialog = false }) {
                             Text("Cancelar")
+                        }
+                    }
+                )
+            }
+
+            // Diálogo de Atender Ticket
+            val ticketToEdit = selectedTicketForAction
+            if (ticketToEdit != null) {
+                var nuevoEstado by remember(ticketToEdit) { mutableStateOf(ticketToEdit.estado) }
+                var resolucionInput by remember(ticketToEdit) { mutableStateOf(ticketToEdit.resolucion ?: "") }
+
+                AlertDialog(
+                    onDismissRequest = { selectedTicketForAction = null },
+                    title = {
+                        Text("Atender ${ticketToEdit.id}", fontWeight = FontWeight.Bold)
+                    },
+                    text = {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .verticalScroll(rememberScrollState()),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Text(ticketToEdit.asunto, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
+                            if (ticketToEdit.descripcion.isNotEmpty()) {
+                                Text(ticketToEdit.descripcion, style = MaterialTheme.typography.bodySmall)
+                            }
+                            val origenDesc = when (ticketToEdit.origen.lowercase()) {
+                                "telegram" -> "✈️ Telegram"
+                                "ci" -> "🤖 GitHub CI/CD"
+                                "servidor" -> "🚨 Servidor / Vigía"
+                                else -> "📱 App Móvil"
+                            }
+                            Text("Canal emisor: $origenDesc", style = MaterialTheme.typography.labelMedium)
+
+                            HorizontalDivider()
+
+                            Text("Cambiar Estado:", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.labelMedium)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                listOf("Abierto", "En proceso", "Cerrado").forEach { opt ->
+                                    FilterChip(
+                                        selected = nuevoEstado == opt,
+                                        onClick = { nuevoEstado = opt },
+                                        label = { Text(opt, style = MaterialTheme.typography.labelSmall) }
+                                    )
+                                }
+                            }
+
+                            OutlinedTextField(
+                                value = resolucionInput,
+                                onValueChange = { resolucionInput = it },
+                                label = { Text("Resolución / Nota técnica (opcional)") },
+                                minLines = 2,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                viewModel.actualizarEstadoTicket(
+                                    ticketId = ticketToEdit.id,
+                                    nuevoEstado = nuevoEstado,
+                                    resolucion = resolucionInput.ifBlank { null }
+                                )
+                                selectedTicketForAction = null
+                            }
+                        ) {
+                            Text("Guardar Cambios")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { selectedTicketForAction = null }) {
+                            Text("Cancelar")
+                        }
+                    }
+                )
+            }
+
+            // Notificación de éxito al actualizar ticket
+            if (uiState.ticketActionMessage != null) {
+                AlertDialog(
+                    onDismissRequest = { viewModel.limpiarMensajes() },
+                    icon = { Icon(Icons.Default.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                    title = { Text("Ticket Actualizado") },
+                    text = { Text(uiState.ticketActionMessage!!) },
+                    confirmButton = {
+                        Button(onClick = { viewModel.limpiarMensajes() }) {
+                            Text("Aceptar")
                         }
                     }
                 )

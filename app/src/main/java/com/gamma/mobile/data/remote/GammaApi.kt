@@ -7,6 +7,7 @@ import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
+import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.PUT
@@ -82,6 +83,12 @@ interface GammaApi {
 
     @POST("soporte/tickets")
     suspend fun createTicket(@Body request: com.gamma.mobile.domain.model.TicketCreate): Response<com.gamma.mobile.domain.model.TicketItem>
+
+    @PATCH("soporte/tickets/{id}")
+    suspend fun updateTicket(
+        @Path("id") id: String,
+        @Body request: com.gamma.mobile.domain.model.TicketUpdate
+    ): Response<com.gamma.mobile.domain.model.TicketItem>
 
     @GET("sistema/logs")
     suspend fun getLogs(): Response<List<com.gamma.mobile.domain.model.LogEntry>>

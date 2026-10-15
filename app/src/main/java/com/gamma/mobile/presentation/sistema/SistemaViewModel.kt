@@ -23,6 +23,7 @@ data class SistemaUiState(
     val appVersion: String = "",
     val health: HealthStatus? = null,
     val tickets: List<TicketItem> = emptyList(),
+    val ticketFiltro: String = "Todos", // "Todos", "Abierto", "En proceso", "Cerrado"
     val logs: List<LogEntry> = emptyList(),
     val baseUrl: String = "",
     val apiKey: String = "",
@@ -30,8 +31,15 @@ data class SistemaUiState(
     val configMessage: String? = null,
     val error: String? = null,
     val ticketCreationSuccess: String? = null,
+    val ticketActionMessage: String? = null,
     val updateStatus: UpdateStatus = UpdateStatus.Idle
-)
+) {
+    val ticketsFiltrados: List<TicketItem>
+        get() = when (ticketFiltro) {
+            "Todos" -> tickets
+            else -> tickets.filter { it.estado.equals(ticketFiltro, ignoreCase = true) }
+        }
+}
 
 @HiltViewModel
 class SistemaViewModel @Inject constructor(
@@ -164,8 +172,53 @@ class SistemaViewModel @Inject constructor(
             }
         }
     }
+ 
+    fun setFiltroTickets(filtro: String) {
+        _uiState.update { it.copy(ticketFiltro = filtro) }
+    }
+
+    fun actualizarEstadoTicket(ticketId: String, nuevoEstado: String, resolucion: String? = null) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null, ticketActionMessage = null) }
+            when (val result = repository.updateTicket(ticketId, nuevoEstado, resolucion)) {
+                is NetworkResult.Success -> {
+                    val ticketActualizado = result.data
+                    _uiState.update { state ->
+                        state.copy(
+                            isLoading = false,
+                            tickets = state.tickets.map { if (it.id == ticketId) ticketActualizado else it },
+                            ticketActionMessage = "Ticket $ticketId actualizado a '$nuevoEstado'"
+                        )
+                    }
+                }
+                is NetworkResult.Error -> {
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            error = result.message.ifEmpty { "Error ${result.code} al actualizar ticket" }
+                        )
+                    }
+                }
+                is NetworkResult.Exception -> {
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            error = result.e.localizedMessage ?: "Error de red al actualizar ticket"
+                        )
+                    }
+                }
+            }
+        }
+    }
 
     fun limpiarMensajes() {
-        _uiState.update { it.copy(error = null, ticketCreationSuccess = null, configMessage = null) }
+        _uiState.update {
+            it.copy(
+                error = null,
+                ticketCreationSuccess = null,
+                ticketActionMessage = null,
+                configMessage = null
+            )
+        }
     }
 }

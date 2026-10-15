@@ -47,5 +47,14 @@ data class Obligacion(
     @SerializedName(value = "saldo_actual", alternate = ["Saldo_Actual"])
     val saldoActual: Long = 0L,
     @SerializedName(value = "estado", alternate = ["Estado"])
-    val estado: String = "" // "Activo", "Simulado", "Saldado"
-)
+    val estado: String = "" // "Activo", "Activa", "Simulado", "Simulada", "Saldado", "Saldada"
+) {
+    val esActiva: Boolean
+        get() = estado.trim().lowercase() in listOf("activo", "activa") && saldoActual > 0L
+
+    val esSaldada: Boolean
+        get() = estado.trim().lowercase() in listOf("saldado", "saldada", "pagado", "pagada") || saldoActual <= 0L
+
+    val esSimulada: Boolean
+        get() = estado.trim().lowercase() in listOf("simulado", "simulada")
+}

@@ -1,48 +1,67 @@
 # HANDOFF — Gamma Mobile
 
-**Fase cerrada:** Versionado de Distribuibles y Verificación Autónoma de Releases (v0.0.4)
+**Fase cerrada:** Gestión, Atención y Verificación de Tickets de Soporte y Normalización de Estados de Deuda
 **Fecha de cierre:** 2026-10-15
-**Estado del build/tests:** ✅ pasando — Compilación y suites de tests unitarios verificados exitosamente (`./gradlew testDebugUnitTest assembleDebug assembleRelease` en GammaMobile y `pytest tests/test_mobile_api.py` en Gamma_bot).
+**Estado del build/tests:** ✅ pasando — Compilación y suites de tests unitarios verificados exitosamente (`./gradlew testDebugUnitTest assembleDebug` en GammaMobile en 29s; 164 tests de `pytest tests/` en Gamma_bot).
 
 ---
 
 ## 1. Estado actual
 
-- **Fuente de verdad única de versión (SSOT):** Archivo `VERSION` en la raíz con `0.0.4`, consumido dinámicamente por `app/build.gradle.kts` para calcular `versionName = "$appVersion+${getGitCommitHash()}"` y `versionCode = getGitCommitCount()`.
-- **Nomenclatura versionada en distribuibles APK:** Android Gradle Plugin configurado en `applicationVariants.all` para generar automáticamente `gamma-mobile-v0.0.4-release.apk` (33.2 MB firmado con `gamma_release.jks`) y `gamma-mobile-v0.0.4-debug.apk` (39.8 MB), manteniendo copia `app-release.apk` y `app-debug.apk` para retrocompatibilidad.
-- **Verificación autónoma in-app de releases de GitHub:** Interfaz `GitHubReleaseApi`, comparador semántico `SemverUtils` y caso de uso `CheckAppUpdateUseCase` operativos en `SistemaViewModel`, cubiertos por tests en `SemverUtilsTest` y `SistemaViewModelTest`.
-- **UI reactiva de actualización en Sistema:** Tarjeta de versión en `SistemaScreen.kt` que muestra badge verde (`Versión al día con GitHub Releases`) si coincide la versión instalada o banner con botón de descarga directa (`Descargar actualización (vX.Y.Z)`) si hay un release superior en GitHub.
-- **Release Oficial v0.0.4 publicado:** Tag `v0.0.4` publicado formalmente en GitHub Releases con los binarios `gamma-mobile-v0.0.4-release.apk` y `app-release.apk` adjuntos.
-- **Pipeline de Tickets de Soporte:** Funcionalidad de reporte de tickets desde la app (`+ Nuevo`) conectada con el endpoint `/soporte/tickets` de `Gamma_bot`, con persistencia en `tickets.json`, notificación instantánea a Telegram (`CHAT_ID`) y reporte automático a Vigía/GitHub Issues.
-- **Backend Gamma_bot sincronizado:** Endpoint `/health` actualizado a versión `0.0.4` y URL de descarga apuntando a GitHub Release `v0.0.4`, desplegado automáticamente en PythonAnywhere vía webhook de `Main-stable`.
+- **Ciclo de vida y atención de tickets de soporte:**
+  - Endpoint `PATCH /api/v1/soporte/tickets/<ticket_id>` en `Gamma_bot` validado con Pydantic (`TicketUpdate`) y persistencia atómica en `src/data/tickets.json`.
+  - Capa de datos en Android (`GammaApi.kt`, `SistemaRepository`, `SistemaRepositoryImpl`) con llamada tipada a `PATCH`.
+  - Lógica de estado en `SistemaViewModel.kt` con función `actualizarEstadoTicket(ticketId, nuevoEstado, resolucion)` y soporte de actualización optimista en memoria.
+  - UI interactiva en `SistemaScreen.kt` con selector modal "Atender Ticket", actualización en vivo del estado y registro opcional de resolución.
+- **Diferenciación de origen y filtros cromáticos:**
+  - Campo `origen` incorporado y tipado (`app`, `telegram`, `ci`, `servidor`) en frontend y backend.
+  - Badges visuales con iconos representativos (`📱 App`, `✈️ Telegram`, `🤖 CI/CD`, `🚨 Servidor`).
+  - Chips de filtrado reactivo en `SistemaScreen.kt` (`Todos`, `Abiertos`, `En proceso`, `Cerrados`) con contadores dinámicos.
+  - Sincronización Telegram -> `tickets.json` implementada en `src/com/handlers/soporte.py`, garantizando una única fuente de verdad compartida.
+- **Aislamiento y saneamiento de datos:**
+  - Aislamiento riguroso de `TICKETS_FILE` en `tests/test_mobile_api.py` mediante monkeypatch a `tmp_path`, impidiendo que las ejecuciones de test contaminen `src/data/tickets.json`.
+  - Registros reales de incidentes (TCK-001 a TCK-006) restaurados y persistidos con sus respectivos orígenes.
+- **Normalización integral de estados de deuda (Obligaciones):**
+  - Identificación y corrección de discrepancia en `Gamma_bot`: corrección del bug en `blueprint.py` donde `update_obligacion_saldo` recibía argumentos posicionales desfasados (`nuevo_estado` sobreescribía `cuotas_restantes`); ahora se pasa con kwargs explícitos y estado unificado `"Saldada"` en paridad con `financiero.py`.
+  - Tolerancia gramatical en `SheetsRepository.get_obligaciones_activas` para aceptar tanto `"activo"` como `"activa"`.
+  - Incorporación en `Models.kt` (Android) de helpers robustos `esActiva`, `esSaldada` y `esSimulada` que normalizan variaciones de género (`Activo`/`Activa`, `Saldado`/`Saldada`, `Simulado`/`Simulada`) y saldos `<= 0L`.
+  - `ObligacionesViewModel.kt` y `ObligacionesScreen.kt` actualizados para filtrar y habilitar acciones ("Abonar") basados en `esActiva`, `esSaldada` y `esSimulada`, garantizando que ninguna deuda saldada quede oculta o mal clasificada.
 
 ## 2. Decisiones tomadas en esta fase
 
-- **Decisión:** Consulta autónoma directa a la API pública de GitHub Releases (`/repos/KEVIN11000/Gamma_Mobile/releases/latest`) para comprobar actualizaciones al refrescar la pantalla de Sistema.
-  **Por qué:** Desacopla la detección de nuevas versiones de la app móvil del backend de PythonAnywhere, permitiendo que la app detecte inmediatamente cualquier nueva versión publicada en GitHub sin esperar a actualizar el worker WSGI.
-  **Alternativas descartadas:** Depender exclusivamente del endpoint `/health` de `Gamma_bot` (requería editar y desplegar el backend en cada nuevo release).
-- **Decisión:** Doble generación de artefactos APK (`gamma-mobile-v0.0.4-[variant].apk` y `app-[variant].apk`).
-  **Por qué:** Garantiza nomenclatura clara para distribución y testers sin romper herramientas o pipelines previos que esperan `app-release.apk`.
-  **Alternativas descartadas:** Renombrar únicamente el archivo sin copia de compatibilidad.
+- **Decisión:** Desacoplamiento de almacenamiento de tests con `monkeypatch` en `test_mobile_api.py`.
+  **Por qué:** Evita que ejecuciones continuas de CI o desarrollo generen tickets sintéticos repetitivos ("Fallo sincronización") en la base de datos real visible en la app.
+  **Alternativas descartadas:** Limpiar el archivo manualmente tras cada ejecución de pytest.
+- **Decisión:** Helpers booleanos computados en `Obligacion` (`esActiva`, `esSaldada`, `esSimulada`) en lugar de comparaciones rígidas por string.
+  **Por qué:** El bot core de Telegram utiliza históricamente `"Saldada"` (femenino), mientras que la API y usuarios en hojas de cálculo pueden registrar `"Saldado"`, `"Pagado"` o dejar saldo en 0. Los helpers absorben cualquier discrepancia sin requerir migraciones destructivas en las planillas.
+  **Alternativas descartadas:** Forzar un enum estricto en el backend que fallara al leer filas preexistentes de Google Sheets.
+- **Decisión:** Unificación de canal de soporte Telegram en `src/data/tickets.json`.
+  **Por qué:** Centraliza los incidentes reportados por usuarios vía Telegram o App en un único tablero auditable desde la pantalla de Sistema de Gamma Mobile.
+  **Alternativas descartadas:** Mantener tickets de Telegram solo en memoria/logs separados.
 
 ## 3. Archivos y módulos clave tocados
 
 | Archivo | Cambio |
 |---|---|
-| `VERSION` | Creación de la fuente única de verdad para el versionado semántico (`0.0.4`). |
-| `app/build.gradle.kts` | Función `getAppVersion()`, cálculo dinámico de `versionName` y hook en `applicationVariants` para renombrar APKs distribuibles preservando compatibilidad. |
-| `app/src/main/java/com/gamma/mobile/data/remote/GitHubReleaseApi.kt` | Interfaz Retrofit para consultar el último release público en GitHub. |
-| `app/src/main/java/com/gamma/mobile/domain/model/UpdateModels.kt` | DTOs de GitHub Releases (`GitHubReleaseDto`, `GitHubAssetDto`) y estados sellados `UpdateStatus`. |
-| `app/src/main/java/com/gamma/mobile/domain/util/SemverUtils.kt` | Comparador semántico de versiones (limpieza de prefijos `v` y sufijos de build). |
-| `app/src/main/java/com/gamma/mobile/domain/usecase/CheckAppUpdateUseCase.kt` | Caso de uso que evalúa si el release de GitHub es superior a la versión local y extrae el activo APK. |
-| `app/src/main/java/com/gamma/mobile/di/NetworkModule.kt` | Proveedor HTTP independiente para GitHub Releases sin interceptores de API key de Gamma. |
-| `app/src/main/java/com/gamma/mobile/presentation/sistema/SistemaViewModel.kt` | Inyección de `CheckAppUpdateUseCase` y actualización de `updateStatus` durante `cargarDatosSistema()`. |
-| `app/src/main/java/com/gamma/mobile/presentation/sistema/SistemaScreen.kt` | Tarjeta dinámica de versión con chip verde de confirmación o banner de descarga con un toque. |
-| `Gamma_bot (src/api/blueprint.py)` | Endpoint `/health` actualizado a versión `0.0.4`, commit count `29` y URL de descarga hacia release `v0.0.4`. |
+| `docs/specs/gestion-tickets-soporte/` | Artefactos SDD: `spec.md`, `plan.md`, `tasks.md` completos. |
+| `Gamma_bot (src/data/tickets.json)` | Datos reales limpios con orígenes y estados auditados (TCK-001 al TCK-006). |
+| `Gamma_bot (src/api/blueprint.py)` | Endpoint `PATCH /api/v1/soporte/tickets/<id>`, soporte de `origen`, corrección de kwargs en `update_obligacion_saldo` y alineación a `"Saldada"`. |
+| `Gamma_bot (src/api/schemas.py)` | Esquema Pydantic `TicketUpdate` y soporte opcional de `origen` en `TicketCreate`. |
+| `Gamma_bot (src/com/handlers/soporte.py)` | Fallback de soporte en Telegram ahora sincroniza y persiste con `origen="telegram"`. |
+| `Gamma_bot (src/repositories/sheets_repository.py)` | `get_obligaciones_activas` tolera `"activo"` y `"activa"`. |
+| `Gamma_bot (tests/test_mobile_api.py)` | Aislamiento con `tmp_path` en tickets y tests completos de `PATCH` y `origen`. |
+| `GammaMobile (Models.kt)` | Helpers `esActiva`, `esSaldada`, `esSimulada` en dataclass `Obligacion`. |
+| `GammaMobile (SistemaModels.kt)` | Extensión de `TicketItem` con `origen`, `resolucion` y data class `TicketUpdate`. |
+| `GammaMobile (GammaApi.kt)` | Endpoint Retrofit `@PATCH("soporte/tickets/{id}")`. |
+| `GammaMobile (SistemaRepository.kt / SistemaRepositoryImpl.kt)` | Implementación de `updateTicketStatus`. |
+| `GammaMobile (SistemaViewModel.kt)` | Filtrado reactivo por chip y acción de actualización de tickets. |
+| `GammaMobile (SistemaScreen.kt)` | Chips de filtrado, badges cromáticos, badge de origen y modal "Atender Ticket". |
+| `GammaMobile (ObligacionesViewModel.kt)` | Filtrado y transiciones usando los helpers normalizados de `Obligacion`. |
+| `GammaMobile (ObligacionesScreen.kt)` | Renderizado condicional de acciones según helpers normalizados. |
+| `GammaMobile (Tests unitarios)` | `SistemaViewModelTest`, `ObligacionesViewModelTest`, stubs en `MovimientoRepositoryTest`, `SyncMovimientosWorkerTest` y `OnboardingViewModelTest`. |
 
 ## 4. Pendientes explícitos para la próxima fase
 
-- [ ] Atender y resolver los tickets de soporte reportados por el usuario desde la app móvil (errores detectados en funcionamiento durante la prueba en dispositivo).
 - [ ] Implementar pipeline en `Gamma_bot` que al detectar un ingreso en `Libro_Diario` con categoría/motivo "Salario" (o "Sueldo"), actualice o inserte automáticamente la fila salarial en la hoja `Presupuesto_Base` (`Monto_Mensual_Gs`).
 - [ ] Implementar fallback dinámico en `calcular_margen_de_ataque()` para leer el último salario percibido desde `Libro_Diario` si `Presupuesto_Base` no tiene ingreso registrado (`Margen = Salario - Gastos Fijos - Cuotas Activas`).
 - [ ] Corregir comando de cierre contable en el core de `Gamma_bot` para permitir el corte mensual de ingresos/egresos del Libro Diario.
@@ -50,18 +69,19 @@
 
 ## 5. Riesgos / deuda técnica conocida
 
-- **Riesgo:** Límite de tasa de GitHub API pública (60 requests/hora por IP para llamadas no autenticadas).
-  **Impacto:** Si un usuario refresca más de 60 veces en una hora la pantalla de Sistema, GitHub devuelve HTTP 403 (Rate Limit).
-  **Mitigación sugerida:** La app ya implementa fallback silencioso: si GitHub falla por rate-limit o conectividad, no crashea y utiliza la URL de respaldo del endpoint `/health` de `Gamma_bot`.
+- **Riesgo:** Webhooks de GitHub Issues hacia `Gamma_bot` no implementados aún (la sincronización actual es local y vía API push al crear el issue).
+  **Impacto:** Si un issue se cierra manualmente desde la web de GitHub, el estado en `tickets.json` no se actualizará hasta que se atienda desde la app o se configure el webhook.
+  **Mitigación:** La atención manual desde la app (`PATCH`) cubre la operatoria inmediata del administrador.
 
 ## 6. Cómo verificar que este handoff sigue vigente
 
 ```bash
 # En GammaMobile:
-./gradlew testDebugUnitTest assembleDebug assembleRelease
+./gradlew testDebugUnitTest assembleDebug
 
 # En Gamma_bot:
 pytest tests/test_mobile_api.py
+pytest tests/
 ```
 
 ---

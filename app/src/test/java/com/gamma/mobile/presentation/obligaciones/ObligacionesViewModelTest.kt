@@ -112,7 +112,7 @@ class ObligacionesViewModelTest {
 
         val state = viewModel.uiState.value as ObligacionesUiState.Success
         assertEquals(0, state.obligaciones[0].saldoActual)
-        assertEquals("Saldado", state.obligaciones[0].estado)
+        assertTrue(state.obligaciones[0].esSaldada)
     }
 
     @Test
@@ -167,6 +167,37 @@ class ObligacionesViewModelTest {
         state = viewModel.uiState.value as ObligacionesUiState.Success
         assertEquals(1, state.obligaciones.size)
         assertEquals("Simulado", state.obligaciones[0].estado)
+    }
+
+    @Test
+    fun `setFiltro handles grammatical variations like Activa Saldada Simulada and zero balance`() = runTest {
+        val list = listOf(
+            Obligacion("1", "Deuda 1", 100000, 100000, "Activa"),
+            Obligacion("2", "Deuda 2", 200000, 0, "Saldada"),
+            Obligacion("3", "Deuda 3", 300000, 300000, "Simulada"),
+            Obligacion("4", "Deuda 4", 400000, 0, "Activo")
+        )
+        fakeRepo.data = list
+        viewModel = ObligacionesViewModel(fakeRepo, fakeDashboardRepo)
+        advanceUntilIdle()
+
+        // Filtrar ACTIVAS: Solo id="1" (id="4" tiene saldo 0)
+        viewModel.setFiltro(FiltroObligacion.ACTIVAS)
+        var state = viewModel.uiState.value as ObligacionesUiState.Success
+        assertEquals(1, state.obligaciones.size)
+        assertEquals("1", state.obligaciones[0].id)
+
+        // Filtrar SALDADAS: id="2" y id="4"
+        viewModel.setFiltro(FiltroObligacion.SALDADAS)
+        state = viewModel.uiState.value as ObligacionesUiState.Success
+        assertEquals(2, state.obligaciones.size)
+        assertTrue(state.obligaciones.all { it.esSaldada })
+
+        // Filtrar SIMULADAS: id="3"
+        viewModel.setFiltro(FiltroObligacion.SIMULADAS)
+        state = viewModel.uiState.value as ObligacionesUiState.Success
+        assertEquals(1, state.obligaciones.size)
+        assertEquals("3", state.obligaciones[0].id)
     }
 }
 

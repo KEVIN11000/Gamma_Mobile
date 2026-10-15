@@ -1,5 +1,9 @@
 package com.gamma.mobile.presentation.sistema
 
+import android.content.ActivityNotFoundException
+import android.content.Context
+import android.content.Intent
+import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.gamma.mobile.data.remote.NetworkResult
@@ -12,11 +16,15 @@ import com.gamma.mobile.domain.repository.SistemaRepository
 import com.gamma.mobile.domain.model.UpdateStatus
 import com.gamma.mobile.domain.usecase.CheckAppUpdateUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
+import java.net.URL
 import javax.inject.Inject
 
 data class SistemaUiState(
@@ -36,7 +44,17 @@ data class SistemaUiState(
     val updateStatus: UpdateStatus = UpdateStatus.Idle,
     val cierreContable: CierreResponse? = null,
     val isEjecutandoCierre: Boolean = false,
-    val cierreMensaje: String? = null
+    val cierreMensaje: String? = null,
+    val selectedPeriodoCierre: String = "Período Actual",
+    val periodosDisponibles: List<String> = listOf(
+        "Período Actual",
+        "Octubre 2026",
+        "Septiembre 2026",
+        "Agosto 2026",
+        "Julio 2026",
+        "Junio 2026"
+    ),
+    val isDescargandoPdf: Boolean = false
 ) {
     val ticketsFiltrados: List<TicketItem>
         get() = when (ticketFiltro) {
@@ -215,7 +233,11 @@ class SistemaViewModel @Inject constructor(
         }
     }
 
-    fun ejecutarCierreContable(hoja: String = "Período Actual") {
+    fun setPeriodoCierre(periodo: String) {
+        _uiState.update { it.copy(selectedPeriodoCierre = periodo) }
+    }
+
+    fun ejecutarCierreContable(hoja: String = _uiState.value.selectedPeriodoCierre) {
         viewModelScope.launch {
             _uiState.update { it.copy(isEjecutandoCierre = true, cierreMensaje = null) }
             when (val result = repository.ejecutarCierreContable(hoja)) {
@@ -224,7 +246,7 @@ class SistemaViewModel @Inject constructor(
                         state.copy(
                             isEjecutandoCierre = false,
                             cierreContable = result.data,
-                            cierreMensaje = "✅ Cierre contable completado exitosamente"
+                            cierreMensaje = "✅ Cierre contable completado exitosamente para $hoja"
                         )
                     }
                 }
@@ -245,6 +267,71 @@ class SistemaViewModel @Inject constructor(
                     }
                 }
             }
+        }
+    }
+
+    fun abrirPdfConCache(
+        context: Context,
+        pdfUrlRelativa: String?,
+        periodo: String = _uiState.value.selectedPeriodoCierre,
+        onError: (String) -> Unit = {}
+    ) {
+        val fullUrl = obtenerUrlAbsolutaPdf(pdfUrlRelativa)
+        if (fullUrl.isNullOrBlank()) {
+            onError("URL del comprobante no disponible")
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isDescargandoPdf = true) }
+            val localFileResult = withContext(Dispatchers.IO) {
+                try {
+                    val cacheDir = File(context.cacheDir, "comprobantes")
+                    if (!cacheDir.exists()) {
+                        cacheDir.mkdirs()
+                    }
+                    val sanitized = periodo.lowercase().replace(" ", "_").replace("/", "_")
+                    val file = File(cacheDir, "cierre_contable_${sanitized}.pdf")
+
+                    if (!file.exists() || file.length() == 0L) {
+                        URL(fullUrl).openStream().use { input ->
+                            file.outputStream().use { output ->
+                                input.copyTo(output)
+                            }
+                        }
+                    }
+                    Result.success(file)
+                } catch (e: Exception) {
+                    Result.failure(e)
+                }
+            }
+
+            _uiState.update { it.copy(isDescargandoPdf = false) }
+
+            localFileResult.fold(
+                onSuccess = { file ->
+                    try {
+                        val uri = FileProvider.getUriForFile(
+                            context,
+                            "${context.packageName}.fileprovider",
+                            file
+                        )
+                        val intent = Intent(Intent.ACTION_VIEW).apply {
+                            setDataAndType(uri, "application/pdf")
+                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        context.startActivity(intent)
+                    } catch (e: ActivityNotFoundException) {
+                        onError("No se encontró una aplicación para abrir archivos PDF")
+                    } catch (e: Exception) {
+                        onError("Error al abrir comprobante: ${e.localizedMessage ?: "Fallo desconocido"}")
+                    }
+                },
+                onFailure = { error ->
+                    onError("No se pudo obtener el comprobante: ${error.localizedMessage ?: "Error de descarga"}")
+                }
+            )
         }
     }
 

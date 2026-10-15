@@ -407,10 +407,45 @@ fun SistemaScreen(
                         }
 
                         Text(
-                            "Genera el balance contable consolidado del período actual y emite el comprobante oficial en formato PDF.",
+                            "Genera el balance contable consolidado del período seleccionado y emite el comprobante oficial en formato PDF.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+
+                        var expandedPeriodo by remember { mutableStateOf(false) }
+
+                        ExposedDropdownMenuBox(
+                            expanded = expandedPeriodo,
+                            onExpandedChange = { if (!uiState.isEjecutandoCierre) expandedPeriodo = !expandedPeriodo },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            OutlinedTextField(
+                                value = uiState.selectedPeriodoCierre,
+                                onValueChange = {},
+                                readOnly = true,
+                                label = { Text("Período Contable") },
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedPeriodo) },
+                                modifier = Modifier
+                                    .menuAnchor()
+                                    .fillMaxWidth(),
+                                enabled = !uiState.isEjecutandoCierre
+                            )
+
+                            ExposedDropdownMenu(
+                                expanded = expandedPeriodo,
+                                onDismissRequest = { expandedPeriodo = false }
+                            ) {
+                                uiState.periodosDisponibles.forEach { periodo ->
+                                    DropdownMenuItem(
+                                        text = { Text(periodo) },
+                                        onClick = {
+                                            viewModel.setPeriodoCierre(periodo)
+                                            expandedPeriodo = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
 
                         val cierre = uiState.cierreContable
                         if (cierre != null) {
@@ -443,28 +478,37 @@ fun SistemaScreen(
                                         )
                                     }
 
-                                    val fullPdfUrl = viewModel.obtenerUrlAbsolutaPdf(cierre.pdfUrl)
-                                    if (!fullPdfUrl.isNullOrBlank()) {
+                                    if (!cierre.pdfUrl.isNullOrBlank()) {
                                         Spacer(modifier = Modifier.height(4.dp))
                                         Button(
                                             onClick = {
-                                                try {
-                                                    val intent = android.content.Intent(
-                                                        android.content.Intent.ACTION_VIEW,
-                                                        android.net.Uri.parse(fullPdfUrl)
-                                                    )
-                                                    context.startActivity(intent)
-                                                } catch (e: Exception) {
-                                                    android.widget.Toast.makeText(
-                                                        context,
-                                                        "No se encontró aplicación para abrir PDF",
-                                                        android.widget.Toast.LENGTH_SHORT
-                                                    ).show()
-                                                }
+                                                viewModel.abrirPdfConCache(
+                                                    context = context,
+                                                    pdfUrlRelativa = cierre.pdfUrl,
+                                                    periodo = uiState.selectedPeriodoCierre,
+                                                    onError = { errorMsg ->
+                                                        android.widget.Toast.makeText(
+                                                            context,
+                                                            errorMsg,
+                                                            android.widget.Toast.LENGTH_SHORT
+                                                        ).show()
+                                                    }
+                                                )
                                             },
+                                            enabled = !uiState.isDescargandoPdf,
                                             modifier = Modifier.fillMaxWidth()
                                         ) {
-                                            Text("Ver Comprobante PDF 📄")
+                                            if (uiState.isDescargandoPdf) {
+                                                CircularProgressIndicator(
+                                                    modifier = Modifier.size(18.dp),
+                                                    strokeWidth = 2.dp,
+                                                    color = MaterialTheme.colorScheme.onPrimary
+                                                )
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Text("Descargando Comprobante...")
+                                            } else {
+                                                Text("Ver Comprobante PDF 📄")
+                                            }
                                         }
                                     }
                                 }
@@ -492,7 +536,7 @@ fun SistemaScreen(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(
-                                if (cierre != null) "Regenerar Cierre Contable" else "Ejecutar Cierre Contable"
+                                if (cierre != null) "Regenerar Cierre (${uiState.selectedPeriodoCierre})" else "Ejecutar Cierre Contable"
                             )
                         }
                     }

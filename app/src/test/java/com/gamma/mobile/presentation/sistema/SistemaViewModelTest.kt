@@ -379,4 +379,34 @@ class SistemaViewModelTest {
         assertEquals(false, state.isEjecutandoCierre)
         assertTrue(state.cierreMensaje?.contains("Error 500") == true)
     }
+
+    @Test
+    fun `setPeriodoCierre actualiza el periodo seleccionado en uiState`() = runTest {
+        viewModel = SistemaViewModel(fakeRepo, fakeStorage, checkAppUpdateUseCase)
+        advanceUntilIdle()
+
+        assertEquals("Período Actual", viewModel.uiState.value.selectedPeriodoCierre)
+        assertTrue(viewModel.uiState.value.periodosDisponibles.contains("Septiembre 2026"))
+
+        viewModel.setPeriodoCierre("Septiembre 2026")
+        assertEquals("Septiembre 2026", viewModel.uiState.value.selectedPeriodoCierre)
+
+        viewModel.ejecutarCierreContable()
+        advanceUntilIdle()
+
+        assertEquals("Septiembre 2026", fakeRepo.lastHojaCierre)
+        assertTrue(viewModel.uiState.value.cierreMensaje?.contains("Septiembre 2026") == true)
+    }
+
+    @Test
+    fun `obtenerUrlAbsolutaPdf maneja url relativa nula o absoluta`() = runTest {
+        viewModel = SistemaViewModel(fakeRepo, fakeStorage, checkAppUpdateUseCase)
+        advanceUntilIdle()
+
+        assertEquals(null, viewModel.obtenerUrlAbsolutaPdf(null))
+        assertEquals(null, viewModel.obtenerUrlAbsolutaPdf(""))
+        assertEquals("https://external.com/doc.pdf", viewModel.obtenerUrlAbsolutaPdf("https://external.com/doc.pdf"))
+        assertEquals("http://external.com/doc.pdf", viewModel.obtenerUrlAbsolutaPdf("http://external.com/doc.pdf"))
+        assertEquals("https://kevin11000.pythonanywhere.com/api/v1/reporte.pdf", viewModel.obtenerUrlAbsolutaPdf("/reporte.pdf"))
+    }
 }

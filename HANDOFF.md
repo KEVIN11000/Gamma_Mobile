@@ -1,66 +1,67 @@
 # HANDOFF — Gamma Mobile & Core Bot
 
-**Fase cerrada:** Sincronización Salarial Idempotente, Validación de Cierre Contable y Sincronización de Tickets GitHub (v0.0.6)
+**Fase cerrada:** Webhook Receptor Reactivo de GitHub Issues y Comprobante PDF de Cierre Contable en Gamma Mobile (v0.0.7)
 **Fecha de cierre:** 2026-10-15
-**Estado del build/tests:** ✅ pasando — Compilación y suites unitarias verificadas (`./gradlew testDebugUnitTest` en GammaMobile; 179 tests en `pytest tests/` en Gamma_bot).
+**Estado del build/tests:** ✅ pasando — Compilación y suites unitarias verificadas (`./gradlew testDebugUnitTest` en GammaMobile; 187 tests en `pytest tests/` en Gamma_bot).
 
 ---
 
 ## 1. Estado actual
 
-- **Fallback dinámico salarial para Margen de Ataque (TCK-004):**
-  - Implementado `obtener_ultimo_salario_libro_diario()` en `SheetsRepository` con búsqueda cronológica inversa.
-  - `calcular_margen_de_ataque()` en `financiero.py` utiliza dinámicamente el último sueldo percibido de `Libro_Diario` cuando `Presupuesto_Base` carece de ingreso fijo registrado.
-  - Ticket `TCK-004` auditado y cerrado.
-- **Auto-sincronización reactiva de Salario hacia Presupuesto Base:**
-  - Implementado `upsert_salario_presupuesto_base()` en `SheetsRepository` para actualizar atómicamente la celda `Monto_Mensual_Gs` o insertar la fila salarial con encabezados canónicos si no existe.
-  - Conectado en `AgenteFinanciero.registrar_movimiento()` y `SheetsRepository.insert_movimiento_diario()` de forma no bloqueante ante ingresos de salario/sueldo.
-- **Validación de Balance y Protección Previa al Corte Mensual (TCK-005):**
-  - Auditoría de consistencia contable en `validar_consistencia_movimientos_mes()`: aborta el cierre si existen montos negativos inválidos o descuadre `Neto + IVA != Total`.
-  - Protección de datos: Si el balance es inconsistente o la subida del backup a Google Drive falla, `execute_monthly_closing()` se cancela inmediatamente sin alterar ni limpiar `Libro_Diario`.
-  - Mensajes interactivos de Telegram en `deudas.py` formatean el resumen verificado con Margen Libre, Saldo Acumulado transferido y enlace a Drive.
-  - Ticket `TCK-005` auditado y cerrado.
-- **Sincronización de Tickets con GitHub Issues:**
-  - Servicio `GitHubIssueSyncService` en `src/services/github_service.py` conectado a los endpoints `POST` y `PATCH` de `/api/v1/soporte/tickets`.
-  - Despacha creación de issues y actualización de estado (`closed` / `open`) con nota de resolución en GitHub sin bloquear la API ante caídas de red o ausencia de token.
+- **Receptor Webhook GitHub Issues (`Gamma_bot`):**
+  - Implementado `POST /api/v1/webhooks/github` autenticado con firma criptográfica HMAC-SHA256 (`X-Hub-Signature-256`) y modo permisivo para desarrollo.
+  - Parseo automático de títulos de issues con formato `[TCK-XXX]` para transicionar tickets a `"Cerrado"` (`action == "closed"`) con nota de resolución y a `"Abierto"` (`action == "reopened"`).
+  - Manejo de `ping` (`{"status": "pong"}`) y respuesta de seguridad `200 OK` (`"status": "ignored"`) para issues ajenos o eventos no soportados.
+  - Notificación reactiva al Telegram del Administrador ante actualización exitosa de tickets.
+  - Cubierto por 8 tests unitarios aislados con `tmp_path` en `tests/test_github_webhook.py`.
+- **Generación y Visualización de Comprobante PDF de Cierre Contable (`GammaMobile`):**
+  - Métodos `ejecutarCierreContable` en `SistemaRepository` y `SistemaRepositoryImpl` consumiendo `POST /api/v1/cierres/ejecutar`.
+  - `SistemaViewModel` gestiona estados de carga, error y cálculo de URL canónica absoluta del comprobante (`obtenerUrlAbsolutaPdf`).
+  - Tarjeta interactiva en `SistemaScreen.kt` mostrando resumen del balance mensual, monto formateado en Guaraníes y botón *"Ver Comprobante PDF 📄"* que lanza el visor de documentos de Android mediante `Intent(ACTION_VIEW)`.
+  - Cubierto por tests unitarios en `SistemaViewModelTest.kt`.
+- **Sincronización y Cierre de Incidentes:**
+  - `TCK-003` (sincronización salarial reactiva) y `TCK-006` (despliegue de WSGI en PythonAnywhere) auditados y cerrados en `src/data/tickets.json`.
+  - Commits publicados en ramas remotas `origin/Main-stable` (`Gamma_bot`) y `origin/main` (`GammaMobile`), disparando el auto-deploy continuo de producción.
 
 ## 2. Decisiones tomadas en esta fase
 
-- **Decisión:** Priorizar `Presupuesto_Base` y usar `Libro_Diario` como fallback reactivo antes de forzar al usuario a configuraciones manuales.
-  **Por qué:** Evita que usuarios novatos o migraciones vean márgenes libres en 0 o proyecciones vacías.
-  **Alternativas descartadas:** Dejar margen libre en 0 hasta que el usuario editara la planilla manualmente.
-- **Decisión:** Política de no-limpieza de `Libro_Diario` ante cualquier anomalía de backup o balance en el cierre mensual.
-  **Por qué:** Prevenir pérdida accidental de registros contables si falla la cuota de Drive o si hay inconsistencias humanas en el libro.
-  **Alternativas descartadas:** Limpiar el libro diario e ignorar fallos en Drive.
-- **Decisión:** Desacoplamiento total con timeout de 5s y modo pasivo en `GitHubIssueSyncService`.
-  **Por qué:** Garantiza paridad operativa en entornos locales de desarrollo y en producción aunque `GITHUB_TOKEN` no esté configurado o GitHub sufra latencia.
-  **Alternativas descartadas:** Hacer que el endpoint de tickets falle con 500 si GitHub no responde.
+- **Decisión:** Desacoplar la ruta `/api/v1/webhooks/github` del middleware de API key móvil (`@require_api_key`).
+  **Por qué:** GitHub Webhooks no envía tokens personalizados en cabeceras de usuario, sino la firma HMAC estándar en `X-Hub-Signature-256`.
+  **Alternativas descartadas:** Forzar query parameter con api key en la URL del webhook en GitHub.
+- **Decisión:** Responder `200 OK` con `{"status": "ignored"}` ante issues sin identificador `[TCK-XXX]`.
+  **Por qué:** Respuestas 4xx o 5xx provocan reintentos exponenciales y alertas de fallo en los webhooks de GitHub.
+  **Alternativas descartadas:** Retornar 400 Bad Request ante títulos sin formato TCK.
+- **Decisión:** Delegar la apertura del PDF al visor nativo de Android mediante Intent (`ACTION_VIEW`).
+  **Por qué:** Evita sobrecargar el APK con librerías nativas pesadas de renderizado C++ y aprovecha las herramientas ya instaladas en el dispositivo (Drive, Acrobat, navegador).
+  **Alternativas descartadas:** Incrustar visor canvas PDF nativo dentro de Compose.
 
 ## 3. Archivos y módulos clave tocados
 
 | Archivo | Cambio |
 |---|---|
-| `docs/specs/sincronizacion-salarial-y-cierre-contable/` | Artefactos SDD: `spec.md`, `plan.md`, `tasks.md` completados. |
-| `.specify/bugs/tck-004-fallback-margen-salario/` | Artefactos de corrección: `assessment.md` y `fix.md` de TCK-004. |
-| `Gamma_bot (src/repositories/sheets_repository.py)` | `obtener_ultimo_salario_libro_diario()`, `upsert_salario_presupuesto_base()` y auto-sync en `insert_movimiento_diario()`. |
-| `Gamma_bot (src/logic/financiero.py)` | Fallback TCK-004, auto-sync salarial en `registrar_movimiento()` y validación previa en `execute_monthly_closing()`. |
-| `Gamma_bot (src/com/handlers/deudas.py)` | Reporte formateado con balance estructurado en callbacks de cierre mensual. |
-| `Gamma_bot (src/services/github_service.py)` | Servicio `GitHubIssueSyncService` para integración con la API de GitHub. |
-| `Gamma_bot (src/api/blueprint.py)` | Despacho a GitHub en endpoints POST y PATCH de soporte. |
-| `Gamma_bot (src/data/tickets.json)` | Cierre de `TCK-004` y `TCK-005`. |
-| `Gamma_bot (Tests unitarios)` | Nuevas suites en `test_financiero.py`, `test_sheets_repository.py`, `test_handlers_deudas.py` y `test_mobile_api.py`. |
+| `docs/specs/webhook-github-tickets/` | Artefactos SDD: `spec.md`, `plan.md`, `tasks.md` completados. |
+| `docs/specs/comprobante-cierre-contable-pdf/` | Artefactos SDD: `spec.md`, `plan.md`, `tasks.md` completados. |
+| `Gamma_bot (src/services/github_service.py)` | `GitHubWebhookService` con validación HMAC-SHA256 y parseo de eventos de issues. |
+| `Gamma_bot (src/api/blueprint.py)` | Ruta `POST /api/v1/webhooks/github` y notificación push a Telegram. |
+| `Gamma_bot (tests/test_auth_security.py)` | Aislamiento en `setUp`/`tearDown` de variables de entorno para evitar polución. |
+| `Gamma_bot (tests/test_github_webhook.py)` | Suite de 8 tests unitarios para webhooks. |
+| `Gamma_bot (src/data/tickets.json)` | Cierre de `TCK-003` y `TCK-006`. |
+| `GammaMobile (SistemaRepository.kt, SistemaRepositoryImpl.kt)` | Integración de `ejecutarCierreContable`. |
+| `GammaMobile (SistemaViewModel.kt)` | Estado de cierre contable y resolución de URL de PDF. |
+| `GammaMobile (SistemaScreen.kt)` | Tarjeta de Cierre Contable y apertura de PDF por Intent. |
+| `GammaMobile (SistemaViewModelTest.kt)` | Cobertura de tests unitarios para cierre contable y PDF. |
 
 ## 4. Pendientes explícitos para la próxima fase
 
-- [ ] Sincronizar y recargar worker WSGI en PythonAnywhere (`TCK-006`).
-- [x] Configurar webhook receptor en `Gamma_bot` para recibir eventos de cierre de issues desde GitHub (`issues.closed`) hacia `tickets.json`.
-- [x] Incorporar visualización de comprobante PDF del cierre contable mensual generado directamente desde la pantalla de Sistema de Gamma Mobile.
+- [ ] Validar en producción la recepción del primer webhook real de GitHub tras el auto-deploy de PythonAnywhere.
+- [ ] Incorporar selector de meses históricos en la tarjeta de Cierre Contable de Gamma Mobile para consultar comprobantes de períodos anteriores.
+- [ ] Optimizar la caché de PDF en almacenamiento local privado de la app para visualización offline de comprobantes.
 
 ## 5. Riesgos / deuda técnica conocida
 
-- **Riesgo:** Cuotas de API de Google Sheets en períodos con alto volumen de transacciones salariales concurrentes.
-  **Impacto:** Rate limits temporales de Google.
-  **Mitigación sugerida:** El mecanismo de retry en `_retry_operation` absorbe reintentos con backoff exponencial.
+- **Riesgo:** Si el servidor backend WSGI experimenta rotación de worker durante la descarga de un PDF grande, la petición HTTP puede cortarse.
+  **Impacto:** Fallo temporal de visualización del archivo.
+  **Mitigación sugerida:** El visor de Android y el navegador realizan reintentos automáticos de descarga mediante cabeceras `Accept-Ranges`.
 
 ## 6. Cómo verificar que este handoff sigue vigente
 

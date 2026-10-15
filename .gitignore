@@ -29,3 +29,8 @@ __pycache__/
 *.jks
 release-keystore.properties
 *.pepk
+ 
+# AI workflows & local assets
+.agents/
+.specify/
+img/

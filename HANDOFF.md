@@ -1,68 +1,60 @@
 # HANDOFF — Gamma Mobile & Core Bot
 
-**Fase cerrada:** Webhook Receptor Reactivo de GitHub Issues y Comprobante PDF de Cierre Contable en Gamma Mobile (v0.0.7)
+**Fase cerrada:** v0.0.7 — Selector de Períodos Históricos, Caché Offline de Comprobantes PDF y Webhook GitHub Reactivo
 **Fecha de cierre:** 2026-10-15
-**Estado del build/tests:** ✅ pasando — Compilación y suites unitarias verificadas (`./gradlew testDebugUnitTest` en GammaMobile; 187 tests en `pytest tests/` en Gamma_bot).
+**Estado del build/tests:** ✅ pasando — Compilación y tests unitarios verificados (`./gradlew testDebugUnitTest` en GammaMobile con 105 tests; 187 tests en `pytest tests/` en Gamma_bot).
 
 ---
 
 ## 1. Estado actual
 
-- **Receptor Webhook GitHub Issues (`Gamma_bot`):**
-  - Implementado `POST /api/v1/webhooks/github` autenticado con firma criptográfica HMAC-SHA256 (`X-Hub-Signature-256`) y modo permisivo para desarrollo.
-  - Parseo automático de títulos de issues con formato `[TCK-XXX]` para transicionar tickets a `"Cerrado"` (`action == "closed"`) con nota de resolución y a `"Abierto"` (`action == "reopened"`).
-  - Manejo de `ping` (`{"status": "pong"}`) y respuesta de seguridad `200 OK` (`"status": "ignored"`) para issues ajenos o eventos no soportados.
-  - Notificación reactiva al Telegram del Administrador ante actualización exitosa de tickets.
-  - Cubierto por 8 tests unitarios aislados con `tmp_path` en `tests/test_github_webhook.py`.
-- **Generación y Visualización de Comprobante PDF de Cierre Contable (`GammaMobile`):**
-  - Métodos `ejecutarCierreContable` en `SistemaRepository` y `SistemaRepositoryImpl` consumiendo `POST /api/v1/cierres/ejecutar`.
-  - `SistemaViewModel` gestiona estados de carga, error y cálculo de URL canónica absoluta del comprobante (`obtenerUrlAbsolutaPdf`).
-  - Tarjeta interactiva en `SistemaScreen.kt` mostrando resumen del balance mensual, monto formateado en Guaraníes y botón *"Ver Comprobante PDF 📄"* que lanza el visor de documentos de Android mediante `Intent(ACTION_VIEW)`.
-  - Cubierto por tests unitarios en `SistemaViewModelTest.kt`.
-- **Sincronización y Cierre de Incidentes:**
-  - `TCK-003` (sincronización salarial reactiva) y `TCK-006` (despliegue de WSGI en PythonAnywhere) auditados y cerrados en `src/data/tickets.json`.
-  - Commits publicados en ramas remotas `origin/Main-stable` (`Gamma_bot`) y `origin/main` (`GammaMobile`), disparando el auto-deploy continuo de producción.
+- **Auditoría y Validación en Producción de Webhook GitHub:**
+  - Endpoint `POST /api/v1/webhooks/github` verificado en vivo en PythonAnywhere respondiendo 401 bajo firma HMAC-SHA256 (`INVALID_SIGNATURE`), confirmando auto-deploy WSGI activo y protección criptográfica operativa.
+- **Selector de Períodos Históricos de Cierre Contable:**
+  - `ExposedDropdownMenuBox` implementado en `SistemaScreen.kt` permitiendo alternar entre "Período Actual", mes corriente ("Octubre 2026") y meses históricos anteriores.
+  - `SistemaViewModel.kt` expone `selectedPeriodoCierre`, `periodosDisponibles` y `setPeriodoCierre()`, propagando el período a `POST /api/v1/cierres/ejecutar`.
+- **Caché Local Privada y Visualización Offline de Comprobantes PDF:**
+  - `abrirPdfConCache` en `SistemaViewModel.kt` implementa descarga atómica no bloqueante hacia `context.cacheDir/comprobantes/cierre_contable_<periodo>.pdf` usando archivo temporal `.tmp` y cleanup ante fallos.
+  - Apertura instantánea sin peticiones de red adicionales cuando el comprobante ya reside en caché local.
+  - Exposición segura vía `androidx.core.content.FileProvider` (`com.gamma.mobile.fileprovider`) con `FLAG_GRANT_READ_URI_PERMISSION` y control de `ActivityNotFoundException`.
+- **Higiene de Versionado y Repositorio:**
+  - `VERSION` actualizado a `0.0.7` para generación de APKs versionados.
+  - `.gitignore` actualizado para ignorar `.agents/`, `.specify/` e `img/`.
+  - Tickets de soporte `TCK-007` al `TCK-017` cerrados en `src/data/tickets.json`.
 
 ## 2. Decisiones tomadas en esta fase
 
-- **Decisión:** Desacoplar la ruta `/api/v1/webhooks/github` del middleware de API key móvil (`@require_api_key`).
-  **Por qué:** GitHub Webhooks no envía tokens personalizados en cabeceras de usuario, sino la firma HMAC estándar en `X-Hub-Signature-256`.
-  **Alternativas descartadas:** Forzar query parameter con api key en la URL del webhook en GitHub.
-- **Decisión:** Responder `200 OK` con `{"status": "ignored"}` ante issues sin identificador `[TCK-XXX]`.
-  **Por qué:** Respuestas 4xx o 5xx provocan reintentos exponenciales y alertas de fallo en los webhooks de GitHub.
-  **Alternativas descartadas:** Retornar 400 Bad Request ante títulos sin formato TCK.
-- **Decisión:** Delegar la apertura del PDF al visor nativo de Android mediante Intent (`ACTION_VIEW`).
-  **Por qué:** Evita sobrecargar el APK con librerías nativas pesadas de renderizado C++ y aprovecha las herramientas ya instaladas en el dispositivo (Drive, Acrobat, navegador).
-  **Alternativas descartadas:** Incrustar visor canvas PDF nativo dentro de Compose.
+- **Decisión:** Implementar descarga atómica con archivo intermedio `.tmp` antes de consolidar el archivo `.pdf` en caché.
+  **Por qué:** Previene la corrupción de la caché local si una conexión móvil se corta a mitad de la descarga.
+  **Alternativas descartadas:** Escribir directamente en el archivo destino `.pdf` sin verificación de completitud.
+- **Decisión:** Delegar visualización de PDF al visor nativo del dispositivo mediante `FileProvider` e `Intent(ACTION_VIEW)`.
+  **Por qué:** Evita incrementar el tamaño del APK con librerías nativas de renderizado y respeta el ecosistema Android del usuario.
+  **Alternativas descartadas:** Incrustar una librería de visor PDF dentro de Jetpack Compose.
 
 ## 3. Archivos y módulos clave tocados
 
 | Archivo | Cambio |
 |---|---|
-| `docs/specs/webhook-github-tickets/` | Artefactos SDD: `spec.md`, `plan.md`, `tasks.md` completados. |
-| `docs/specs/comprobante-cierre-contable-pdf/` | Artefactos SDD: `spec.md`, `plan.md`, `tasks.md` completados. |
-| `Gamma_bot (src/services/github_service.py)` | `GitHubWebhookService` con validación HMAC-SHA256 y parseo de eventos de issues. |
-| `Gamma_bot (src/api/blueprint.py)` | Ruta `POST /api/v1/webhooks/github` y notificación push a Telegram. |
-| `Gamma_bot (tests/test_auth_security.py)` | Aislamiento en `setUp`/`tearDown` de variables de entorno para evitar polución. |
-| `Gamma_bot (tests/test_github_webhook.py)` | Suite de 8 tests unitarios para webhooks. |
-| `Gamma_bot (src/data/tickets.json)` | Cierre de `TCK-003` y `TCK-006`. |
-| `GammaMobile (SistemaRepository.kt, SistemaRepositoryImpl.kt)` | Integración de `ejecutarCierreContable`. |
-| `GammaMobile (SistemaViewModel.kt)` | Selector de períodos (`setPeriodoCierre`), cierre dinámico y apertura con caché offline `abrirPdfConCache`. |
-| `GammaMobile (SistemaScreen.kt)` | Selector `ExposedDropdownMenuBox` de períodos contables y botón interactivo con caché local `FileProvider`. |
-| `GammaMobile (SistemaViewModelTest.kt)` | Cobertura de tests unitarios para períodos, cierre contable y resolución de comprobantes. |
+| `VERSION` | Bump de versión de 0.0.6 a 0.0.7. |
+| `.gitignore` | Inclusión de `.agents/`, `.specify/` e `img/`. |
 | `docs/specs/cierre-contable-historico-y-cache-pdf/` | Artefactos SDD: `spec.md`, `plan.md`, `tasks.md` completados. |
+| `docs/history/fase-v007.md` | Archivo histórico de la fase v0.0.7. |
+| `GammaMobile (SistemaViewModel.kt)` | `selectedPeriodoCierre`, `setPeriodoCierre` y descarga atómica con caché offline en `abrirPdfConCache`. |
+| `GammaMobile (SistemaScreen.kt)` | `ExposedDropdownMenuBox` de períodos y botón con indicador `isDescargandoPdf`. |
+| `GammaMobile (SistemaViewModelTest.kt)` | Cobertura de tests unitarios para períodos, cierre contable y resolución de URLs. |
+| `Gamma_bot (src/data/tickets.json)` | Cierre de tickets `TCK-007` a `TCK-017`. |
 
 ## 4. Pendientes explícitos para la próxima fase
 
-- [x] Validar en producción la recepción del primer webhook real de GitHub tras el auto-deploy de PythonAnywhere (Verificado: endpoint respondiendo 401 con validación HMAC activa).
-- [x] Incorporar selector de meses históricos en la tarjeta de Cierre Contable de Gamma Mobile para consultar comprobantes de períodos anteriores (Implementado con ExposedDropdownMenuBox y período dinámico en SistemaScreen).
-- [x] Optimizar la caché de PDF en almacenamiento local privado de la app para visualización offline de comprobantes (Implementado con FileProvider, cacheDir/comprobantes y descarga asíncrona no bloqueante).
+- [ ] Generar e inspeccionar el APK firmado de release v0.0.7 (`gamma-mobile-v0.0.7-release.apk`) para distribución.
+- [ ] Incorporar notificación push local en Android al completar la descarga de comprobantes en segundo plano.
+- [ ] Explorar visor de PDF en miniatura (thumbnail) para previsualización directa en Compose si se requiere en el futuro.
 
 ## 5. Riesgos / deuda técnica conocida
 
-- **Riesgo:** Si el servidor backend WSGI experimenta rotación de worker durante la descarga de un PDF grande, la petición HTTP puede cortarse.
-  **Impacto:** Fallo temporal de visualización del archivo.
-  **Mitigación sugerida:** El visor de Android y el navegador realizan reintentos automáticos de descarga mediante cabeceras `Accept-Ranges`.
+- **Riesgo:** Si el usuario borra los datos de caché desde Ajustes de Android, los comprobantes deberán descargarse nuevamente la próxima vez que se consulten.
+  **Impacto:** Consumo de datos menor en la primera reapertura tras la limpieza.
+  **Mitigación sugerida:** El comportamiento es estándar en Android y la app descarga automáticamente el archivo si no existe.
 
 ## 6. Cómo verificar que este handoff sigue vigente
 

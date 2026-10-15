@@ -294,10 +294,22 @@ class SistemaViewModel @Inject constructor(
                     val file = File(cacheDir, "cierre_contable_${sanitized}.pdf")
 
                     if (!file.exists() || file.length() == 0L) {
-                        URL(fullUrl).openStream().use { input ->
-                            file.outputStream().use { output ->
-                                input.copyTo(output)
+                        val tempFile = File(cacheDir, "cierre_contable_${sanitized}.tmp")
+                        try {
+                            URL(fullUrl).openStream().use { input ->
+                                tempFile.outputStream().use { output ->
+                                    input.copyTo(output)
+                                }
                             }
+                            if (!tempFile.renameTo(file)) {
+                                tempFile.copyTo(file, overwrite = true)
+                                tempFile.delete()
+                            }
+                        } catch (e: Exception) {
+                            if (tempFile.exists()) {
+                                tempFile.delete()
+                            }
+                            throw e
                         }
                     }
                     Result.success(file)

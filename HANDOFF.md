@@ -16,7 +16,8 @@
 - **Cierre Dual:** Soporte de cierre Laboral (horas) y Contable (Libro Diario) en backend y UI móvil, cubierto por tests en `CierreViewModelTest`.
 - **Google Calendar en Avisos:** Combinación reactiva de eventos de Google Calendar en `GET /avisos` vía `AgenteAutonomoHoras.obtener_avisos_calendar()`.
 - **Distribuibles Versionados y SSOT:** Archivo `VERSION` (`0.0.4`) como fuente única de verdad, y nomenclatura automática de artefactos `gamma-mobile-v0.0.4-release.apk` (33.2 MB firmado) y `gamma-mobile-v0.0.4-debug.apk` (39.8 MB) preservando compatibilidad con `app-[variant].apk`.
-- **Release y Tags:** Rama `main` en `Gamma_Mobile` actualizada en commit `6bb982e`, APKs listos para distribución y tag `v0.0.4` sincronizado localmente.
+- **Verificación Autónoma In-App de Releases:** Integración de `GitHubReleaseApi`, `SemverUtils` y `CheckAppUpdateUseCase` en `SistemaViewModel` y `SistemaScreen.kt`. Al presionar el botón de refresco 🔄, la app consulta la API pública de GitHub Releases y muestra reactivamente si la app está al día o si hay una versión superior disponible para descarga con un solo toque.
+- **Release Oficial v0.0.4 Publicado en GitHub:** Release `v0.0.4` publicado formalmente en GitHub con sus distribuibles versionados adjuntos y rama `main` sincronizada.
 
 ## 2. Decisiones tomadas en esta fase
 

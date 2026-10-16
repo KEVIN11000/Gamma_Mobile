@@ -1,69 +1,68 @@
 # HANDOFF — Gamma Mobile & Core Bot
 
-**Fase cerrada:** v0.0.7 — Selector de Períodos Históricos, Caché Offline de Comprobantes PDF y Webhook GitHub Reactivo
-**Fecha de cierre:** 2026-10-15
-**Estado del build/tests:** ✅ pasando — Compilación y tests unitarios verificados (`./gradlew testDebugUnitTest` en GammaMobile con 105 tests; 187 tests en `pytest tests/` en Gamma_bot).
+**Fase cerrada:** Remediación TCK-004 — Validación de Asistencia a Materias y Generación de PDF de Cierre
+**Fecha de cierre:** 2026-10-16
+**Estado del build/tests:** ✅ pasando — Compilación y tests verificados al 100% (`./gradlew testDebugUnitTest` con 106 tests en GammaMobile; 187 tests en `pytest` en Gamma_bot).
 
 ---
 
 ## 1. Estado actual
 
-- **Auditoría y Validación en Producción de Webhook GitHub:**
-  - Endpoint `POST /api/v1/webhooks/github` verificado en vivo en PythonAnywhere respondiendo 401 bajo firma HMAC-SHA256 (`INVALID_SIGNATURE`), confirmando auto-deploy WSGI activo y protección criptográfica operativa.
-- **Selector de Períodos Históricos de Cierre Contable:**
-  - `ExposedDropdownMenuBox` implementado en `SistemaScreen.kt` permitiendo alternar entre "Período Actual", mes corriente ("Octubre 2026") y meses históricos anteriores.
-  - `SistemaViewModel.kt` expone `selectedPeriodoCierre`, `periodosDisponibles` y `setPeriodoCierre()`, propagando el período a `POST /api/v1/cierres/ejecutar`.
-- **Caché Local Privada y Visualización Offline de Comprobantes PDF:**
-  - `abrirPdfConCache` en `SistemaViewModel.kt` implementa descarga atómica no bloqueante hacia `context.cacheDir/comprobantes/cierre_contable_<periodo>.pdf` usando archivo temporal `.tmp` y cleanup ante fallos.
-  - Apertura instantánea sin peticiones de red adicionales cuando el comprobante ya reside en caché local.
-  - Exposición segura vía `androidx.core.content.FileProvider` (`com.gamma.mobile.fileprovider`) con `FLAG_GRANT_READ_URI_PERMISSION` y control de `ActivityNotFoundException`.
-- **Higiene de Versionado y Repositorio:**
-  - `VERSION` actualizado a `0.0.7` para generación de APKs versionados.
-  - `.gitignore` actualizado para ignorar `.agents/`, `.specify/` e `img/`.
-  - Tickets de soporte `TCK-007` al `TCK-017` cerrados en `src/data/tickets.json`.
+- **Validación Oficial de Marcación de Materias (`Gamma_bot`):**
+  - Endpoint `POST /api/v1/asistencia/materia` conectado a `AgenteAsistenciaMaterias` y a la planilla oficial `Config_bot`.
+  - Rebote con HTTP `400 Bad Request` y código `NO_CLASE_EN_CURSO` cuando no existe una clase activa en el momento de la petición, impidiendo falsos positivos.
+  - Validación de coincidencia de materia (`MATERIA_MISMATCH`, HTTP 400) si se selecciona una materia distinta a la que está en curso.
+  - Marcación efectiva en Google Sheets e histórico de asistencia cuando la clase está en curso lectivo oficial.
+- **Generación Formal de Comprobantes PDF de Cierre (`Gamma_bot`):**
+  - Función `generar_pdf_cierre()` implementada en `src/api/blueprint.py` utilizando ReportLab Platypus (`SimpleDocTemplate`, `Table`, `Paragraph`, `HRFlowable`).
+  - Eliminado el stub plano de 65 bytes: los comprobantes generados para cierres contables y laborales son documentos PDF binarios estándar (> 2.5 KB) con tablas de balance, datos de auditoría, sello digital y catálogo completo de páginas.
+  - Compatibilidad total comprobada con visores PDF nativos de Android (Google Drive, Adobe Acrobat).
+- **Propagación Descriptiva de Errores de Negocio (`GammaMobile`):**
+  - `safeApiCall` actualizado en `SafeApiCall.kt` para parsear automáticamente cuerpos JSON de error (`mensaje`, `message`, `error.message`), mostrando explicaciones claras en lugar de códigos HTTP crudos.
+  - Cubierto por pruebas unitarias en `NetworkLayerTest.kt` y verificado en la suite completa.
+- **Resolución de Ticket TCK-004:**
+  - Registrado en `.specify/bugs/tck-004-marcacion-materias-y-cierre-pdf/fix.md` y actualizado en `Gamma_bot/src/data/tickets.json` con estado `Cerrado`.
 
 ## 2. Decisiones tomadas en esta fase
 
-- **Decisión:** Implementar descarga atómica con archivo intermedio `.tmp` antes de consolidar el archivo `.pdf` en caché.
-  **Por qué:** Previene la corrupción de la caché local si una conexión móvil se corta a mitad de la descarga.
-  **Alternativas descartadas:** Escribir directamente en el archivo destino `.pdf` sin verificación de completitud.
-- **Decisión:** Delegar visualización de PDF al visor nativo del dispositivo mediante `FileProvider` e `Intent(ACTION_VIEW)`.
-  **Por qué:** Evita incrementar el tamaño del APK con librerías nativas de renderizado y respeta el ecosistema Android del usuario.
-  **Alternativas descartadas:** Incrustar una librería de visor PDF dentro de Jetpack Compose.
+- **Decisión:** Validar horario activo contra `Config_bot` antes de escribir en Google Sheets en `/asistencia/materia`.
+  **Por qué:** Evita registros ficticios fuera de horario y responde con mensaje explicativo directo al usuario móvil.
+  **Alternativas descartadas:** Mantener respuesta estática 200 o permitir marcaciones abiertas sin corroborar el calendario lectivo.
+- **Decisión:** Emplear ReportLab Platypus para la generación dinámica de comprobantes de cierre en `/cierres/ejecutar`.
+  **Por qué:** Asegura que los archivos binarios cumplan el estándar PDF-1.4 con tablas xref válidas, eliminando el error de archivo dañado en visores móviles.
+  **Alternativas descartadas:** Dejar skeletons de texto plano o requerir librerías externas de conversión HTML a PDF.
 
 ## 3. Archivos y módulos clave tocados
 
 | Archivo | Cambio |
 |---|---|
-| `VERSION` | Bump de versión de 0.0.6 a 0.0.7. |
-| `.gitignore` | Inclusión de `.agents/`, `.specify/` e `img/`. |
-| `docs/specs/cierre-contable-historico-y-cache-pdf/` | Artefactos SDD: `spec.md`, `plan.md`, `tasks.md` completados. |
-| `docs/history/fase-v007.md` | Archivo histórico de la fase v0.0.7. |
-| `GammaMobile (SistemaViewModel.kt)` | `selectedPeriodoCierre`, `setPeriodoCierre` y descarga atómica con caché offline en `abrirPdfConCache`. |
-| `GammaMobile (SistemaScreen.kt)` | `ExposedDropdownMenuBox` de períodos y botón con indicador `isDescargandoPdf`. |
-| `GammaMobile (SistemaViewModelTest.kt)` | Cobertura de tests unitarios para períodos, cierre contable y resolución de URLs. |
-| `Gamma_bot (src/data/tickets.json)` | Cierre de tickets `TCK-007` a `TCK-017`. |
+| `Gamma_bot (src/api/blueprint.py)` | Conexión de `marcar_materia` con `AgenteAsistenciaMaterias` y creación de `generar_pdf_cierre` con ReportLab. |
+| `Gamma_bot (tests/test_mobile_api.py)` | Tests de validación horaria, mismatch y aserción de estructura binaria de PDF (> 1 KB). |
+| `Gamma_bot (src/data/tickets.json)` | Cierre formal de ticket `TCK-004`. |
+| `GammaMobile (SafeApiCall.kt)` | Extracción de mensajes descriptivos en cuerpos de error JSON. |
+| `GammaMobile (NetworkLayerTest.kt)` | Cobertura unitaria para extracción de mensajes de error 400. |
+| `GammaMobile (.specify/bugs/tck-004-.../fix.md)` | Reporte técnico formal del bugfix bajo estándar Spec-Kit. |
 
 ## 4. Pendientes explícitos para la próxima fase
 
-- [x] Generar e inspeccionar el APK firmado de release v0.0.7 (`gamma-mobile-v0.0.7-release.apk`) para distribución (Generado exitosamente: 33.27 MB firmado bajo esquema V2).
-- [ ] *(Opcional / Evolución futura)* Incorporar notificación push local en Android al completar la descarga de comprobantes en segundo plano.
-- [ ] *(Opcional / Evolución futura)* Explorar visor de PDF en miniatura (thumbnail) para previsualización directa en Compose si se requiere.
+- [ ] Desplegar cambios en PythonAnywhere (`kevin11000.pythonanywhere.com`) y recargar worker WSGI tras aprobación explícita.
+- [ ] *(Opcional)* Generar nueva build / APK de release v0.0.8 si se requiere distribuir la versión móvil con extracción optimizada de mensajes de error.
 
 ## 5. Riesgos / deuda técnica conocida
 
-- **Riesgo:** Si el usuario borra los datos de caché desde Ajustes de Android, los comprobantes deberán descargarse nuevamente la próxima vez que se consulten.
-  **Impacto:** Consumo de datos menor en la primera reapertura tras la limpieza.
-  **Mitigación sugerida:** El comportamiento es estándar en Android y la app descarga automáticamente el archivo si no existe.
+- **Riesgo:** Si el servidor pierde conectividad temporal con la API de Google Sheets, el endpoint `/asistencia/materia` responderá con error 503 informando la indisponibilidad de `Config_bot`.
+  **Impacto:** El usuario no podrá marcar asistencia durante caídas de red del proveedor de hojas de cálculo.
+  **Mitigación sugerida:** El mensaje 503 es informativo y seguro; no genera falsos positivos ni corrompe datos.
 
 ## 6. Cómo verificar que este handoff sigue vigente
 
 ```bash
+# En Gamma_bot:
+& "D:\Program Files\Anaconda\python.exe" -m pytest tests/test_mobile_api.py
+& "D:\Program Files\Anaconda\python.exe" -m pytest
+
 # En GammaMobile:
 ./gradlew testDebugUnitTest
-
-# En Gamma_bot:
-pytest tests/
 ```
 
 ---

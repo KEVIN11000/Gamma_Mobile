@@ -82,7 +82,25 @@ class NetworkLayerTest {
         val result = safeApiCall(testDispatcher) { api.getMovimientos() }
 
         assertTrue(result is NetworkResult.Error)
-        assertEquals(401, (result as NetworkResult.Error).code)
+        val errorResult = result as NetworkResult.Error
+        assertEquals(401, errorResult.code)
+        assertEquals("Invalid API Key", errorResult.message)
+    }
+
+    @Test
+    fun `test 400 Bad Request extracts descriptive business message`() = runTest {
+        mockWebServer.enqueue(
+            MockResponse()
+                .setResponseCode(400)
+                .setBody("{\"error\": {\"code\": \"NO_CLASE_EN_CURSO\", \"message\": \"No hay clase en curso\"}, \"mensaje\": \"No hay clase en curso\"}")
+        )
+
+        val result = safeApiCall(testDispatcher) { api.marcarMateria(com.gamma.mobile.domain.model.AsistenciaMateriaRequest("Base de Datos")) }
+
+        assertTrue(result is NetworkResult.Error)
+        val errorResult = result as NetworkResult.Error
+        assertEquals(400, errorResult.code)
+        assertEquals("No hay clase en curso", errorResult.message)
     }
 
     @Test

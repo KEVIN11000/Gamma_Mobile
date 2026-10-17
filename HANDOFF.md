@@ -2,7 +2,7 @@
 
 **Fase cerrada:** v0.0.8 — Notificaciones Push Locales de Comprobantes PDF y Publicación en GitHub Releases
 **Fecha de cierre:** 2026-10-17
-**Estado del build/tests:** ✅ pasando — Compilación y tests verificados al 100% (`./gradlew testDebugUnitTest` con 109 tests unitarios y APK firmado `gamma-mobile-v0.0.8-release.apk` en GammaMobile; 187 tests unitarios en `pytest` en Gamma_bot).
+**Estado del build/tests:** ✅ pasando — Compilación y tests verificados al 100% (`./gradlew testDebugUnitTest` con 109 tests unitarios y APK firmado `gamma-mobile-v0.0.8-release.apk` en GammaMobile; 188 tests unitarios en `pytest` en Gamma_bot).
 
 ---
 

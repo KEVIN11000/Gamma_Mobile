@@ -1,63 +1,62 @@
 # HANDOFF — Gamma Mobile & Core Bot
 
-**Fase cerrada:** Release v0.0.8 y Despliegue en Producción (Remediación TCK-004)
-**Fecha de cierre:** 2026-10-16
-**Estado del build/tests:** ✅ pasando — Compilación y tests verificados al 100% (106 tests unitarios y APK de release firmado en GammaMobile; 187 tests unitarios en Gamma_bot).
+**Fase cerrada:** v0.0.8 — Notificaciones Push Locales de Comprobantes PDF y Publicación en GitHub Releases
+**Fecha de cierre:** 2026-10-17
+**Estado del build/tests:** ✅ pasando — Compilación y tests verificados al 100% (`./gradlew testDebugUnitTest` con 109 tests unitarios y APK firmado `gamma-mobile-v0.0.8-release.apk` en GammaMobile; 187 tests unitarios en `pytest` en Gamma_bot).
 
 ---
 
 ## 1. Estado actual
 
-- **Despliegue y Sincronización en Producción (`Gamma_bot`):**
-  - Cambios consolidados en la rama `Main-stable` y publicados hacia `origin/Main-stable` en GitHub.
-  - Endpoints en PythonAnywhere (`kevin11000.pythonanywhere.com`) operativos y auditados en vivo vía TLS.
-  - Endpoint `POST /api/v1/asistencia/materia` validando horarios lectivos contra `Config_bot` (rebote HTTP 400 sin falsos positivos).
-  - Endpoint `POST /api/v1/cierres/ejecutar` generando PDFs binarios conformes con ReportLab Platypus.
-  - Endpoint `GET /api/v1/health` actualizado a `latest_app_version: "0.0.8"` con `latest_app_version_code: 45`.
-- **Generación y Firma de APK Release v0.0.8 (`GammaMobile`):**
-  - Archivo `VERSION` actualizado a `0.0.8`.
-  - Binario `gamma-mobile-v0.0.8-release.apk` compilado exitosamente con `./gradlew assembleRelease` (33.28 MB).
-  - Firma criptográfica verificada bajo APK Signature Scheme v2 con keystore de producción.
-  - Capa de red (`SafeApiCall.kt`) con extracción descriptiva de mensajes de negocio JSON.
-- **Auditoría de Tickets de Soporte:**
-  - Ticket `TCK-004` cerrado en base de datos local y sincronizado con changelog técnico.
+- **Notificaciones Push Locales de Descarga de Comprobantes (`GammaMobile`):**
+  - `ComprobanteNotificationHelper` operativo en `app/src/main/java/com/gamma/mobile/utils/ComprobanteNotificationHelper.kt`, cubierto por tests unitarios en `app/src/test/java/com/gamma/mobile/utils/ComprobanteNotificationHelperTest.kt`.
+  - Canal `"comprobantes_channel"` ("Comprobantes y Reportes PDF") registrado con `NotificationCompat` y `PendingIntent` (`FLAG_IMMUTABLE or FLAG_UPDATE_CURRENT`) conectado a `FileProvider` (`com.gamma.mobile.fileprovider`) para abrir el PDF directamente al tocar la notificación.
+  - Emisión de notificación integrada en `SistemaViewModel.abrirPdfConCache` y en `AsistenciaScreen.CierreTabContent`.
+  - Solicitud no intrusiva del permiso runtime `android.permission.POST_NOTIFICATIONS` en Android 13+ (`API 33+`) en `MainActivity.onCreate`.
+- **Publicación de Release `v0.0.8` en GitHub Releases (`GammaMobile`):**
+  - Commit `0b1a5f8` y tag `v0.0.8` publicados en `origin/main` (`KEVIN11000/Gamma_Mobile`).
+  - Release `v0.0.8` publicado en `https://github.com/KEVIN11000/Gamma_Mobile/releases/tag/v0.0.8`.
+  - Binario firmado `gamma-mobile-v0.0.8-release.apk` (33,295,986 bytes, APK Signature Scheme v2) subido y disponible en `https://github.com/KEVIN11000/Gamma_Mobile/releases/download/v0.0.8/gamma-mobile-v0.0.8-release.apk`.
+- **Sincronización con Backend (`Gamma_bot`):**
+  - Endpoint `GET /api/v1/health` en `Main-stable` y PythonAnywhere (`kevin11000.pythonanywhere.com`) apuntando a `latest_app_version: "0.0.8"` y al enlace de descarga directa del release `v0.0.8`.
 
 ## 2. Decisiones tomadas en esta fase
 
-- **Decisión:** Desplegar directamente los commits de remediación y versionado en `Main-stable` activando el pipeline continuo de producción.
-  **Por qué:** Consolida las correcciones críticas de cierre mensual y asistencia de materias de forma atómica en el servidor.
-  **Alternativas descartadas:** Mantener versiones asimétricas entre el bot y la app móvil.
-- **Decisión:** Publicar versión móvil `0.0.8` firmada con APK Signature Scheme v2 para empaquetar la propagación de mensajes de error de negocio.
-  **Por qué:** Ofrece feedback inmediato al usuario en la interfaz sin requerir inspección de logs o códigos numéricos crudos.
-  **Alternativas descartadas:** Postergar el bump de versión y compilar únicamente en modo debug.
+- **Decisión:** Implementar las notificaciones de descarga mediante `NotificationManager` local y `ComprobanteNotificationHelper` desacoplado con validación defensiva de `POST_NOTIFICATIONS`.
+  **Por qué:** Evita dependencias externas (como Firebase Cloud Messaging) y garantiza que la ausencia de permisos de notificación en Android 13+ no bloquee ni interrumpa la apertura del comprobante PDF en primer plano.
+  **Alternativas descartadas:** Integrar FCM para eventos originados en el propio dispositivo o lanzar excepciones si el usuario deniega el permiso de notificaciones.
+- **Decisión:** Unificar el almacenamiento de comprobantes descargados en `AsistenciaScreen.CierreTabContent` dentro de `context.cacheDir/comprobantes/`.
+  **Por qué:** Mantiene paridad con `SistemaViewModel.abrirPdfConCache` y asegura que el `PendingIntent` de la notificación apunte a una ruta estable servida por `FileProvider`.
+  **Alternativas descartadas:** Guardar archivos sueltos en la raíz de `cacheDir`.
 
 ## 3. Archivos y módulos clave tocados
 
 | Archivo | Cambio |
 |---|---|
-| `Gamma_bot (src/api/blueprint.py)` | Bump de `latest_app_version` a `0.0.8` y `latest_app_version_code` a `45` en `/health`. |
-| `Gamma_bot (tests/test_mobile_api.py)` | Verificación de suites de API móvil. |
-| `GammaMobile (VERSION)` | Bump de versión de `0.0.7` a `0.0.8`. |
-| `GammaMobile (app/build/outputs/apk/release/...)` | Generación de APK firmado `gamma-mobile-v0.0.8-release.apk`. |
-| `GammaMobile (docs/history/fase-tck-004.md)` | Archivo histórico de la fase previa de remediación. |
-| `GammaMobile (HANDOFF.md)` | Nuevo handoff de estado del sistema post-despliegue. |
+| `app/src/main/java/com/gamma/mobile/utils/ComprobanteNotificationHelper.kt` | Nuevo helper de notificaciones push locales para comprobantes PDF con canal, validación de archivo y `PendingIntent` vía `FileProvider`. |
+| `app/src/test/java/com/gamma/mobile/utils/ComprobanteNotificationHelperTest.kt` | Nuevas pruebas unitarias para construcción de payload y validación de archivos PDF. |
+| `app/src/main/java/com/gamma/mobile/presentation/sistema/SistemaViewModel.kt` | Disparo de notificación local en `abrirPdfConCache` al obtener el comprobante. |
+| `app/src/main/java/com/gamma/mobile/presentation/asistencia/AsistenciaScreen.kt` | Guardado en `cacheDir/comprobantes` y disparo de notificación local en `CierreTabContent`. |
+| `app/src/main/java/com/gamma/mobile/MainActivity.kt` | Solicitud de permiso runtime `POST_NOTIFICATIONS` en Android 13+ (`TIRAMISU`). |
+| `Gamma_bot (src/com/handlers/base.py, tests/test_handlers_base.py)` | Actualización del comando `/app` de Telegram a `v0.0.8` (`gamma-mobile-v0.0.8-release.apk`) y test unitario `test_comando_app`. |
+| `docs/specs/notificaciones-descarga-y-release-v008/` | Artefactos SDD (`spec.md`, `plan.md`, `tasks.md`) completados al 100%. |
+| `docs/history/fase-v008-deploy.md` | Archivo histórico del handoff anterior. |
+| `HANDOFF.md` | Documento de cierre de la fase `v0.0.8`. |
 
 ## 4. Pendientes explícitos para la próxima fase
 
-- [ ] *(Opcional / Infraestructura)* Crear Release y subir el binario `gamma-mobile-v0.0.8-release.apk` a GitHub Releases bajo el tag `v0.0.8`.
-- [ ] *(Opcional / Frontend)* Incorporar notificación push local en Android al completar la descarga de comprobantes en segundo plano.
+- Sin pendientes abiertos para la versión `v0.0.8` (ciclo cerrado al 100%).
 
 ## 5. Riesgos / deuda técnica conocida
 
-- **Riesgo:** Si la API de Google Sheets presenta latencia superior a los timeouts configurados en Retrofit (15s), las consultas de asistencia o cierres reportarán timeout.
-  **Impacto:** El usuario deberá reintentar la acción desde la interfaz móvil.
-  **Mitigación sugerida:** El mecanismo de `safeApiCall` y reintento en pantalla ya atrapa la excepción y permite pulsar nuevamente el botón sin bloquear la aplicación.
+- **Riesgo:** Si el usuario deniega manualmente el permiso `POST_NOTIFICATIONS` en Android 13+, el sistema operativo omitirá la notificación en la barra de estado.
+  **Impacto:** El usuario no verá el aviso en la bandeja de notificaciones al descargar un comprobante.
+  **Mitigación sugerida:** `ComprobanteNotificationHelper` comprueba el permiso antes de notificar y el visor PDF se abre igualmente de forma automática en pantalla tras la descarga.
 
 ## 6. Cómo verificar que este handoff sigue vigente
 
 ```bash
 # En Gamma_bot:
-& "D:\Program Files\Anaconda\python.exe" -m pytest tests/test_mobile_api.py
 & "D:\Program Files\Anaconda\python.exe" -m pytest
 
 # En GammaMobile:

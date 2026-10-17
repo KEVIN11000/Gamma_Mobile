@@ -322,6 +322,11 @@ class SistemaViewModel @Inject constructor(
 
             localFileResult.fold(
                 onSuccess = { file ->
+                    com.gamma.mobile.utils.ComprobanteNotificationHelper.mostrarNotificacionDescarga(
+                        context = context,
+                        file = file,
+                        etiqueta = periodo
+                    )
                     try {
                         val uri = FileProvider.getUriForFile(
                             context,

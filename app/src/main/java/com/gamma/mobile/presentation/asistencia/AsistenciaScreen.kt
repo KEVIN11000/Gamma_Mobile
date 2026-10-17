@@ -319,8 +319,18 @@ fun CierreTabContent(cierreViewModel: CierreViewModel) {
         if (uiState is CierreUiState.PdfDownloaded) {
             val pdfState = uiState as CierreUiState.PdfDownloaded
             try {
-                val tempFile = File(context.cacheDir, pdfState.fileName)
+                val cacheDir = File(context.cacheDir, "comprobantes")
+                if (!cacheDir.exists()) {
+                    cacheDir.mkdirs()
+                }
+                val tempFile = File(cacheDir, pdfState.fileName)
                 FileOutputStream(tempFile).use { it.write(pdfState.fileBytes) }
+
+                com.gamma.mobile.utils.ComprobanteNotificationHelper.mostrarNotificacionDescarga(
+                    context = context,
+                    file = tempFile,
+                    etiqueta = hoja.ifBlank { pdfState.fileName }
+                )
 
                 val uri = FileProvider.getUriForFile(
                     context,

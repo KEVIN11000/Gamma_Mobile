@@ -16,6 +16,8 @@
 - **Obligaciones y Deudas:** Simulador de cuotas ampliado con cálculo amortizado dinámico, cuota editable y traspaso fluido a Nueva Obligación; formulario completo con acreedor, cuotas, categoría y notas; eliminación de deudas (`deleteById`) y cancelación de deudas simuladas con sincronización remota y persistencia local Room v3 (cubierto en `ObligacionesViewModelTest.kt`, `EntityMappingTest.kt`).
 - **Seguridad en Sistema:** Verificación de bloqueo de pantalla del dispositivo (`DeviceAuthHelper` con `KeyguardManager`) para visualizar o editar la API Key.
 - **Mantenimiento y Soporte:** Retiro de tarjeta "Cierre Contable Mensual"; tickets de soporte con visualización de estado en solo lectura, modal de detalle y alta de nuevos tickets; buffer dinámico de logs en tiempo real (`AppLogBuffer`) con recarga manual y fallback local (cubierto en `SistemaViewModelTest.kt`).
+- **Publicación de Release `v0.0.9` en GitHub Releases:** Tag `v0.0.9` y commit `f50a87b` publicados en `origin/main`. Binario firmado `gamma-mobile-v0.0.9-release.apk` (33,345,210 bytes, verificado bajo APK Signature Scheme v2) subido y disponible en GitHub Releases (`https://github.com/KEVIN11000/Gamma_Mobile/releases/tag/v0.0.9`).
+- **Sincronización con Backend Core (`Gamma_bot`):** Endpoints del core pusheados y sincronizados.
 
 ## 2. Decisiones tomadas en esta fase
 
@@ -68,12 +70,14 @@
 | `app/src/main/java/com/gamma/mobile/utils/DeviceAuthHelper.kt` | Helper de autenticación nativa con `KeyguardManager`. |
 | `app/src/main/java/com/gamma/mobile/utils/LocalDiarioPdfGenerator.kt` | Generador de reportes PDF locales en Android Canvas. |
 | `docs/specs/mejoras-integrales-v009/` | Artefactos SDD (`spec.md`, `plan.md`, `tasks.md`). |
+| `VERSION` | Bump de versión de `0.0.8` a `0.0.9`. |
+| `app/build/outputs/apk/release/gamma-mobile-v0.0.9-release.apk` | Binario de producción compilado y firmado bajo APK Signature Scheme v2. |
 
 ## 4. Pendientes explícitos para la próxima fase
 
-- [ ] Atender en sesión de `Gamma_bot` los requerimientos de backend decantados en `requerimientos_gamma_bot.md` (endpoint de avisos/calendario, tickets de soporte y contratos complementarios).
+- [x] Atender en sesión de `Gamma_bot` los requerimientos de backend decantados en `requerimientos_gamma_bot.md` (completado y pusheado por el usuario).
+- [x] Realizar bump de versión a `v0.0.9` en `VERSION`, compilar release APK firmado y publicar tag y release en GitHub.
 - [ ] Ejecutar prueba manual en dispositivo físico para verificar la estética del PDF generado y la respuesta biométrica en distintas versiones de Android.
-- [ ] Realizar bump de versión a `v0.0.9` en `VERSION` y compilar release APK firmado cuando el usuario lo autorice.
 
 ## 5. Riesgos / deuda técnica conocida
 
@@ -85,6 +89,7 @@
 
 ```bash
 ./gradlew testDebugUnitTest
+& "$env:LOCALAPPDATA\Android\Sdk\build-tools\34.0.0\apksigner.bat" verify --verbose "app/build/outputs/apk/release/gamma-mobile-v0.0.9-release.apk"
 ```
 
 ---

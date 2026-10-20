@@ -1,95 +1,91 @@
 # HANDOFF — Gamma Mobile
 
-**Fase cerrada:** v0.0.9 — Mejoras Integrales (Reactividad, Libro Diario PDF, Avisos, Obligaciones y Seguridad)
+**Fase cerrada:** v0.1.0 — Remediación Integral UI/UX, Contratos Backend, Blindaje de Cuotas y Previews Compose
 **Fecha de cierre:** 2026-10-20
-**Estado del build/tests:** ✅ pasando — Compilación y tests verificados al 100% (`./gradlew testDebugUnitTest` 32/32 tareas exitosas, 0 errores).
+**Estado del build/tests:** ✅ pasando — Compilación y tests verificados al 100% (`./gradlew testDebugUnitTest` 32/32 tareas exitosas, `./gradlew assembleDebug` limpio en 34s).
 
 ---
 
 ## 1. Estado actual
 
-- **Marcación Laboral en Dashboard:** Selector de modo de marcación (`normal` / `directo`), evaluación semántica de respuesta del servidor (`evaluarMarcacion`) para descartar falsos positivos y banner de estado con confirmación y horas registradas (cubierto en `DashboardViewModelTest.kt`).
-- **Balances Reactivos:** Recálculo local instantáneo de Balance Actual, Margen Libre y Posición IVA mediante `DashboardSummaryCalculator` ante transacciones locales/remotas y refresco al regresar a la pantalla con `DashboardViewModel.onScreenVisible()` (cubierto en `DashboardViewModelTest.kt`).
-- **Navegación Móvil y Solapamientos:** `ScreenBackStack` con gestión de retroceso y `BackHandler` en `SifenScanner` y `NuevaTransaccion` para volver a la pantalla anterior sin cerrar la app; espaciado `Spacer(96.dp)` al pie de `DashboardScreen` que elimina solapamientos táctiles con el FAB.
-- **Libro Diario y Reporte PDF:** Generador PDF 100% local (`LocalDiarioPdfGenerator`) con modelo puro `DiarioPdfReportModel`, disparo de notificación push local (`ComprobanteNotificationHelper`), selector de rango de fechas (`setRangoFechas`/`limpiarRangoFechas`), alternancia de vista Tarjetas <-> Planilla y retiro del botón QR redundante (cubierto en `TransaccionesViewModelTest.kt`).
-- **Avisos y Alarmas:** Formulario unificado de creación y edición (`AvisoFormDialog`), selector de repetición y hasta 5 hitos previos; reprogramación con alarmas descartables no ancladas (`ongoing = false`) mediante `AvisoAlarmScheduler` y `AvisoAlarmReceiver` (cubierto en `AvisoAlarmSchedulerTest.kt`, `AvisosViewModelTest.kt`).
-- **Obligaciones y Deudas:** Simulador de cuotas ampliado con cálculo amortizado dinámico, cuota editable y traspaso fluido a Nueva Obligación; formulario completo con acreedor, cuotas, categoría y notas; eliminación de deudas (`deleteById`) y cancelación de deudas simuladas con sincronización remota y persistencia local Room v3 (cubierto en `ObligacionesViewModelTest.kt`, `EntityMappingTest.kt`).
-- **Seguridad en Sistema:** Verificación de bloqueo de pantalla del dispositivo (`DeviceAuthHelper` con `KeyguardManager`) para visualizar o editar la API Key.
-- **Mantenimiento y Soporte:** Retiro de tarjeta "Cierre Contable Mensual"; tickets de soporte con visualización de estado en solo lectura, modal de detalle y alta de nuevos tickets; buffer dinámico de logs en tiempo real (`AppLogBuffer`) con recarga manual y fallback local (cubierto en `SistemaViewModelTest.kt`).
-- **Publicación de Release `v0.0.9` en GitHub Releases:** Tag `v0.0.9` y commit `f50a87b` publicados en `origin/main`. Binario firmado `gamma-mobile-v0.0.9-release.apk` (33,345,210 bytes, verificado bajo APK Signature Scheme v2) subido y disponible en GitHub Releases (`https://github.com/KEVIN11000/Gamma_Mobile/releases/tag/v0.0.9`).
-- **Sincronización con Backend Core (`Gamma_bot`):** Endpoints del core pusheados y sincronizados.
+- **Blindaje de Cuotas Google Sheets en Dashboard:** En `DashboardViewModel.onScreenVisible()` se utiliza `loadDashboard(forceRefresh = false, silent = true)`, evitando saturar la cuota de 60 req/min del backend al alternar solapas; el recálculo se delega a `DashboardSummaryCalculator` (cubierto en `DashboardViewModelTest.kt`).
+- **Homologación de Contratos con Backend Pydantic:** Modelo `Movimiento` y `MovimientoEntity` integran `proveedorCliente`, `nroFactura`, `tasaIva` y `clientId` con retrocompatibilidad posicional (cubierto en `MovimientoRepositoryTest.kt`).
+- **Resiliencia en Worker de Sincronización:** `SyncMovimientosWorker` captura códigos HTTP 400..499 y marca el registro como `FAILED_CLIENT_VALIDATION` en vez de reintentar infinitamente en segundo plano (cubierto en `SyncMovimientosWorkerTest.kt`).
+- **Saneamiento de Mojibake en UI:** En `NuevaTransaccionScreen` se corrigieron los strings corruptos (`₲`, `"Física Legal"`, acentuación y leyendas de desglose de IVA).
+- **Mapeo SIFEN de Comprobantes Legales:** `SifenScannerViewModel` mapea RUC emisor a `proveedorCliente`, número de factura y discrimina tasa de IVA 10%/5%/Exento.
+- **Ergonomía Táctil y Anti-Solapamiento:** `ObligacionesScreen` cuenta con `contentPadding.bottom = 152.dp` y `AvisosScreen` con `136.dp`, liberando las tarjetas y botones de acción del solapamiento con los FABs; eliminado `Spacer(96.dp)` residual en el root de `DashboardScreen`.
+- **Visor SIFEN con Recorte Nítido:** `ScannerOverlay` en `SifenScannerScreen` utiliza `Modifier.graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }` para que `BlendMode.Clear` perfore la máscara translúcida sin pintar un marco negro opaco.
+- **Persistencia Local Inmediata de Avisos:** `AvisoDao` incluye métodos `@Insert` y `deleteById`, sincronizados en `AvisoRepositoryImpl` para reflejar altas y bajas en Room en modo offline.
+- **Sincronización Estética de StatusBar:** En `Theme.kt`, `window.statusBarColor` toma `colorScheme.background.toArgb()` fundiéndose limpiamente con los TopAppBar en Material 3.
+- **Contrato de Abono a Obligaciones:** `GammaApi` expone `@POST("obligaciones/abonar")` con DTOs `AbonoRequest` y `AbonoResponse`; `ObligacionesViewModel.abonarObligacion` amortiza saldo localmente y despacha el egreso contable (cubierto en `ObligacionesViewModelTest.kt`).
+- **Suite de Previews en Jetpack Compose:** Incorporadas funciones `@Preview` en `DashboardScreen.kt`, `ObligacionesScreen.kt` y `NuevaTransaccionScreen.kt` con soporte de tema sobrio.
+- **Especificaciones SDD v0.2.0 Listas:** Artefactos preparados en `docs/specs/proyector-capacidad-pago-v020/` (`spec.md`, `plan.md`, `tasks.md` y `requerimientos_gamma_bot_v0.2.0.md`).
 
 ## 2. Decisiones tomadas en esta fase
 
-- **Decisión:** Desacoplar `DiarioPdfReportModel` y `AvisoAlarmScheduler` de APIs nativas de Android en capas puras de lógica.
-  **Por qué:** Permite ejecución instantánea de los tests en JUnit 4 sobre la JVM sin requerir emuladores ni dependencias pesadas de Robolectric.
-  **Alternativas descartadas:** Utilizar tests instrumentados en dispositivo físico para verificar generación de reportes y cálculos temporales.
-- **Decisión:** Validación semántica en `evaluarMarcacion` inspeccionando texto y campos de hora en la respuesta.
-  **Por qué:** El endpoint de marcación puede responder HTTP 200 con un mensaje de fallo textual; el parseo semántico previene reportar falsos éxitos al usuario.
-  **Alternativas descartadas:** Confiar únicamente en el código de estado HTTP 200.
-- **Decisión:** Restricción estricta de cambios al cliente Android (`GammaMobile`), sin tocar código en `Gamma_bot`.
-  **Por qué:** Gobernanza multi-repositorio y aislamiento de responsabilidades; los requerimientos de backend se aislaron en `requerimientos_gamma_bot.md`.
-  **Alternativas descartadas:** Modificar directamente los scripts de PythonAnywhere durante la sesión móvil.
-- **Decisión:** Autenticación de seguridad para edición de API Key delegada en `KeyguardManager`.
-  **Por qué:** Emplea el método estándar del sistema operativo (PIN, patrón, huella o rostro) de forma nativa sin forzar contraseñas propietarias adicionales en la app.
-  **Alternativas descartadas:** Solicitar confirmación de texto plano o contraseña separada dentro de la app.
+- **Decisión:** Mantener intacto el código fuente de `Gamma_bot` durante la sesión de `GammaMobile`.
+  **Por qué:** Principio de gobernanza multi-repositorio y aislamiento de responsabilidades; todos los requerimientos de backend se aislaron en `docs/specs/proyector-capacidad-pago-v020/requerimientos_gamma_bot_v0.2.0.md`.
+  **Alternativas descartadas:** Editar scripts en caliente en PythonAnywhere durante el desarrollo móvil.
+- **Decisión:** Implementar `CompositingStrategy.Offscreen` en el Canvas del escáner SIFEN.
+  **Por qué:** Evita que `BlendMode.Clear` horade directamente hasta la superficie base negra de la ventana Android en lugar de la capa translúcida de Compose.
+  **Alternativas descartadas:** Dibujar cuatro rectángulos opacos independientes alrededor del visor.
+- **Decisión:** Marcar `FAILED_CLIENT_VALIDATION` ante errores HTTP 400..499 en `SyncMovimientosWorker`.
+  **Por qué:** Evita bucles infinitos de reintento en WorkManager ante datos rechazados por validaciones de esquema Pydantic.
+  **Alternativas descartadas:** Seguir devolviendo `Result.retry()` indiscriminadamente.
+- **Decisión:** Preservar la firma posicional de los primeros 6 parámetros en el constructor de `Movimiento`.
+  **Por qué:** Mantiene compatibilidad total hacia atrás con los tests unitarios existentes sin romper inicializaciones previas.
+  **Alternativas descartadas:** Reordenar parámetros o forzar constructores con named arguments en toda la suite de tests.
 
 ## 3. Archivos y módulos clave tocados
 
 | Archivo | Cambio |
 |---|---|
-| `app/src/main/AndroidManifest.xml` | Registro de `AvisoAlarmReceiver` con `exported="false"`. |
-| `app/src/main/java/com/gamma/mobile/MainActivity.kt` | Integración de `ScreenBackStack`, `BackHandler` global y paso de `onScreenVisible` al dashboard. |
-| `app/src/main/java/com/gamma/mobile/ScreenBackStack.kt` | Pila de navegación interna para retroceso consistente. |
-| `app/src/main/java/com/gamma/mobile/data/local/GammaDatabase.kt` | Bump de versión de Room a v3. |
-| `app/src/main/java/com/gamma/mobile/data/local/dao/ObligacionDao.kt` | Método `deleteById` para eliminación de deudas. |
-| `app/src/main/java/com/gamma/mobile/data/local/entity/AvisoEntity.kt` | Campos `repeticion` e `hitosPreviosMinutosCsv`. |
-| `app/src/main/java/com/gamma/mobile/data/local/entity/ObligacionEntity.kt` | Campos ampliados (`notas`, `categoria`, `estado`, `numeroCuotas`, `tasaInteresAnual`). |
-| `app/src/main/java/com/gamma/mobile/data/remote/GammaApi.kt` | Endpoints de actualización de avisos y eliminación de obligaciones. |
-| `app/src/main/java/com/gamma/mobile/data/repository/AvisoRepositoryImpl.kt` | Implementación de `actualizarAviso` con fallback Room. |
-| `app/src/main/java/com/gamma/mobile/data/repository/DashboardRepositoryImpl.kt` | Manejo de modo de marcación y recalculo dinámico. |
-| `app/src/main/java/com/gamma/mobile/data/repository/DashboardSummaryCalculator.kt` | Calculador puro de balance, margen libre y posición IVA. |
-| `app/src/main/java/com/gamma/mobile/data/repository/ObligacionRepositoryImpl.kt` | Implementación de `eliminarObligacion` con borrado local Room. |
-| `app/src/main/java/com/gamma/mobile/domain/model/Models.kt` | Extensiones de modelos de dominio para `Aviso`, `Obligacion` y marcación. |
-| `app/src/main/java/com/gamma/mobile/presentation/avisos/AvisosScreen.kt` | Diálogo unificado de alta/edición de avisos con repetición e hitos. |
-| `app/src/main/java/com/gamma/mobile/presentation/avisos/AvisosViewModel.kt` | Flujo de edición y reprogramación de alarmas. |
-| `app/src/main/java/com/gamma/mobile/presentation/dashboard/DashboardScreen.kt` | Selector modo normal/directo, feedback semántico y spacer anti-solapamiento. |
-| `app/src/main/java/com/gamma/mobile/presentation/dashboard/DashboardViewModel.kt` | Refresco dinámico con `onScreenVisible` y evaluación semántica. |
-| `app/src/main/java/com/gamma/mobile/presentation/dashboard/MarcacionResultado.kt` | Parser semántico de respuestas de marcación. |
-| `app/src/main/java/com/gamma/mobile/presentation/obligaciones/ObligacionesScreen.kt` | Simulador ampliado, formulario completo y botones de eliminación/cancelación. |
-| `app/src/main/java/com/gamma/mobile/presentation/obligaciones/ObligacionesViewModel.kt` | Gestión de simulación interactiva y eliminación de deudas. |
-| `app/src/main/java/com/gamma/mobile/presentation/sifen/SifenScannerScreen.kt` | `BackHandler` para retorno controlado. |
-| `app/src/main/java/com/gamma/mobile/presentation/sistema/SistemaScreen.kt` | Retiro de cierre contable, tickets solo lectura + alta, desbloqueo seguro de credencial. |
-| `app/src/main/java/com/gamma/mobile/presentation/sistema/SistemaViewModel.kt` | Buffer dinámico de logs y soporte de tickets. |
-| `app/src/main/java/com/gamma/mobile/presentation/transacciones/NuevaTransaccionScreen.kt` | `BackHandler` para retorno controlado. |
-| `app/src/main/java/com/gamma/mobile/presentation/transacciones/TransaccionesScreen.kt` | Retiro de botón QR, filtro por fechas, alternancia tabla/tarjetas y botón PDF. |
-| `app/src/main/java/com/gamma/mobile/presentation/transacciones/TransaccionesViewModel.kt` | Generación y exportación de PDF con notificación y filtrado. |
-| `app/src/main/java/com/gamma/mobile/receiver/AvisoAlarmReceiver.kt` | Receptor de alarmas locales con notificación push descartable (`ongoing = false`). |
-| `app/src/main/java/com/gamma/mobile/utils/AppLogBuffer.kt` | Buffer circular de logs en memoria para diagnósticos en tiempo real. |
-| `app/src/main/java/com/gamma/mobile/utils/AvisoAlarmScheduler.kt` | Scheduler puro de alarmas e hitos previos. |
-| `app/src/main/java/com/gamma/mobile/utils/DeviceAuthHelper.kt` | Helper de autenticación nativa con `KeyguardManager`. |
-| `app/src/main/java/com/gamma/mobile/utils/LocalDiarioPdfGenerator.kt` | Generador de reportes PDF locales en Android Canvas. |
-| `docs/specs/mejoras-integrales-v009/` | Artefactos SDD (`spec.md`, `plan.md`, `tasks.md`). |
-| `VERSION` | Bump de versión de `0.0.8` a `0.0.9`. |
-| `app/build/outputs/apk/release/gamma-mobile-v0.0.9-release.apk` | Binario de producción compilado y firmado bajo APK Signature Scheme v2. |
+| `app/src/main/java/com/gamma/mobile/data/local/dao/AvisoDao.kt` | Agregados métodos `insert` y `deleteById`. |
+| `app/src/main/java/com/gamma/mobile/data/local/dao/MovimientoDao.kt` | Parámetro `status` en `updateSyncStatus`. |
+| `app/src/main/java/com/gamma/mobile/data/local/entity/MovimientoEntity.kt` | Campos `proveedorCliente`, `nroFactura`, `tasaIva`. |
+| `app/src/main/java/com/gamma/mobile/data/remote/GammaApi.kt` | Endpoint `@POST("obligaciones/abonar")`. |
+| `app/src/main/java/com/gamma/mobile/data/repository/AvisoRepositoryImpl.kt` | Persistencia inmediata en Room para altas y bajas de avisos. |
+| `app/src/main/java/com/gamma/mobile/data/repository/ObligacionRepositoryImpl.kt` | Implementación de `abonarObligacion`. |
+| `app/src/main/java/com/gamma/mobile/data/worker/SyncMovimientosWorker.kt` | Gestión de errores HTTP 400..499 con `FAILED_CLIENT_VALIDATION`. |
+| `app/src/main/java/com/gamma/mobile/domain/model/Models.kt` | Campos homologados en `Movimiento` y DTOs `AbonoRequest`/`AbonoResponse`. |
+| `app/src/main/java/com/gamma/mobile/domain/repository/ObligacionRepository.kt` | Declaración de `abonarObligacion`. |
+| `app/src/main/java/com/gamma/mobile/presentation/avisos/AvisosScreen.kt` | Padding inferior `136.dp` anti-solapamiento. |
+| `app/src/main/java/com/gamma/mobile/presentation/dashboard/DashboardScreen.kt` | Retiro de Spacer redundante y adición de `@Preview`. |
+| `app/src/main/java/com/gamma/mobile/presentation/dashboard/DashboardViewModel.kt` | `onScreenVisible` invoca `forceRefresh = false`. |
+| `app/src/main/java/com/gamma/mobile/presentation/obligaciones/ObligacionesScreen.kt` | Padding inferior `152.dp` anti-solapamiento y `@Preview`. |
+| `app/src/main/java/com/gamma/mobile/presentation/obligaciones/ObligacionesViewModel.kt` | Conexión de llamada a `abonarObligacion`. |
+| `app/src/main/java/com/gamma/mobile/presentation/sifen/SifenScannerScreen.kt` | `CompositingStrategy.Offscreen` en Canvas. |
+| `app/src/main/java/com/gamma/mobile/presentation/sifen/SifenScannerViewModel.kt` | Mapeo de proveedor, factura e IVA. |
+| `app/src/main/java/com/gamma/mobile/presentation/transacciones/NuevaTransaccionScreen.kt` | Saneamiento de mojibake y `@Preview`. |
+| `app/src/main/java/com/gamma/mobile/presentation/transacciones/NuevaTransaccionViewModel.kt` | Integración de campos de proveedor y factura. |
+| `app/src/main/java/com/gamma/mobile/ui/theme/Theme.kt` | Sincronización de `statusBarColor` con `colorScheme.background`. |
+| `docs/specs/proyector-capacidad-pago-v020/` | Documentos SDD y requerimientos backend v0.2.0. |
 
 ## 4. Pendientes explícitos para la próxima fase
 
-- [x] Atender en sesión de `Gamma_bot` los requerimientos de backend decantados en `requerimientos_gamma_bot.md` (completado y pusheado por el usuario).
-- [x] Realizar bump de versión a `v0.0.9` en `VERSION`, compilar release APK firmado y publicar tag y release en GitHub.
-- [ ] Ejecutar prueba manual en dispositivo físico para verificar la estética del PDF generado y la respuesta biométrica en distintas versiones de Android.
+- [ ] [Backend Gamma_bot: Implementar `InMemorySheetsCache` en `src/repositories/sheets_repository.py` con TTL de 180s/300s — Requerimiento 1 de v0.2.0]
+- [ ] [Backend Gamma_bot: Soporte para estado `Pausado` en deudas y asiento contable de abonos en `Libro_Diario` — Requerimiento 2 de v0.2.0]
+- [ ] [Backend Gamma_bot: Auto-detección dinámica de período en `AgenteAutonomoHoras` y captura de HTTP 429 — Requerimiento 3 de v0.2.0]
+- [ ] [Backend Gamma_bot: Crear endpoint `GET /api/v1/cierres` para historial consolidado de cierres — Requerimiento 4 de v0.2.0]
+- [ ] [Backend Gamma_bot: Exponer `GET /obligaciones/vencimientos` y `GET /obligaciones/foco` — Requerimiento 5 de v0.2.0]
+- [ ] [Backend Gamma_bot: Endpoint de cálculo `POST /obligaciones/proyectar-capacidad` — Requerimiento 6 de v0.2.0]
+- [ ] [Mobile GammaMobile: Soporte de estado `Pausada` en `Obligacion` y selector en `ObligacionesScreen` — Tarea 7 de v0.2.0]
+- [ ] [Mobile GammaMobile: Pantalla `HistorialCierresScreen` con visualización y descarga de comprobantes PDF — Tareas 8 a 10 de v0.2.0]
+- [ ] [Mobile GammaMobile: Proyector de Capacidad de Pago (`CapacidadPagoScreen`) con semáforo y simulación What-If — Tarea 11 de v0.2.0]
 
 ## 5. Riesgos / deuda técnica conocida
 
-- **Riesgo:** Desincronización con Google Calendar si los endpoints en `Gamma_bot` tardan en desplegarse.
-  **Impacto:** Los avisos operarán de manera estrictamente local en el dispositivo sin reflejarse en la cuenta remota de Google Calendar.
-  **Mitigación sugerida:** El diseño desacoplado con Room v3 y `AvisoAlarmScheduler` garantiza funcionamiento autónomo sin depender de red.
+- **Riesgo:** Cuotas de Google Sheets saturadas mientras `Gamma_bot` no implemente `InMemorySheetsCache`.
+  **Impacto:** Llamadas a `/dashboard/summary` pueden devolver `HTTP 429` si se fuerza recarga manual repetitiva.
+  **Mitigación sugerida:** Implementar de inmediato el Requerimiento 1 en la sesión de backend.
+- **Riesgo:** Cierres mensuales previos no cuentan con endpoint de listado hasta desplegar `GET /api/v1/cierres`.
+  **Impacto:** La app móvil no puede renderizar la vista de historial de cierres hasta que el endpoint esté activo en PythonAnywhere.
+  **Mitigación sugerida:** Implementar Requerimiento 4 en `Gamma_bot` antes de cerrar la UI móvil de cierres.
 
 ## 6. Cómo verificar que este handoff sigue vigente
 
 ```bash
-./gradlew testDebugUnitTest
-& "$env:LOCALAPPDATA\Android\Sdk\build-tools\34.0.0\apksigner.bat" verify --verbose "app/build/outputs/apk/release/gamma-mobile-v0.0.9-release.apk"
+./gradlew testDebugUnitTest && ./gradlew assembleDebug
 ```
 
 ---

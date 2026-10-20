@@ -52,3 +52,26 @@
   2. En `src/api/blueprint.py` (`marcar_asistencia` y `marcar_materia`):
      - Capturar específicamente `gspread.exceptions.APIError` con código 429 (`RESOURCE_EXHAUSTED`).
      - Responder con código `HTTP 429 Too Many Requests` y JSON `{ "error": { "code": "RATE_LIMIT_EXCEEDED", "message": "Servicio de Google Sheets saturado temporalmente. Espera 60 segundos antes de reintentar." } }`.
+
+---
+
+### Requerimiento 4: Endpoint `GET /api/v1/cierres` para Historial de Cierres Contables y Laborales
+- **Problema:** En `src/api/blueprint.py` existen endpoints para ejecutar un cierre (`POST /cierres/ejecutar`) y descargar un PDF (`GET /cierres/reportes/<filename>`), pero no existe un endpoint para consultar el listado histórico de cierres realizados ni conocer los PDFs disponibles para su visualización en la app móvil.
+- **Solución Requerida:**
+  1. En `src/repositories/sheets_repository.py`: Crear `get_todos_cierres_historicos() -> list[dict]` leyendo todos los registros de la hoja `Cierres_Historicos`.
+  2. En `src/api/blueprint.py`: Implementar `@mobile_api.route("/cierres", methods=["GET"])`:
+     - Retornar la lista consolidada de cierres contables (obtenidos de `Cierres_Historicos` en Sheets) y de cierres laborales (inspeccionando `REPORTES_DIR` para archivos `cierre_laboral_*.pdf` o metadatos de asistencia).
+     - Cada elemento del JSON debe estructurarse como:
+       ```json
+       {
+         "id": "cierre_contable_octubre_2026",
+         "tipo": "contable",
+         "periodo": "Octubre 2026",
+         "fecha": "2026-10-16 11:10",
+         "total_monto": 4500000,
+         "total_horas": 0.0,
+         "resumen": "Ingresos: ₲ 12.000.000 | Gastos: ₲ 7.500.000",
+         "pdf_url": "/api/v1/cierres/reportes/cierre_contable_octubre_2026.pdf",
+         "pdf_disponible": true
+       }
+       ```

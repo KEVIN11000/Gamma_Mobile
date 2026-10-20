@@ -20,8 +20,8 @@ interface MovimientoDao {
     @Query("SELECT * FROM movimientos WHERE syncStatus = 'PENDING'")
     suspend fun getPendingSync(): List<MovimientoEntity>
 
-    @Query("UPDATE movimientos SET syncStatus = 'SYNCED' WHERE id = :id")
-    suspend fun updateSyncStatus(id: String)
+    @Query("UPDATE movimientos SET syncStatus = :status WHERE id = :id")
+    suspend fun updateSyncStatus(id: String, status: String = "SYNCED")
 
     @Query("DELETE FROM movimientos WHERE syncStatus = 'SYNCED'")
     suspend fun deleteSynced()

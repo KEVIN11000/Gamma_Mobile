@@ -61,7 +61,15 @@ data class Movimiento(
     @SerializedName("total")
     val total: Long = 0L,
     @SerializedName("comprobante")
-    val comprobante: String = "" // "Virtual Legal", "Física Legal", "No Legal"
+    val comprobante: String = "", // "Virtual Legal", "Física Legal", "No Legal"
+    @SerializedName(value = "proveedor_cliente", alternate = ["proveedorCliente"])
+    val proveedorCliente: String = "Varios",
+    @SerializedName(value = "nro_factura", alternate = ["nroFactura"])
+    val nroFactura: String = "S/N",
+    @SerializedName(value = "tasa_iva", alternate = ["tasaIva"])
+    val tasaIva: String = "10%",
+    @SerializedName(value = "client_id", alternate = ["clientId"])
+    val clientId: String = id
 )
 
 data class Obligacion(
@@ -101,3 +109,25 @@ data class Obligacion(
     val esSimulada: Boolean
         get() = estado.trim().lowercase() in listOf("simulado", "simulada")
 }
+
+data class AbonoRequest(
+    @SerializedName(value = "id_obligacion", alternate = ["idObligacion"])
+    val idObligacion: String,
+    @SerializedName("monto")
+    val monto: Long,
+    @SerializedName(value = "nro_factura", alternate = ["nroFactura"])
+    val nroFactura: String = "S/N",
+    @SerializedName(value = "tasa_iva", alternate = ["tasaIva"])
+    val tasaIva: String = "10%"
+)
+
+data class AbonoResponse(
+    @SerializedName("status")
+    val status: String = "ok",
+    @SerializedName(value = "id_obligacion", alternate = ["idObligacion"])
+    val idObligacion: String = "",
+    @SerializedName(value = "saldo_actual", alternate = ["saldoActual"])
+    val saldoActual: Long = 0L,
+    @SerializedName("estado")
+    val estado: String = "Activo"
+)

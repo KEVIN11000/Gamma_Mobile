@@ -68,6 +68,9 @@ interface GammaApi {
     @DELETE("obligaciones/{id}")
     suspend fun deleteObligacion(@Path("id") id: String): Response<Unit>
 
+    @POST("obligaciones/abonar")
+    suspend fun abonarObligacion(@Body request: com.gamma.mobile.domain.model.AbonoRequest): Response<com.gamma.mobile.domain.model.AbonoResponse>
+
     @GET("asistencia/materias")
     suspend fun getMaterias(): Response<List<String>>
 

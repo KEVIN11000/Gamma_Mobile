@@ -146,7 +146,7 @@ fun AvisosScreen(
                 is AvisosUiState.Success -> {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp),
-                        contentPadding = PaddingValues(bottom = 96.dp)
+                        contentPadding = PaddingValues(bottom = 136.dp)
                     ) {
                         if (!hasNotificationPermission && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                             item {

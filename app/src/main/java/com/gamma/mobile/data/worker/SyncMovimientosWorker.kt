@@ -34,6 +34,9 @@ class SyncMovimientosWorker @AssistedInject constructor(
                 val response = api.createMovimiento(entity.toDomain())
                 if (response.isSuccessful) {
                     dao.updateSyncStatus(entity.id)
+                } else if (response.code() in 400..499) {
+                    // Errores de cliente / validación: marcar para no reintentar infinitamente en segundo plano
+                    dao.updateSyncStatus(entity.id, "FAILED_CLIENT_VALIDATION")
                 } else {
                     hasFailures = true
                 }

@@ -26,6 +26,8 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
@@ -284,7 +286,11 @@ private fun processImageProxy(
 
 @Composable
 private fun ScannerOverlay(modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier) {
+    Canvas(
+        modifier = modifier.graphicsLayer {
+            compositingStrategy = CompositingStrategy.Offscreen
+        }
+    ) {
         val width = size.width
         val height = size.height
         val boxSize = width * 0.7f

@@ -182,7 +182,13 @@ class ObligacionesViewModel @Inject constructor(
                 estado = nuevoEstado,
                 cuotasRestantes = nuevasRestantes
             )
-            updateInListAndRemote(actualizada)
+            todasLasObligaciones = todasLasObligaciones.map { if (it.id == actualizada.id) actualizada else it }
+            emitFilteredState()
+
+            viewModelScope.launch {
+                repository.updateObligacion(actualizada)
+                repository.abonarObligacion(obligacion.id, montoAbono)
+            }
         }
     }
 

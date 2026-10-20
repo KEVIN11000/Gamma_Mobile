@@ -14,6 +14,8 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.tooling.preview.Preview
+import com.gamma.mobile.ui.theme.GammaTheme
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -132,9 +134,6 @@ fun DashboardScreen(
                 }
             }
         }
-
-        // Espacio para evitar solapamiento con el ExtendedFloatingActionButton ("Transacción")
-        Spacer(modifier = Modifier.height(96.dp))
     }
 }
 
@@ -428,6 +427,31 @@ fun DashboardContent(
 
         // Espacio para evitar solapamiento con el ExtendedFloatingActionButton ("Transacción")
         Spacer(modifier = Modifier.height(96.dp))
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun DashboardContentPreview() {
+    GammaTheme {
+        DashboardContent(
+            summary = DashboardSummary(
+                saldoAcumulado = 15000000L,
+                margenLibreDisponible = 4250000L,
+                posicionIva = 350000L,
+                esDebitoFiscal = true
+            ),
+            avisos = listOf(
+                AvisoUiModel(
+                    id = "1",
+                    titulo = "Pago IVA Setiembre",
+                    diasRestantes = 2,
+                    textoTiempo = "Vence en 2 días",
+                    esCritico = true
+                )
+            ),
+            onNavigateToAvisos = {}
+        )
     }
 }
 

@@ -160,10 +160,14 @@ fun saveMovimiento() {
                 tipo = state.tipo,
                 categoria = state.categoria,
                 total = state.totalParsed,
-                comprobante = state.comprobante
+                comprobante = state.comprobante,
+                proveedorCliente = "Varios",
+                nroFactura = "S/N",
+                tasaIva = state.tasaIva,
+                clientId = UUID.randomUUID().toString()
             )
 
-            when (val result = repository.addMovimiento(movimiento)) {
+            when (repository.addMovimiento(movimiento)) {
                 is NetworkResult.Success -> {
                     _uiState.update { it.copy(isLoading = false, isSuccess = true) }
                 }

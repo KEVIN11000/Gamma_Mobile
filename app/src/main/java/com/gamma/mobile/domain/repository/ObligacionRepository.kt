@@ -8,4 +8,5 @@ interface ObligacionRepository {
     suspend fun createObligacion(obligacion: Obligacion): NetworkResult<Unit>
     suspend fun updateObligacion(obligacion: Obligacion): NetworkResult<Unit>
     suspend fun deleteObligacion(id: String): NetworkResult<Unit>
+    suspend fun abonarObligacion(idObligacion: String, monto: Long): NetworkResult<Unit>
 }

@@ -68,6 +68,20 @@ class ObligacionRepositoryImpl @Inject constructor(
         return result
     }
 
+    override suspend fun abonarObligacion(idObligacion: String, monto: Long): NetworkResult<Unit> {
+        val result = safeApiCall(dispatcher) {
+            api.abonarObligacion(com.gamma.mobile.domain.model.AbonoRequest(idObligacion = idObligacion, monto = monto))
+        }
+        if (result is NetworkResult.Success) {
+            syncStateDao.insert(SyncStateEntity(SYNC_KEY, 0L))
+        }
+        return when (result) {
+            is NetworkResult.Success -> NetworkResult.Success(Unit)
+            is NetworkResult.Error -> result
+            is NetworkResult.Exception -> result
+        }
+    }
+
     companion object {
         private const val SYNC_KEY = "obligaciones"
         private const val CACHE_TTL = 30 * 60 * 1000L // 30 minutes

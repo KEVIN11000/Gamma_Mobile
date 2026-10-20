@@ -26,6 +26,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.tooling.preview.Preview
+import com.gamma.mobile.ui.theme.GammaTheme
 import com.gamma.mobile.domain.model.Obligacion
 import com.gamma.mobile.utils.formatGuaranies
 import java.util.Calendar
@@ -109,7 +111,7 @@ fun ObligacionesScreen(
                             )
                         } else {
                             LazyColumn(
-                                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
+                                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 152.dp),
                                 verticalArrangement = Arrangement.spacedBy(16.dp),
                                 modifier = Modifier.fillMaxSize()
                             ) {
@@ -776,6 +778,33 @@ fun FilterTabsObligaciones(
                 selected = selectedFiltro == filtro,
                 onClick = { onFilterSelected(filtro) },
                 label = { Text(title, fontWeight = if (selectedFiltro == filtro) FontWeight.Bold else FontWeight.Normal) }
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun ObligacionItemPreview() {
+    GammaTheme {
+        Column(modifier = Modifier.padding(16.dp)) {
+            ObligacionItem(
+                obligacion = Obligacion(
+                    id = "preview-1",
+                    nombre = "Préstamo Bancario",
+                    montoInicial = 10000000L,
+                    saldoActual = 6500000L,
+                    estado = "Activo",
+                    entidad = "Banco Continental",
+                    cuotaReferenciaGs = 850000L,
+                    cuotasTotales = 12,
+                    cuotasRestantes = 8,
+                    diaVencimiento = 25
+                ),
+                onAprobar = {},
+                onCancelarSimulada = {},
+                onAbonarClick = {},
+                onDeleteClick = {}
             )
         }
     }

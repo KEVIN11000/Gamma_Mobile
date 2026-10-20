@@ -52,6 +52,7 @@ class AvisoRepositoryImpl @Inject constructor(
     }
 
     override suspend fun createAviso(aviso: Aviso): NetworkResult<Unit> {
+        avisoDao.insert(aviso.toEntity())
         return safeApiCall(dispatcher) { api.createAviso(aviso) }.also {
             if (it is NetworkResult.Success) {
                 syncStateDao.insert(SyncStateEntity(SYNC_KEY, 0L))
@@ -61,11 +62,12 @@ class AvisoRepositoryImpl @Inject constructor(
 
     override suspend fun updateAviso(aviso: Aviso): NetworkResult<Unit> {
         // Persistencia local primero: repetición e hitos deben sobrevivir aunque el backend aún no exponga PUT /avisos/{id}.
-        avisoDao.insertAll(listOf(aviso.toEntity()))
+        avisoDao.insert(aviso.toEntity())
         return safeApiCall(dispatcher) { api.updateAviso(aviso.id, aviso) }
     }
 
     override suspend fun deleteAviso(id: String): NetworkResult<Unit> {
+        avisoDao.deleteById(id)
         return safeApiCall(dispatcher) { api.deleteAviso(id) }.also {
             if (it is NetworkResult.Success) {
                 syncStateDao.insert(SyncStateEntity(SYNC_KEY, 0L))

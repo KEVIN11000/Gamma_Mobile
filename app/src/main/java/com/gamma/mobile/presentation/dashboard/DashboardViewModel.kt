@@ -100,7 +100,7 @@ class DashboardViewModel @Inject constructor(
      */
     fun onScreenVisible() {
         if (!initialLoadDone) return // la carga inicial (init) todavía está en curso
-        loadDashboard(forceRefresh = true, silent = true)
+        loadDashboard(forceRefresh = false, silent = true)
     }
 
     fun setModoMarcacion(modo: String) {

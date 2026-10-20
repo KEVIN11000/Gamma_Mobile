@@ -271,6 +271,23 @@ class ObligacionesViewModelTest {
         assertEquals(1, state.obligaciones.size)
         assertEquals("3", state.obligaciones[0].id)
     }
+
+    @Test
+    fun `abonarObligacion updates debt balance and invokes repository abonarObligacion`() = runTest {
+        val o1 = Obligacion("1", "Préstamo", 1000000, 1000000, "Activo", cuotasRestantes = 10)
+        fakeRepo.data = listOf(o1)
+        viewModel = ObligacionesViewModel(fakeRepo, fakeDashboardRepo)
+        advanceUntilIdle()
+
+        viewModel.abonarObligacion(o1, 200000)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value as ObligacionesUiState.Success
+        assertEquals(800000L, state.obligaciones[0].saldoActual)
+        assertEquals(9, state.obligaciones[0].cuotasRestantes)
+        assertEquals(1, fakeRepo.abonosList.size)
+        assertEquals("1" to 200000L, fakeRepo.abonosList[0])
+    }
 }
 
 class FakeDashboardRepository : com.gamma.mobile.domain.repository.DashboardRepository {
@@ -289,6 +306,7 @@ class FakeObligacionRepository : ObligacionRepository {
     val createdList = mutableListOf<Obligacion>()
     val updatedList = mutableListOf<Obligacion>()
     val deletedIds = mutableListOf<String>()
+    val abonosList = mutableListOf<Pair<String, Long>>()
 
     override suspend fun getObligaciones(forceRefresh: Boolean): NetworkResult<List<Obligacion>> {
         return NetworkResult.Success(data)
@@ -306,6 +324,11 @@ class FakeObligacionRepository : ObligacionRepository {
 
     override suspend fun deleteObligacion(id: String): NetworkResult<Unit> {
         deletedIds.add(id)
+        return NetworkResult.Success(Unit)
+    }
+
+    override suspend fun abonarObligacion(idObligacion: String, monto: Long): NetworkResult<Unit> {
+        abonosList.add(idObligacion to monto)
         return NetworkResult.Success(Unit)
     }
 }

@@ -70,13 +70,21 @@ class SifenScannerViewModel @Inject constructor(
                 categoria
             }
 
+            val proveedor = invoice.rucEmisor.ifBlank { "DNIT SIFEN" }
+            val nroFac = invoice.nroFactura.ifBlank { "S/N" }
+            val tasaIvaFinal = if (invoice.iva5 > 0 && invoice.iva10 == 0L) "5%" else if (invoice.iva10 > 0) "10%" else "Exento"
+
             val movimiento = Movimiento(
                 id = UUID.randomUUID().toString(),
                 fecha = invoice.fechaEmision,
                 tipo = "Gasto",
                 categoria = categoriaFinal,
                 total = invoice.total,
-                comprobante = "Virtual Legal"
+                comprobante = "Virtual Legal",
+                proveedorCliente = proveedor,
+                nroFactura = nroFac,
+                tasaIva = tasaIvaFinal,
+                clientId = UUID.randomUUID().toString()
             )
 
             when (val result = movimientoRepository.addMovimiento(movimiento)) {

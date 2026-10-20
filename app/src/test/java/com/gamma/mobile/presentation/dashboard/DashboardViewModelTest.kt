@@ -263,21 +263,27 @@ class DashboardViewModelTest {
         val state2 = viewModel.uiState.value
         assertTrue(state2 is DashboardUiState.Success)
         assertEquals(500L, (state2 as DashboardUiState.Success).summary.margenLibreDisponible)
+        assertEquals(false, fakeDashboardRepo.lastForceRefresh)
+        assertEquals(false, fakeAvisoRepo.lastForceRefresh)
     }
 }
 
 class FakeDashboardRepository : DashboardRepository {
     var result: NetworkResult<DashboardSummary> = NetworkResult.Error(500, "Uninitialized")
+    var lastForceRefresh: Boolean? = null
     
     override suspend fun getSummary(forceRefresh: Boolean): NetworkResult<DashboardSummary> {
+        lastForceRefresh = forceRefresh
         return result
     }
 }
 
 class FakeAvisoRepository : AvisoRepository {
     var result: NetworkResult<List<Aviso>> = NetworkResult.Success(emptyList())
+    var lastForceRefresh: Boolean? = null
     
     override suspend fun getAvisos(forceRefresh: Boolean): NetworkResult<List<Aviso>> {
+        lastForceRefresh = forceRefresh
         return result
     }
 

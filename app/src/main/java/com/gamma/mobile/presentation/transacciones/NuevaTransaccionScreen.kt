@@ -21,6 +21,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.tooling.preview.Preview
+import com.gamma.mobile.ui.theme.GammaTheme
 import com.gamma.mobile.utils.formatGuaranies
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -166,7 +168,7 @@ fun CargaAsistidaIA(onProcessIA: (String) -> Unit) {
         }
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            text = "Ejemplo: ComprÃ© repuestos por 250000 con factura crÃ©dito fiscal",
+            text = "Ejemplo: Compré repuestos por 250000 con factura crédito fiscal",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -231,7 +233,7 @@ fun CargaManual(viewModel: NuevaTransaccionViewModel, uiState: NuevaTransaccionU
         OutlinedTextField(
             value = uiState.totalInput,
             onValueChange = { viewModel.updateTotal(it) },
-            label = { Text("Monto Total (IVA Incluido, â‚²)") },
+            label = { Text("Monto Total (IVA Incluido, ₲)") },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             modifier = Modifier.fillMaxWidth()
         )
@@ -254,7 +256,7 @@ fun CargaManual(viewModel: NuevaTransaccionViewModel, uiState: NuevaTransaccionU
                 expanded = expandedComprobante,
                 onDismissRequest = { expandedComprobante = false }
             ) {
-                listOf("Virtual Legal", "FÃ­sica Legal", "No Legal").forEach { option ->
+                listOf("Virtual Legal", "Física Legal", "No Legal").forEach { option ->
                     DropdownMenuItem(
                         text = { Text(option) },
                         onClick = {
@@ -285,7 +287,7 @@ fun CargaManual(viewModel: NuevaTransaccionViewModel, uiState: NuevaTransaccionU
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Desglose de Impuestos (IVA extraÃ­do del total)", fontWeight = FontWeight.Bold)
+                    Text("Desglose de Impuestos (IVA extraído del total)", fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(8.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("Monto Gravado:")
@@ -308,7 +310,7 @@ fun CargaManual(viewModel: NuevaTransaccionViewModel, uiState: NuevaTransaccionU
             if (uiState.isLoading) {
                 CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary)
             } else {
-                Text("Guardar TransacciÃ³n")
+                Text("Guardar Transacción")
             }
         }
     }
@@ -340,6 +342,16 @@ fun CargaOcrUI(onImageSelected: (Uri) -> Unit) {
             cameraLauncher.launch(photoUri!!)
         }, modifier = Modifier.fillMaxWidth()) {
             Text("Tomar Foto con Cámara")
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun CargaAsistidaIAPreview() {
+    GammaTheme {
+        Surface(modifier = Modifier.padding(16.dp)) {
+            CargaAsistidaIA(onProcessIA = {})
         }
     }
 }

@@ -12,7 +12,13 @@ interface AvisoDao {
     suspend fun getAll(): List<AvisoEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(aviso: AvisoEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(avisos: List<AvisoEntity>)
+
+    @Query("DELETE FROM avisos WHERE id = :id")
+    suspend fun deleteById(id: String)
 
     @Query("DELETE FROM avisos")
     suspend fun deleteAll()

@@ -88,7 +88,7 @@ class ObligacionesViewModel @Inject constructor(
         _uiState.value = ObligacionesUiState.Success(filtered)
     }
 
-    fun simularCuota(monto: Long, cuotas: Int) {
+    fun simularCuota(monto: Long, cuotas: Int, cuotaPersonalizada: Long? = null) {
         if (monto <= 0L || cuotas <= 0) {
             _simulacionResult.value = null
             return
@@ -98,13 +98,18 @@ class ObligacionesViewModel @Inject constructor(
             val margen = if (summaryResult is NetworkResult.Success) {
                 summaryResult.data.margenLibreDisponible
             } else {
-                0L // Si falla, asumimos margen 0
+                0L
             }
 
-            val cuota = monto / cuotas
+            val cuota = if (cuotaPersonalizada != null && cuotaPersonalizada > 0L) {
+                cuotaPersonalizada
+            } else {
+                monto / cuotas
+            }
+
             val (nivel, mensaje) = when {
-                cuota <= margen * 0.3 -> NivelRiesgo.VERDE to "Seguro. Tienes margen suficiente."
-                cuota <= margen * 0.6 -> NivelRiesgo.AMARILLO to "Precaución. La cuota consumirá gran parte de tu margen."
+                margen > 0L && cuota <= margen * 0.3 -> NivelRiesgo.VERDE to "Seguro. Tienes margen suficiente (consumirá ≤30% de tu margen)."
+                margen > 0L && cuota <= margen * 0.6 -> NivelRiesgo.AMARILLO to "Precaución. La cuota consumirá una porción considerable de tu margen."
                 else -> NivelRiesgo.ROJO to "Peligro. La cuota excede tu capacidad de pago recomendada."
             }
 
@@ -116,24 +121,44 @@ class ObligacionesViewModel @Inject constructor(
         _simulacionResult.value = null
     }
 
-    fun crearObligacion(nombre: String, montoInicial: Long) {
-        val currentState = _uiState.value
-        if (currentState is ObligacionesUiState.Success) {
-            val nueva = Obligacion(
-                id = UUID.randomUUID().toString(),
-                nombre = nombre,
-                montoInicial = montoInicial,
-                saldoActual = montoInicial,
-                estado = "Simulado"
-            )
-            
-            // Actualización optimista local
-            todasLasObligaciones = todasLasObligaciones + nueva
-            emitFilteredState()
+    fun crearObligacion(obligacion: Obligacion) {
+        val nueva = if (obligacion.id.isBlank()) {
+            obligacion.copy(id = UUID.randomUUID().toString())
+        } else {
+            obligacion
+        }
+        todasLasObligaciones = todasLasObligaciones + nueva
+        emitFilteredState()
 
-            viewModelScope.launch {
-                repository.createObligacion(nueva)
-            }
+        viewModelScope.launch {
+            repository.createObligacion(nueva)
+        }
+    }
+
+    // Sobrecarga para compatibilidad existente
+    fun crearObligacion(nombre: String, montoInicial: Long) {
+        val nueva = Obligacion(
+            id = UUID.randomUUID().toString(),
+            nombre = nombre,
+            montoInicial = montoInicial,
+            saldoActual = montoInicial,
+            estado = "Simulado"
+        )
+        crearObligacion(nueva)
+    }
+
+    fun eliminarObligacion(id: String) {
+        todasLasObligaciones = todasLasObligaciones.filterNot { it.id == id }
+        emitFilteredState()
+
+        viewModelScope.launch {
+            repository.deleteObligacion(id)
+        }
+    }
+
+    fun cancelarObligacionSimulada(obligacion: Obligacion) {
+        if (obligacion.esSimulada) {
+            eliminarObligacion(obligacion.id)
         }
     }
 
@@ -150,8 +175,13 @@ class ObligacionesViewModel @Inject constructor(
         if (currentState is ObligacionesUiState.Success && obligacion.esActiva) {
             val nuevoSaldo = (obligacion.saldoActual - montoAbono).coerceAtLeast(0L)
             val nuevoEstado = if (nuevoSaldo == 0L) "Saldada" else "Activo"
-            
-            val actualizada = obligacion.copy(saldoActual = nuevoSaldo, estado = nuevoEstado)
+            val nuevasRestantes = (obligacion.cuotasRestantes - 1).coerceAtLeast(0)
+
+            val actualizada = obligacion.copy(
+                saldoActual = nuevoSaldo,
+                estado = nuevoEstado,
+                cuotasRestantes = nuevasRestantes
+            )
             updateInListAndRemote(actualizada)
         }
     }
@@ -159,7 +189,7 @@ class ObligacionesViewModel @Inject constructor(
     private fun updateInListAndRemote(updated: Obligacion) {
         todasLasObligaciones = todasLasObligaciones.map { if (it.id == updated.id) updated else it }
         emitFilteredState()
-        
+
         viewModelScope.launch {
             repository.updateObligacion(updated)
         }

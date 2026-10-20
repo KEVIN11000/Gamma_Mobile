@@ -44,6 +44,12 @@ interface GammaApi {
     @DELETE("avisos/{id}")
     suspend fun deleteAviso(@Path("id") id: String): Response<Unit>
 
+    @PUT("avisos/{id}")
+    suspend fun updateAviso(
+        @Path("id") id: String,
+        @Body aviso: Aviso
+    ): Response<Unit>
+
     @POST("ia/interpretar/aviso")
     suspend fun interpretarAvisoIa(@Body request: IaTextRequest): Response<Aviso>
 
@@ -58,6 +64,9 @@ interface GammaApi {
         @Path("id") id: String, 
         @Body obligacion: com.gamma.mobile.domain.model.Obligacion
     ): Response<Unit>
+
+    @DELETE("obligaciones/{id}")
+    suspend fun deleteObligacion(@Path("id") id: String): Response<Unit>
 
     @GET("asistencia/materias")
     suspend fun getMaterias(): Response<List<String>>

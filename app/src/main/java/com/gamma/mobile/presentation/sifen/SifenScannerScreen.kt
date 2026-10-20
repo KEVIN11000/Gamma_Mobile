@@ -3,6 +3,7 @@ package com.gamma.mobile.presentation.sifen
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.compose.BackHandler
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.OptIn
 import androidx.camera.core.CameraSelector
@@ -77,6 +78,14 @@ fun SifenScannerScreen(
         uiState.errorMessage?.let { message ->
             snackbarHostState.showSnackbar(message)
             viewModel.clearError()
+        }
+    }
+
+    BackHandler {
+        if (uiState.scannedInvoice != null) {
+            viewModel.dismissInvoice()
+        } else {
+            onBack()
         }
     }
 

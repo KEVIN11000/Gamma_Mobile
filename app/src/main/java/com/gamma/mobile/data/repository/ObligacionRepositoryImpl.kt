@@ -55,9 +55,15 @@ class ObligacionRepositoryImpl @Inject constructor(
     }
 
     override suspend fun updateObligacion(obligacion: Obligacion): NetworkResult<Unit> {
-        val result = safeApiCall(dispatcher) { api.updateObligacion(obligacion.id, obligacion) }
+        // Persistencia local siempre: el backend aún no expone PUT /obligaciones/{id} (ver requerimientos_gamma_bot.md).
+        obligacionDao.insertAll(listOf(obligacion.toEntity()))
+        return safeApiCall(dispatcher) { api.updateObligacion(obligacion.id, obligacion) }
+    }
+
+    override suspend fun deleteObligacion(id: String): NetworkResult<Unit> {
+        val result = safeApiCall(dispatcher) { api.deleteObligacion(id) }
         if (result is NetworkResult.Success) {
-            obligacionDao.insertAll(listOf(obligacion.toEntity())) // replace logic
+            obligacionDao.deleteById(id)
         }
         return result
     }

@@ -12,6 +12,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -66,8 +67,73 @@ class ObligacionesViewModelTest {
         assertEquals(500000, state.obligaciones[0].montoInicial)
         assertEquals("Simulado", state.obligaciones[0].estado)
         
-        // Also added to repo
         assertEquals(1, fakeRepo.createdList.size)
+    }
+
+    @Test
+    fun `crearObligacion with full model preserves all extended attributes`() = runTest {
+        fakeRepo.data = emptyList()
+        viewModel = ObligacionesViewModel(fakeRepo, fakeDashboardRepo)
+        advanceUntilIdle()
+
+        val obligacionCompleta = Obligacion(
+            id = "ext-1",
+            nombre = "Préstamo Auto",
+            montoInicial = 12000000,
+            saldoActual = 12000000,
+            estado = "Activo",
+            entidad = "Banco Continental",
+            tipo = "Préstamo",
+            cuotaReferenciaGs = 1000000,
+            cuotasTotales = 12,
+            cuotasRestantes = 12,
+            diaVencimiento = 15,
+            fechaInicio = "15/11/2026",
+            observaciones = "Cuotas con seguro incluido"
+        )
+
+        viewModel.crearObligacion(obligacionCompleta)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value as ObligacionesUiState.Success
+        assertEquals(1, state.obligaciones.size)
+        val guardada = state.obligaciones[0]
+        assertEquals("Banco Continental", guardada.entidad)
+        assertEquals(1000000L, guardada.cuotaReferenciaGs)
+        assertEquals(15, guardada.diaVencimiento)
+        assertEquals(1, fakeRepo.createdList.size)
+    }
+
+    @Test
+    fun `eliminarObligacion removes item optimistically and calls repo`() = runTest {
+        val o1 = Obligacion("1", "Deuda 1", 1000, 1000, "Activo")
+        val o2 = Obligacion("2", "Deuda 2", 2000, 2000, "Activo")
+        fakeRepo.data = listOf(o1, o2)
+        viewModel = ObligacionesViewModel(fakeRepo, fakeDashboardRepo)
+        advanceUntilIdle()
+
+        viewModel.eliminarObligacion("1")
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value as ObligacionesUiState.Success
+        assertEquals(1, state.obligaciones.size)
+        assertEquals("2", state.obligaciones[0].id)
+        assertTrue(fakeRepo.deletedIds.contains("1"))
+    }
+
+    @Test
+    fun `cancelarObligacionSimulada removes simulated debt`() = runTest {
+        val simulada = Obligacion("sim-1", "Proyección", 5000, 5000, "Simulado")
+        fakeRepo.data = listOf(simulada)
+        viewModel = ObligacionesViewModel(fakeRepo, fakeDashboardRepo)
+        advanceUntilIdle()
+
+        viewModel.cancelarObligacionSimulada(simulada)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value as ObligacionesUiState.Success
+        assertEquals(0, state.obligaciones.size)
+        assertTrue(fakeRepo.deletedIds.contains("sim-1"))
     }
 
     @Test
@@ -116,7 +182,7 @@ class ObligacionesViewModelTest {
     }
 
     @Test
-    fun `simularCuota maps to correct NivelRiesgo based on margin`() = runTest {
+    fun `simularCuota maps to correct NivelRiesgo based on margin and accepts custom installment`() = runTest {
         viewModel = ObligacionesViewModel(fakeRepo, fakeDashboardRepo)
         
         // Verde (<= 30%)
@@ -133,6 +199,12 @@ class ObligacionesViewModelTest {
         viewModel.simularCuota(monto = 7000, cuotas = 10) // 700 / 1000 = 70%
         advanceUntilIdle()
         assertEquals(NivelRiesgo.ROJO, viewModel.simulacionResult.value?.nivelRiesgo)
+
+        // Cuota personalizada explícita (e.g. monto 3000 pero cuota con interés 800 -> Rojo)
+        viewModel.simularCuota(monto = 3000, cuotas = 10, cuotaPersonalizada = 800)
+        advanceUntilIdle()
+        assertEquals(NivelRiesgo.ROJO, viewModel.simulacionResult.value?.nivelRiesgo)
+        assertEquals(800L, viewModel.simulacionResult.value?.cuotaMensual)
     }
 
     @Test
@@ -216,6 +288,7 @@ class FakeObligacionRepository : ObligacionRepository {
     var data: List<Obligacion> = emptyList()
     val createdList = mutableListOf<Obligacion>()
     val updatedList = mutableListOf<Obligacion>()
+    val deletedIds = mutableListOf<String>()
 
     override suspend fun getObligaciones(forceRefresh: Boolean): NetworkResult<List<Obligacion>> {
         return NetworkResult.Success(data)
@@ -228,6 +301,11 @@ class FakeObligacionRepository : ObligacionRepository {
 
     override suspend fun updateObligacion(obligacion: Obligacion): NetworkResult<Unit> {
         updatedList.add(obligacion)
+        return NetworkResult.Success(Unit)
+    }
+
+    override suspend fun deleteObligacion(id: String): NetworkResult<Unit> {
+        deletedIds.add(id)
         return NetworkResult.Success(Unit)
     }
 }

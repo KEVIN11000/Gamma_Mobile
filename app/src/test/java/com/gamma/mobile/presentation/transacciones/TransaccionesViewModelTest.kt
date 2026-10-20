@@ -10,8 +10,10 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import com.gamma.mobile.utils.DiarioPdfReportModel
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -138,6 +140,97 @@ class TransaccionesViewModelTest {
         assertEquals("05/10/2026", dates[1])
         assertEquals("31/08/2026", dates[2])
         assertEquals("25/08/2026", dates[3])
+    }
+
+    @Test
+    fun `setRangoFechas filters correctly by start and end date`() = runTest {
+        val movimientos = listOf(
+            Movimiento("1", "01/10/2026", "Ingreso", "Cat1", 100, "Legal"),
+            Movimiento("2", "10/10/2026", "Gasto", "Cat2", 50, "Legal"),
+            Movimiento("3", "20/10/2026", "Ingreso", "Cat3", 200, "Legal"),
+            Movimiento("4", "25/10/2026", "Gasto", "Cat4", 80, "Legal")
+        )
+        fakeRepo.result = NetworkResult.Success(movimientos)
+        viewModel = TransaccionesViewModel(fakeRepo)
+        advanceUntilIdle()
+
+        // Filtrar entre 05/10/2026 y 22/10/2026 (debe incluir 10/10 y 20/10)
+        viewModel.setRangoFechas("05/10/2026", "22/10/2026")
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value as TransaccionesUiState.Success
+        assertEquals(2, state.movimientosFiltrados.size)
+        val ids = state.movimientosFiltrados.map { it.id }
+        assertTrue(ids.contains("2"))
+        assertTrue(ids.contains("3"))
+        assertFalse(ids.contains("1"))
+        assertFalse(ids.contains("4"))
+    }
+
+    @Test
+    fun `limpiarRangoFechas restores full list`() = runTest {
+        val movimientos = listOf(
+            Movimiento("1", "01/10/2026", "Ingreso", "Cat1", 100, "Legal"),
+            Movimiento("2", "25/10/2026", "Gasto", "Cat2", 50, "Legal")
+        )
+        fakeRepo.result = NetworkResult.Success(movimientos)
+        viewModel = TransaccionesViewModel(fakeRepo)
+        advanceUntilIdle()
+
+        viewModel.setRangoFechas("01/10/2026", "02/10/2026")
+        advanceUntilIdle()
+        assertEquals(1, (viewModel.uiState.value as TransaccionesUiState.Success).movimientosFiltrados.size)
+
+        viewModel.limpiarRangoFechas()
+        advanceUntilIdle()
+        assertEquals(2, (viewModel.uiState.value as TransaccionesUiState.Success).movimientosFiltrados.size)
+    }
+
+    @Test
+    fun `toggleViewMode alternates isTableView between true and false`() = runTest {
+        val movimientos = listOf(
+            Movimiento("1", "01/10/2026", "Ingreso", "Cat1", 100, "Legal")
+        )
+        fakeRepo.result = NetworkResult.Success(movimientos)
+        viewModel = TransaccionesViewModel(fakeRepo)
+        advanceUntilIdle()
+
+        var state = viewModel.uiState.value as TransaccionesUiState.Success
+        assertFalse(state.isTableView)
+
+        viewModel.toggleViewMode()
+        advanceUntilIdle()
+
+        state = viewModel.uiState.value as TransaccionesUiState.Success
+        assertTrue(state.isTableView)
+
+        viewModel.toggleViewMode()
+        advanceUntilIdle()
+
+        state = viewModel.uiState.value as TransaccionesUiState.Success
+        assertFalse(state.isTableView)
+    }
+
+    @Test
+    fun `DiarioPdfReportModel builds correct totals and rows from movimientos`() {
+        val movimientos = listOf(
+            Movimiento("1", "01/10/2026", "Ingreso", "Ventas", 1000000, "Legal"),
+            Movimiento("2", "02/10/2026", "Gasto", "Insumos", 400000, "Legal")
+        )
+
+        val report = DiarioPdfReportModel.buildFrom(
+            movimientos = movimientos,
+            filtro = FiltroTipo.TODOS,
+            fechaDesde = "01/10/2026",
+            fechaHasta = "05/10/2026"
+        )
+
+        assertEquals("Desde 01/10/2026 hasta 05/10/2026", report.rangoPeriodo)
+        assertEquals("Todos los movimientos", report.filtroAplicado)
+        assertEquals(2, report.rows.size)
+        assertTrue(report.totalIngresosGs.contains("1.000.000"))
+        assertTrue(report.totalGastosGs.contains("400.000"))
+        assertTrue(report.saldoNetoGs.contains("600.000"))
     }
 }
 

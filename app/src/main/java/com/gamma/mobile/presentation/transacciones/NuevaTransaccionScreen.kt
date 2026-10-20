@@ -8,6 +8,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.platform.LocalContext
@@ -51,6 +52,8 @@ fun NuevaTransaccionScreen(
             text = { Text(uiState.errorMessage!!) }
         )
     }
+
+    BackHandler(onBack = onBack)
 
     Scaffold(
         topBar = {

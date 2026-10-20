@@ -15,6 +15,7 @@ import com.gamma.mobile.domain.repository.SecureStorageRepository
 import com.gamma.mobile.domain.repository.SistemaRepository
 import com.gamma.mobile.domain.model.UpdateStatus
 import com.gamma.mobile.domain.usecase.CheckAppUpdateUseCase
+import com.gamma.mobile.utils.AppLogBuffer
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -34,6 +35,7 @@ data class SistemaUiState(
     val tickets: List<TicketItem> = emptyList(),
     val ticketFiltro: String = "Todos", // "Todos", "Abierto", "En proceso", "Cerrado"
     val logs: List<LogEntry> = emptyList(),
+    val isLogsRefreshing: Boolean = false,
     val baseUrl: String = "",
     val apiKey: String = "",
     val isApiKeyConfigured: Boolean = false,
@@ -95,6 +97,8 @@ class SistemaViewModel @Inject constructor(
             secureStorage.saveApiKey(sanitizedKey)
         }
 
+        AppLogBuffer.info("Configuración actualizada. Probando conexión a $sanitizedUrl")
+
         _uiState.update {
             it.copy(
                 baseUrl = secureStorage.getBaseUrl(),
@@ -118,9 +122,10 @@ class SistemaViewModel @Inject constructor(
             val ticketsResult = repository.getTickets()
             val ticketsData = if (ticketsResult is NetworkResult.Success) ticketsResult.data else emptyList()
 
-            // 3. Logs
+            // 3. Logs (remotos si existen; fallback a buffer local en memoria)
             val logsResult = repository.getLogs()
-            val logsData = if (logsResult is NetworkResult.Success) logsResult.data else emptyList()
+            val remoteLogs = if (logsResult is NetworkResult.Success) logsResult.data else emptyList()
+            val finalLogs = if (remoteLogs.isNotEmpty()) remoteLogs else AppLogBuffer.getLogs()
 
             // 4. Comprobación autónoma de Release en GitHub
             val updateStatus = checkAppUpdateUseCase(repository.getAppVersion())
@@ -149,12 +154,22 @@ class SistemaViewModel @Inject constructor(
                     appVersion = repository.getAppVersion(),
                     health = healthData,
                     tickets = ticketsData,
-                    logs = logsData,
+                    logs = finalLogs,
                     error = errorMessage,
                     configMessage = updatedConfigMessage,
                     updateStatus = updateStatus
                 )
             }
+        }
+    }
+
+    fun recargarLogs() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLogsRefreshing = true) }
+            val logsResult = repository.getLogs()
+            val remoteLogs = if (logsResult is NetworkResult.Success) logsResult.data else emptyList()
+            val combinedLogs = (AppLogBuffer.getLogs() + remoteLogs).distinctBy { "${it.timestamp}_${it.mensaje}" }
+            _uiState.update { it.copy(logs = combinedLogs, isLogsRefreshing = false) }
         }
     }
 
@@ -172,11 +187,14 @@ class SistemaViewModel @Inject constructor(
             return
         }
 
+        AppLogBuffer.info("Reportando nuevo ticket de soporte: '$asu'")
+
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null, ticketCreationSuccess = null) }
             when (val result = repository.createTicket(asu, desc)) {
                 is NetworkResult.Success -> {
                     val nuevoTicket = result.data
+                    AppLogBuffer.info("Ticket ${nuevoTicket.id} creado exitosamente")
                     _uiState.update { state ->
                         state.copy(
                             isLoading = false,
@@ -186,19 +204,22 @@ class SistemaViewModel @Inject constructor(
                     }
                 }
                 is NetworkResult.Error -> {
+                    AppLogBuffer.error("Fallo al crear ticket: ${result.message}")
                     _uiState.update { it.copy(isLoading = false, error = result.message.ifEmpty { "Error ${result.code} al crear ticket" }) }
                 }
                 is NetworkResult.Exception -> {
+                    AppLogBuffer.error("Excepción al crear ticket: ${result.e.localizedMessage}")
                     _uiState.update { it.copy(isLoading = false, error = result.e.localizedMessage ?: "Error de red al crear ticket") }
                 }
             }
         }
     }
- 
+
     fun setFiltroTickets(filtro: String) {
         _uiState.update { it.copy(ticketFiltro = filtro) }
     }
 
+    // Mantenido para compatibilidad con tests unitarios existentes
     fun actualizarEstadoTicket(ticketId: String, nuevoEstado: String, resolucion: String? = null) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null, ticketActionMessage = null) }

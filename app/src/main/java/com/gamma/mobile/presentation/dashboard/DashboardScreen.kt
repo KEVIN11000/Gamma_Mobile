@@ -43,7 +43,9 @@ fun DashboardScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val asistenciaMessage by viewModel.asistenciaMessage.collectAsState()
+    val asistenciaIsError by viewModel.asistenciaIsError.collectAsState()
     val isMarkingAsistencia by viewModel.isMarkingAsistencia.collectAsState()
+    val modoMarcacion by viewModel.modoMarcacion.collectAsState()
 
     Scaffold(
         topBar = {
@@ -108,6 +110,9 @@ fun DashboardScreen(
                         onMarcarAsistencia = { viewModel.marcarAsistencia() },
                         isMarkingAsistencia = isMarkingAsistencia,
                         asistenciaMessage = asistenciaMessage,
+                        asistenciaIsError = asistenciaIsError,
+                        modoMarcacion = modoMarcacion,
+                        onModoMarcacionChange = { viewModel.setModoMarcacion(it) },
                         onDismissAsistenciaMessage = { viewModel.dismissAsistenciaMessage() }
                     )
                 }
@@ -119,11 +124,17 @@ fun DashboardScreen(
                         onMarcarAsistencia = { viewModel.marcarAsistencia() },
                         isMarkingAsistencia = isMarkingAsistencia,
                         asistenciaMessage = asistenciaMessage,
+                        asistenciaIsError = asistenciaIsError,
+                        modoMarcacion = modoMarcacion,
+                        onModoMarcacionChange = { viewModel.setModoMarcacion(it) },
                         onDismissAsistenciaMessage = { viewModel.dismissAsistenciaMessage() }
                     )
                 }
             }
         }
+
+        // Espacio para evitar solapamiento con el ExtendedFloatingActionButton ("Transacción")
+        Spacer(modifier = Modifier.height(96.dp))
     }
 }
 
@@ -135,6 +146,9 @@ fun DashboardContent(
     onMarcarAsistencia: () -> Unit = {},
     isMarkingAsistencia: Boolean = false,
     asistenciaMessage: String? = null,
+    asistenciaIsError: Boolean = false,
+    modoMarcacion: String = DashboardViewModel.MODO_NORMAL,
+    onModoMarcacionChange: (String) -> Unit = {},
     onDismissAsistenciaMessage: () -> Unit = {}
 ) {
     val dayOfWeek = remember { LocalDate.now().dayOfWeek }
@@ -211,20 +225,67 @@ fun DashboardContent(
                         }
                     }
 
+                    // Selector de modo de marcación
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Start,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Modo:",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
+                            modifier = Modifier.padding(end = 8.dp)
+                        )
+                        FilterChip(
+                            selected = modoMarcacion == DashboardViewModel.MODO_NORMAL,
+                            onClick = { onModoMarcacionChange(DashboardViewModel.MODO_NORMAL) },
+                            label = { Text("Normal", style = MaterialTheme.typography.labelSmall) },
+                            modifier = Modifier.padding(end = 6.dp)
+                        )
+                        FilterChip(
+                            selected = modoMarcacion == DashboardViewModel.MODO_DIRECTO,
+                            onClick = { onModoMarcacionChange(DashboardViewModel.MODO_DIRECTO) },
+                            label = { Text("Directo", style = MaterialTheme.typography.labelSmall) }
+                        )
+                    }
+
                     if (!asistenciaMessage.isNullOrBlank()) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                        Spacer(modifier = Modifier.height(10.dp))
+                        val bannerColor = if (asistenciaIsError) {
+                            MaterialTheme.colorScheme.errorContainer
+                        } else {
+                            MaterialTheme.colorScheme.surface
+                        }
+                        val textColor = if (asistenciaIsError) {
+                            MaterialTheme.colorScheme.onErrorContainer
+                        } else {
+                            MaterialTheme.colorScheme.onSurface
+                        }
+
+                        Surface(
+                            shape = MaterialTheme.shapes.small,
+                            color = bannerColor,
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text(
-                                text = asistenciaMessage,
-                                style = MaterialTheme.typography.bodySmall,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                            TextButton(onClick = onDismissAsistenciaMessage) {
-                                Text("OK", style = MaterialTheme.typography.labelSmall)
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = asistenciaMessage,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = textColor,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                TextButton(onClick = onDismissAsistenciaMessage) {
+                                    Text("OK", style = MaterialTheme.typography.labelSmall)
+                                }
                             }
                         }
                     }
@@ -364,6 +425,9 @@ fun DashboardContent(
                 }
             }
         }
+
+        // Espacio para evitar solapamiento con el ExtendedFloatingActionButton ("Transacción")
+        Spacer(modifier = Modifier.height(96.dp))
     }
 }
 

@@ -16,4 +16,7 @@ interface ObligacionDao {
 
     @Query("DELETE FROM obligaciones")
     suspend fun deleteAll()
+
+    @Query("DELETE FROM obligaciones WHERE id = :id")
+    suspend fun deleteById(id: String)
 }

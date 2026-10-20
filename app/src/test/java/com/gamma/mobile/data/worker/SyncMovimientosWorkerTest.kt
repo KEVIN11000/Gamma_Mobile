@@ -159,6 +159,8 @@ open class FakeWorkerApi : GammaApi {
     override suspend fun getObligaciones() = throw NotImplementedError()
     override suspend fun createObligacion(obligacion: com.gamma.mobile.domain.model.Obligacion) = throw NotImplementedError()
     override suspend fun updateObligacion(id: String, obligacion: com.gamma.mobile.domain.model.Obligacion) = throw NotImplementedError()
+    override suspend fun deleteObligacion(id: String): retrofit2.Response<Unit> = throw NotImplementedError()
+    override suspend fun updateAviso(id: String, aviso: com.gamma.mobile.domain.model.Aviso): retrofit2.Response<Unit> = throw NotImplementedError()
     override suspend fun getMaterias(): Response<List<String>> = Response.success(emptyList())
     
     override suspend fun createMovimiento(movimiento: Movimiento): Response<Unit> {

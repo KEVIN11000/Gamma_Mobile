@@ -1,5 +1,8 @@
 package com.gamma.mobile.presentation.sistema
 
+import android.app.Activity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -19,8 +22,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.gamma.mobile.domain.model.TicketItem
+import com.gamma.mobile.utils.DeviceAuthHelper
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -28,11 +35,47 @@ fun SistemaScreen(
     viewModel: SistemaViewModel = androidx.hilt.navigation.compose.hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val context = LocalContext.current
     val scrollState = rememberScrollState()
     var showNewTicketDialog by remember { mutableStateOf(false) }
     var isTicketsExpanded by remember { mutableStateOf(false) }
-    var selectedTicketForAction by remember { mutableStateOf<com.gamma.mobile.domain.model.TicketItem?>(null) }
+    var selectedTicketDetail by remember { mutableStateOf<TicketItem?>(null) }
+
+    // Estado de configuración y seguridad
+    var isConfigLocked by remember { mutableStateOf(true) }
+    var showKeyText by remember { mutableStateOf(false) }
+    var serverUrlInput by remember(uiState.baseUrl) { mutableStateOf(uiState.baseUrl) }
+    var apiKeyInput by remember(uiState.apiKey) { mutableStateOf(uiState.apiKey) }
+
+    // Launcher para autenticación del dispositivo (Keyguard / PIN / Patrón / Huella)
+    var pendingAuthAction by remember { mutableStateOf<(() -> Unit)?>(null) }
+    val authLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            pendingAuthAction?.invoke()
+        }
+        pendingAuthAction = null
+    }
+
+    val solicitarAutenticacion: (() -> Unit) -> Unit = { onSuccess ->
+        if (DeviceAuthHelper.isDeviceSecure(context)) {
+            val intent = DeviceAuthHelper.createConfirmDeviceCredentialIntent(
+                context = context,
+                title = "Autenticación del Dispositivo",
+                description = "Confirme su PIN, patrón o biometría para acceder a las credenciales"
+            )
+            if (intent != null) {
+                pendingAuthAction = onSuccess
+                authLauncher.launch(intent)
+            } else {
+                onSuccess()
+            }
+        } else {
+            // El celular no tiene configurado bloqueo de pantalla
+            onSuccess()
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -97,110 +140,16 @@ fun SistemaScreen(
                             Spacer(modifier = Modifier.width(16.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text("Gamma Mobile", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                                Text("Versión instalada: ${uiState.appVersion.ifEmpty { "0.0.5+debug" }}", fontWeight = FontWeight.SemiBold)
-                                Text("Entorno: Android (minSdk 26, targetSdk 34)", style = MaterialTheme.typography.bodySmall)
-                            }
-                        }
-
-                        when (val status = uiState.updateStatus) {
-                            is com.gamma.mobile.domain.model.UpdateStatus.UpdateAvailable -> {
-                                Spacer(modifier = Modifier.height(12.dp))
-                                Card(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    colors = CardDefaults.cardColors(
-                                        containerColor = MaterialTheme.colorScheme.surface,
-                                        contentColor = MaterialTheme.colorScheme.onSurface
-                                    )
-                                ) {
-                                    Column(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(12.dp),
-                                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                        ) {
-                                            Icon(
-                                                Icons.Default.Warning,
-                                                contentDescription = null,
-                                                tint = MaterialTheme.colorScheme.primary
-                                            )
-                                            Text(
-                                                "¡Nueva versión ${status.version} disponible!",
-                                                style = MaterialTheme.typography.titleSmall,
-                                                fontWeight = FontWeight.Bold
-                                            )
-                                        }
-                                        Text(
-                                            "Paquete: ${status.assetName} (${status.sizeMb} MB)",
-                                            style = MaterialTheme.typography.bodySmall
-                                        )
-                                        Button(
-                                            onClick = {
-                                                val intent = android.content.Intent(
-                                                    android.content.Intent.ACTION_VIEW,
-                                                    android.net.Uri.parse(status.downloadUrl)
-                                                )
-                                                context.startActivity(intent)
-                                            },
-                                            modifier = Modifier.fillMaxWidth()
-                                        ) {
-                                            Text("Descargar actualización (${status.version})")
-                                        }
-                                    }
-                                }
-                            }
-                            is com.gamma.mobile.domain.model.UpdateStatus.UpToDate -> {
-                                Spacer(modifier = Modifier.height(10.dp))
-                                SuggestionChip(
-                                    onClick = {},
-                                    label = { Text("Versión al día con GitHub Releases", fontWeight = FontWeight.Medium) },
-                                    icon = {
-                                        Icon(
-                                            Icons.Default.CheckCircle,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                    },
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                            }
-                            else -> {
-                                val fallbackUrl = uiState.health?.downloadUrl
-                                if (!fallbackUrl.isNullOrBlank()) {
-                                    Spacer(modifier = Modifier.height(10.dp))
-                                    FilledTonalButton(
-                                        onClick = {
-                                            val intent = android.content.Intent(
-                                                android.content.Intent.ACTION_VIEW,
-                                                android.net.Uri.parse(fallbackUrl)
-                                            )
-                                            context.startActivity(intent)
-                                        },
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) {
-                                        Text("Descargar actualización oficial (APK)")
-                                    }
-                                }
+                                Text("Versión instalada: ${uiState.appVersion.ifEmpty { "0.0.9" }}", fontWeight = FontWeight.SemiBold)
                             }
                         }
                     }
                 }
 
-                // Card: Configuración de Conexión y API Key
-                var serverUrlInput by remember(uiState.baseUrl) { mutableStateOf(uiState.baseUrl) }
-                var apiKeyInput by remember(uiState.apiKey) { mutableStateOf(uiState.apiKey) }
-                var showKeyText by remember { mutableStateOf(false) }
-                var isConfigLocked by remember(uiState.isApiKeyConfigured) { mutableStateOf(uiState.isApiKeyConfigured) }
-
+                // Card 2: Conexión y API Key (Protegida con Bloqueo del Celular)
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant
-                    )
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                 ) {
                     Column(
                         modifier = Modifier
@@ -243,10 +192,17 @@ fun SistemaScreen(
                                     }
                                 )
                                 IconButton(
-                                    onClick = { isConfigLocked = !isConfigLocked }
+                                    onClick = {
+                                        if (isConfigLocked) {
+                                            solicitarAutenticacion { isConfigLocked = false }
+                                        } else {
+                                            isConfigLocked = true
+                                            showKeyText = false
+                                        }
+                                    }
                                 ) {
                                     Icon(
-                                        imageVector = if (isConfigLocked) Icons.Default.LockOpen else Icons.Default.Lock,
+                                        imageVector = if (isConfigLocked) Icons.Default.Lock else Icons.Default.LockOpen,
                                         contentDescription = if (isConfigLocked) "Desbloquear edición" else "Bloquear edición",
                                         tint = MaterialTheme.colorScheme.primary
                                     )
@@ -271,7 +227,13 @@ fun SistemaScreen(
                             singleLine = true,
                             visualTransformation = if (showKeyText) androidx.compose.ui.text.input.VisualTransformation.None else androidx.compose.ui.text.input.PasswordVisualTransformation(),
                             trailingIcon = {
-                                TextButton(onClick = { showKeyText = !showKeyText }) {
+                                TextButton(onClick = {
+                                    if (showKeyText) {
+                                        showKeyText = false
+                                    } else {
+                                        solicitarAutenticacion { showKeyText = true }
+                                    }
+                                }) {
                                     Text(if (showKeyText) "Ocultar" else "Ver")
                                 }
                             },
@@ -280,7 +242,9 @@ fun SistemaScreen(
 
                         if (isConfigLocked) {
                             FilledTonalButton(
-                                onClick = { isConfigLocked = false },
+                                onClick = {
+                                    solicitarAutenticacion { isConfigLocked = false }
+                                },
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Icon(Icons.Default.LockOpen, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -292,6 +256,7 @@ fun SistemaScreen(
                                 onClick = {
                                     viewModel.guardarConfiguracion(serverUrlInput, apiKeyInput)
                                     isConfigLocked = true
+                                    showKeyText = false
                                 },
                                 modifier = Modifier.fillMaxWidth()
                             ) {
@@ -300,254 +265,20 @@ fun SistemaScreen(
                         }
 
                         if (!uiState.configMessage.isNullOrBlank()) {
-                            val msg = uiState.configMessage!!
-                            val msgColor = when {
-                                msg.startsWith("✅") -> MaterialTheme.colorScheme.primary
-                                msg.startsWith("❌") -> MaterialTheme.colorScheme.error
-                                else -> MaterialTheme.colorScheme.tertiary
-                            }
                             Text(
-                                text = msg,
+                                text = uiState.configMessage!!,
                                 style = MaterialTheme.typography.bodySmall,
-                                color = msgColor,
-                                fontWeight = FontWeight.SemiBold
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (uiState.configMessage!!.startsWith("✅")) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
                             )
                         }
                     }
                 }
 
-                // Card 2: Salud del Backend
+                // Card 3: Tickets de Soporte (Solo Lectura de Estado + Nuevo Ticket)
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant
-                    )
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text("Salud del Backend (WSGI)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                            val isHealthy = uiState.health?.status == "ok"
-                            AssistChip(
-                                onClick = {},
-                                label = { Text(if (isHealthy) "OPERATIVO" else "DEGRADADO") },
-                                leadingIcon = {
-                                    Icon(
-                                        if (isHealthy) Icons.Default.CheckCircle else Icons.Default.Warning,
-                                        contentDescription = null,
-                                        tint = if (isHealthy) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
-                                    )
-                                }
-                            )
-                        }
-
-                        val health = uiState.health
-                        if (health != null) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text("Google Sheets:")
-                                Text(if (health.sheets) "Conectado" else "Error", fontWeight = FontWeight.SemiBold)
-                            }
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text("Avisos / Calendar:")
-                                Text(if (health.avisos) "Conectado" else "Error", fontWeight = FontWeight.SemiBold)
-                            }
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text("Versión API:")
-                                Text(health.versionApi, fontWeight = FontWeight.SemiBold)
-                            }
-                        } else {
-                            Text("Sin conexión con el servicio de diagnóstico.", style = MaterialTheme.typography.bodySmall)
-                        }
-                    }
-                }
-
-                // Card: Cierre Contable Mensual y Comprobante PDF
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant
-                    )
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                "Cierre Contable Mensual",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
-                            )
-                            if (uiState.isEjecutandoCierre) {
-                                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                            }
-                        }
-
-                        Text(
-                            "Genera el balance contable consolidado del período seleccionado y emite el comprobante oficial en formato PDF.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-
-                        var expandedPeriodo by remember { mutableStateOf(false) }
-
-                        ExposedDropdownMenuBox(
-                            expanded = expandedPeriodo,
-                            onExpandedChange = { if (!uiState.isEjecutandoCierre) expandedPeriodo = !expandedPeriodo },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            OutlinedTextField(
-                                value = uiState.selectedPeriodoCierre,
-                                onValueChange = {},
-                                readOnly = true,
-                                label = { Text("Período Contable") },
-                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedPeriodo) },
-                                modifier = Modifier
-                                    .menuAnchor()
-                                    .fillMaxWidth(),
-                                enabled = !uiState.isEjecutandoCierre
-                            )
-
-                            ExposedDropdownMenu(
-                                expanded = expandedPeriodo,
-                                onDismissRequest = { expandedPeriodo = false }
-                            ) {
-                                uiState.periodosDisponibles.forEach { periodo ->
-                                    DropdownMenuItem(
-                                        text = { Text(periodo) },
-                                        onClick = {
-                                            viewModel.setPeriodoCierre(periodo)
-                                            expandedPeriodo = false
-                                        }
-                                    )
-                                }
-                            }
-                        }
-
-                        val cierre = uiState.cierreContable
-                        if (cierre != null) {
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.surface,
-                                    contentColor = MaterialTheme.colorScheme.onSurface
-                                )
-                            ) {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(12.dp),
-                                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
-                                    Text(
-                                        "Resumen del Cierre:",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                    Text(cierre.resumen, style = MaterialTheme.typography.bodySmall)
-
-                                    if (cierre.totalMonto > 0) {
-                                        Text(
-                                            "Monto Total: ₲ ${java.lang.String.format(java.util.Locale.GERMAN, "%,d", cierre.totalMonto)}",
-                                            fontWeight = FontWeight.Bold,
-                                            style = MaterialTheme.typography.bodyMedium
-                                        )
-                                    }
-
-                                    if (!cierre.pdfUrl.isNullOrBlank()) {
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                        Button(
-                                            onClick = {
-                                                viewModel.abrirPdfConCache(
-                                                    context = context,
-                                                    pdfUrlRelativa = cierre.pdfUrl,
-                                                    periodo = uiState.selectedPeriodoCierre,
-                                                    onError = { errorMsg ->
-                                                        android.widget.Toast.makeText(
-                                                            context,
-                                                            errorMsg,
-                                                            android.widget.Toast.LENGTH_SHORT
-                                                        ).show()
-                                                    }
-                                                )
-                                            },
-                                            enabled = !uiState.isDescargandoPdf,
-                                            modifier = Modifier.fillMaxWidth()
-                                        ) {
-                                            if (uiState.isDescargandoPdf) {
-                                                CircularProgressIndicator(
-                                                    modifier = Modifier.size(18.dp),
-                                                    strokeWidth = 2.dp,
-                                                    color = MaterialTheme.colorScheme.onPrimary
-                                                )
-                                                Spacer(modifier = Modifier.width(8.dp))
-                                                Text("Descargando Comprobante...")
-                                            } else {
-                                                Text("Ver Comprobante PDF 📄")
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        if (!uiState.cierreMensaje.isNullOrBlank()) {
-                            val msg = uiState.cierreMensaje!!
-                            val color = if (msg.startsWith("✅")) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                MaterialTheme.colorScheme.error
-                            }
-                            Text(
-                                text = msg,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = color,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
-
-                        FilledTonalButton(
-                            onClick = { viewModel.ejecutarCierreContable() },
-                            enabled = !uiState.isEjecutandoCierre,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(
-                                if (cierre != null) "Regenerar Cierre (${uiState.selectedPeriodoCierre})" else "Ejecutar Cierre Contable"
-                            )
-                        }
-                    }
-                }
-
-                // Card 3: Tickets de Soporte
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant
-                    )
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                 ) {
                     Column(
                         modifier = Modifier
@@ -580,7 +311,7 @@ fun SistemaScreen(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 FilledTonalButton(
                                     onClick = { showNewTicketDialog = true },
-                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
                                 ) {
                                     Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
                                     Spacer(modifier = Modifier.width(4.dp))
@@ -624,7 +355,7 @@ fun SistemaScreen(
                                         Card(
                                             modifier = Modifier
                                                 .fillMaxWidth()
-                                                .clickable { selectedTicketForAction = ticket },
+                                                .clickable { selectedTicketDetail = ticket },
                                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                                         ) {
                                             Column(
@@ -652,7 +383,7 @@ fun SistemaScreen(
                                                             else -> "📱 App"
                                                         }
                                                         AssistChip(
-                                                            onClick = { selectedTicketForAction = ticket },
+                                                            onClick = { selectedTicketDetail = ticket },
                                                             label = { Text(origenLabel, style = MaterialTheme.typography.labelSmall) },
                                                             modifier = Modifier.height(24.dp)
                                                         )
@@ -664,7 +395,7 @@ fun SistemaScreen(
                                                         else -> MaterialTheme.colorScheme.errorContainer to MaterialTheme.colorScheme.onErrorContainer
                                                     }
                                                     SuggestionChip(
-                                                        onClick = { selectedTicketForAction = ticket },
+                                                        onClick = { selectedTicketDetail = ticket },
                                                         label = {
                                                             Text(
                                                                 ticket.estado,
@@ -699,21 +430,11 @@ fun SistemaScreen(
                                                     }
                                                 }
 
-                                                Row(
-                                                    modifier = Modifier.fillMaxWidth(),
-                                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                                    verticalAlignment = Alignment.CenterVertically
-                                                ) {
+                                                if (ticket.fecha.isNotEmpty()) {
                                                     Text(
-                                                        if (ticket.fecha.isNotEmpty()) "📅 ${ticket.fecha}" else "",
+                                                        "📅 ${ticket.fecha}",
                                                         style = MaterialTheme.typography.labelSmall,
                                                         color = MaterialTheme.colorScheme.outline
-                                                    )
-                                                    Text(
-                                                        "Toca para atender ✏️",
-                                                        style = MaterialTheme.typography.labelSmall,
-                                                        color = MaterialTheme.colorScheme.primary,
-                                                        fontWeight = FontWeight.Medium
                                                     )
                                                 }
                                             }
@@ -725,41 +446,78 @@ fun SistemaScreen(
                     }
                 }
 
-                // Card 4: Registros / Logs del Servidor
+                // Card 4: Registros y Logs Dinámicos
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant
-                    )
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                 ) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Text("Registros y Logs", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Registros y Logs", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            IconButton(
+                                onClick = { viewModel.recargarLogs() },
+                                enabled = !uiState.isLogsRefreshing
+                            ) {
+                                if (uiState.isLogsRefreshing) {
+                                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                                } else {
+                                    Icon(Icons.Default.Refresh, contentDescription = "Actualizar logs")
+                                }
+                            }
+                        }
+
                         if (uiState.logs.isEmpty()) {
                             Text("Sin logs recientes.", style = MaterialTheme.typography.bodySmall)
                         } else {
-                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                uiState.logs.take(5).forEach { log ->
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                uiState.logs.take(15).forEach { log ->
+                                    val nivelColor = when (log.nivel.uppercase()) {
+                                        "ERROR" -> MaterialTheme.colorScheme.error
+                                        "WARN" -> MaterialTheme.colorScheme.tertiary
+                                        else -> MaterialTheme.colorScheme.primary
+                                    }
+
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        verticalAlignment = Alignment.Top
                                     ) {
-                                        Text("[${log.nivel}]", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall)
-                                        Text(log.mensaje, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+                                        if (log.timestamp.isNotBlank()) {
+                                            Text(
+                                                log.timestamp,
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.outline,
+                                                fontFamily = FontFamily.Monospace
+                                            )
+                                        }
+                                        Text(
+                                            "[${log.nivel}]",
+                                            fontWeight = FontWeight.Bold,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = nivelColor,
+                                            fontFamily = FontFamily.Monospace
+                                        )
+                                        Text(
+                                            log.mensaje,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            modifier = Modifier.weight(1f)
+                                        )
                                     }
                                 }
                             }
                         }
-                    }
-                }
-
-                if (uiState.isLoading) {
-                    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator()
                     }
                 }
             }
@@ -784,7 +542,7 @@ fun SistemaScreen(
                             OutlinedTextField(
                                 value = descripcion,
                                 onValueChange = { descripcion = it },
-                                label = { Text("Descripción") },
+                                label = { Text("Descripción del problema") },
                                 minLines = 3,
                                 modifier = Modifier.fillMaxWidth()
                             )
@@ -798,7 +556,7 @@ fun SistemaScreen(
                             },
                             enabled = asunto.isNotBlank() && descripcion.isNotBlank()
                         ) {
-                            Text("Crear Ticket")
+                            Text("Enviar Ticket")
                         }
                     },
                     dismissButton = {
@@ -809,93 +567,40 @@ fun SistemaScreen(
                 )
             }
 
-            // Diálogo de Atender Ticket
-            val ticketToEdit = selectedTicketForAction
-            if (ticketToEdit != null) {
-                var nuevoEstado by remember(ticketToEdit) { mutableStateOf(ticketToEdit.estado) }
-                var resolucionInput by remember(ticketToEdit) { mutableStateOf(ticketToEdit.resolucion ?: "") }
-
+            // Diálogo de Detalle de Ticket (Solo Lectura)
+            selectedTicketDetail?.let { ticket ->
                 AlertDialog(
-                    onDismissRequest = { selectedTicketForAction = null },
+                    onDismissRequest = { selectedTicketDetail = null },
                     title = {
-                        Text("Atender ${ticketToEdit.id}", fontWeight = FontWeight.Bold)
+                        Text("Detalle: ${ticket.id}", fontWeight = FontWeight.Bold)
                     },
                     text = {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .verticalScroll(rememberScrollState()),
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Text(ticketToEdit.asunto, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
-                            if (ticketToEdit.descripcion.isNotEmpty()) {
-                                Text(ticketToEdit.descripcion, style = MaterialTheme.typography.bodySmall)
+                            Text(ticket.asunto, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
+                            Text("Estado: ${ticket.estado}", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+                            Text("Canal: ${ticket.origen}", style = MaterialTheme.typography.bodySmall)
+                            if (ticket.fecha.isNotEmpty()) {
+                                Text("Fecha: ${ticket.fecha}", style = MaterialTheme.typography.bodySmall)
                             }
-                            val origenDesc = when (ticketToEdit.origen.lowercase()) {
-                                "telegram" -> "✈️ Telegram"
-                                "ci" -> "🤖 GitHub CI/CD"
-                                "servidor" -> "🚨 Servidor / Vigía"
-                                else -> "📱 App Móvil"
-                            }
-                            Text("Canal emisor: $origenDesc", style = MaterialTheme.typography.labelMedium)
-
                             HorizontalDivider()
+                            Text("Descripción:", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.labelMedium)
+                            Text(ticket.descripcion.ifEmpty { "Sin descripción adicional." }, style = MaterialTheme.typography.bodySmall)
 
-                            Text("Cambiar Estado:", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.labelMedium)
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                listOf("Abierto", "En proceso", "Cerrado").forEach { opt ->
-                                    FilterChip(
-                                        selected = nuevoEstado == opt,
-                                        onClick = { nuevoEstado = opt },
-                                        label = { Text(opt, style = MaterialTheme.typography.labelSmall) }
-                                    )
-                                }
+                            if (!ticket.resolucion.isNullOrBlank()) {
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text("Resolución del equipo:", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.labelMedium)
+                                Text(ticket.resolucion, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
                             }
-
-                            OutlinedTextField(
-                                value = resolucionInput,
-                                onValueChange = { resolucionInput = it },
-                                label = { Text("Resolución / Nota técnica (opcional)") },
-                                minLines = 2,
-                                modifier = Modifier.fillMaxWidth()
-                            )
                         }
                     },
                     confirmButton = {
-                        Button(
-                            onClick = {
-                                viewModel.actualizarEstadoTicket(
-                                    ticketId = ticketToEdit.id,
-                                    nuevoEstado = nuevoEstado,
-                                    resolucion = resolucionInput.ifBlank { null }
-                                )
-                                selectedTicketForAction = null
-                            }
-                        ) {
-                            Text("Guardar Cambios")
-                        }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = { selectedTicketForAction = null }) {
-                            Text("Cancelar")
-                        }
-                    }
-                )
-            }
-
-            // Notificación de éxito al actualizar ticket
-            if (uiState.ticketActionMessage != null) {
-                AlertDialog(
-                    onDismissRequest = { viewModel.limpiarMensajes() },
-                    icon = { Icon(Icons.Default.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
-                    title = { Text("Ticket Actualizado") },
-                    text = { Text(uiState.ticketActionMessage!!) },
-                    confirmButton = {
-                        Button(onClick = { viewModel.limpiarMensajes() }) {
-                            Text("Aceptar")
+                        TextButton(onClick = { selectedTicketDetail = null }) {
+                            Text("Cerrar")
                         }
                     }
                 )

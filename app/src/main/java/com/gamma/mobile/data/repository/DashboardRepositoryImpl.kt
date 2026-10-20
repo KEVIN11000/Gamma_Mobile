@@ -2,6 +2,8 @@ package com.gamma.mobile.data.repository
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.gamma.mobile.data.local.dao.MovimientoDao
+import com.gamma.mobile.data.local.entity.toDomain
 import com.gamma.mobile.data.remote.GammaApi
 import com.gamma.mobile.data.remote.NetworkResult
 import com.gamma.mobile.data.remote.safeApiCall
@@ -16,6 +18,7 @@ import javax.inject.Named
 class DashboardRepositoryImpl @Inject constructor(
     private val api: GammaApi,
     @ApplicationContext private val context: Context,
+    private val movimientoDao: MovimientoDao,
     @Named("NetworkDispatcher") private val dispatcher: CoroutineDispatcher
 ) : DashboardRepository {
 
@@ -23,6 +26,23 @@ class DashboardRepositoryImpl @Inject constructor(
     private val gson = Gson()
 
     override suspend fun getSummary(forceRefresh: Boolean): NetworkResult<DashboardSummary> {
+        return when (val base = getRemoteOrCachedSummary(forceRefresh)) {
+            is NetworkResult.Success -> NetworkResult.Success(aplicarMovimientosPendientes(base.data))
+            else -> base
+        }
+    }
+
+    /** Suma al resumen los movimientos locales aún no sincronizados (ver [DashboardSummaryCalculator]). */
+    private suspend fun aplicarMovimientosPendientes(summary: DashboardSummary): DashboardSummary {
+        return try {
+            val pendientes = movimientoDao.getPendingSync().map { it.toDomain() }
+            DashboardSummaryCalculator.aplicarPendientes(summary, pendientes)
+        } catch (e: Exception) {
+            summary
+        }
+    }
+
+    private suspend fun getRemoteOrCachedSummary(forceRefresh: Boolean): NetworkResult<DashboardSummary> {
         val lastSync = prefs.getLong(PREF_LAST_SYNC, 0L)
         val isCacheValid = (System.currentTimeMillis() - lastSync) < CACHE_TTL
 

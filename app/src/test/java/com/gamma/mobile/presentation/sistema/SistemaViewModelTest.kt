@@ -409,4 +409,35 @@ class SistemaViewModelTest {
         assertEquals("http://external.com/doc.pdf", viewModel.obtenerUrlAbsolutaPdf("http://external.com/doc.pdf"))
         assertEquals("https://kevin11000.pythonanywhere.com/api/v1/reporte.pdf", viewModel.obtenerUrlAbsolutaPdf("/reporte.pdf"))
     }
+
+    @Test
+    fun `recargarLogs refresca logs combinando buffer local y repo`() = runTest {
+        com.gamma.mobile.utils.AppLogBuffer.clear()
+        com.gamma.mobile.utils.AppLogBuffer.info("Mensaje en memoria local")
+
+        fakeRepo.logsResult = NetworkResult.Success(listOf(
+            LogEntry("10:00", "INFO", "Log remoto")
+        ))
+
+        viewModel = SistemaViewModel(fakeRepo, fakeStorage, checkAppUpdateUseCase)
+        advanceUntilIdle()
+
+        viewModel.recargarLogs()
+        advanceUntilIdle()
+
+        val logs = viewModel.uiState.value.logs
+        assertTrue(logs.any { it.mensaje == "Mensaje en memoria local" })
+        assertTrue(logs.any { it.mensaje == "Log remoto" })
+    }
+
+    @Test
+    fun `AppLogBuffer guarda logs con limite maximo`() {
+        com.gamma.mobile.utils.AppLogBuffer.clear()
+        for (i in 1..150) {
+            com.gamma.mobile.utils.AppLogBuffer.info("Log $i")
+        }
+        val logs = com.gamma.mobile.utils.AppLogBuffer.getLogs()
+        assertEquals(100, logs.size)
+        assertEquals("Log 150", logs.first().mensaje) // más reciente primero
+    }
 }

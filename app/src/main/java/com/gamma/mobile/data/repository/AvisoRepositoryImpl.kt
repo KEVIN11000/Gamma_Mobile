@@ -59,6 +59,12 @@ class AvisoRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun updateAviso(aviso: Aviso): NetworkResult<Unit> {
+        // Persistencia local primero: repetición e hitos deben sobrevivir aunque el backend aún no exponga PUT /avisos/{id}.
+        avisoDao.insertAll(listOf(aviso.toEntity()))
+        return safeApiCall(dispatcher) { api.updateAviso(aviso.id, aviso) }
+    }
+
     override suspend fun deleteAviso(id: String): NetworkResult<Unit> {
         return safeApiCall(dispatcher) { api.deleteAviso(id) }.also {
             if (it is NetworkResult.Success) {

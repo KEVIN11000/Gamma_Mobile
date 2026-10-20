@@ -19,10 +19,12 @@ import org.junit.Test
 class FakeAvisoRepository : AvisoRepository {
     var avisosResult: NetworkResult<List<Aviso>> = NetworkResult.Success(emptyList())
     var createResult: NetworkResult<Unit> = NetworkResult.Success(Unit)
+    var updateResult: NetworkResult<Unit> = NetworkResult.Success(Unit)
     var deleteResult: NetworkResult<Unit> = NetworkResult.Success(Unit)
     var iaResult: NetworkResult<Aviso> = NetworkResult.Success(Aviso(id = "ia-1", titulo = "Test IA", fechaEvento = "01/01/2027 10:00"))
 
     var createdAvisos = mutableListOf<Aviso>()
+    var updatedAvisos = mutableListOf<Aviso>()
     var deletedAvisoIds = mutableListOf<String>()
     var interpretedTexts = mutableListOf<String>()
 
@@ -33,6 +35,13 @@ class FakeAvisoRepository : AvisoRepository {
             createdAvisos.add(aviso)
         }
         return createResult
+    }
+
+    override suspend fun updateAviso(aviso: Aviso): NetworkResult<Unit> {
+        if (updateResult is NetworkResult.Success) {
+            updatedAvisos.add(aviso)
+        }
+        return updateResult
     }
 
     override suspend fun deleteAviso(id: String): NetworkResult<Unit> {
@@ -121,6 +130,24 @@ class AvisosViewModelTest {
     }
 
     @Test
+    fun `updateAviso success reloads list`() = runTest {
+        val original = Aviso(id = "1", titulo = "Viejo", fechaEvento = "01/10/2026 10:00")
+        val actualizado = Aviso(id = "1", titulo = "Nuevo", fechaEvento = "01/10/2026 12:00")
+        fakeRepo.avisosResult = NetworkResult.Success(listOf(original))
+        viewModel = AvisosViewModel(fakeRepo)
+        advanceUntilIdle()
+
+        fakeRepo.avisosResult = NetworkResult.Success(listOf(actualizado))
+        viewModel.updateAviso(actualizado)
+        advanceUntilIdle()
+
+        assertEquals(1, fakeRepo.updatedAvisos.size)
+        assertEquals("Nuevo", fakeRepo.updatedAvisos[0].titulo)
+        val state = viewModel.uiState.value as AvisosUiState.Success
+        assertEquals("Nuevo", state.avisos[0].titulo)
+    }
+
+    @Test
     fun `deleteAviso success reloads list`() = runTest {
         fakeRepo.avisosResult = NetworkResult.Success(listOf(Aviso(id = "1")))
         viewModel = AvisosViewModel(fakeRepo)
@@ -154,5 +181,22 @@ class AvisosViewModelTest {
         
         val state = viewModel.uiState.value as AvisosUiState.Success
         assertEquals(1, state.avisos.size)
+    }
+
+    @Test
+    fun `interpretarAvisoIa with callback delivers proposed aviso to caller`() = runTest {
+        val proposed = Aviso(id = "ia-2", titulo = "Luz", fechaEvento = "25/10/2026 10:00")
+        fakeRepo.iaResult = NetworkResult.Success(proposed)
+        viewModel = AvisosViewModel(fakeRepo)
+        advanceUntilIdle()
+
+        var received: Aviso? = null
+        viewModel.interpretarAvisoIa("Pagar la luz el 25") { aviso ->
+            received = aviso
+        }
+        advanceUntilIdle()
+
+        assertEquals("Luz", received?.titulo)
+        assertEquals(0, fakeRepo.createdAvisos.size)
     }
 }

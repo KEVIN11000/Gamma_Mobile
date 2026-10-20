@@ -2,7 +2,10 @@ package com.gamma.mobile.presentation.dashboard
 
 import com.gamma.mobile.data.remote.NetworkResult
 import com.gamma.mobile.domain.model.Aviso
+import com.gamma.mobile.domain.model.AsistenciaMarcaResponse
+import com.gamma.mobile.domain.model.AsistenciaMateriaResponse
 import com.gamma.mobile.domain.model.DashboardSummary
+import com.gamma.mobile.domain.repository.AsistenciaRepository
 import com.gamma.mobile.domain.repository.AvisoRepository
 import com.gamma.mobile.domain.repository.DashboardRepository
 import kotlinx.coroutines.Dispatchers
@@ -14,6 +17,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -24,6 +28,7 @@ class DashboardViewModelTest {
     private lateinit var viewModel: DashboardViewModel
     private lateinit var fakeDashboardRepo: FakeDashboardRepository
     private lateinit var fakeAvisoRepo: FakeAvisoRepository
+    private lateinit var fakeAsistenciaRepo: FakeAsistenciaRepository
     private val testDispatcher = StandardTestDispatcher()
 
     @Before
@@ -31,6 +36,7 @@ class DashboardViewModelTest {
         Dispatchers.setMain(testDispatcher)
         fakeDashboardRepo = FakeDashboardRepository()
         fakeAvisoRepo = FakeAvisoRepository()
+        fakeAsistenciaRepo = FakeAsistenciaRepository()
         // No instanciamos el viewModel aún para poder configurar los fakes antes del init block
     }
 
@@ -148,6 +154,116 @@ class DashboardViewModelTest {
         assertEquals("En 7 días", uiAvisos[2].textoTiempo)
         assertEquals(false, uiAvisos[2].esCritico)
     }
+
+    @Test
+    fun `marcarAsistencia success sets message and error flag false`() = runTest {
+        val summary = DashboardSummary(100, 200, 50, false)
+        fakeDashboardRepo.result = NetworkResult.Success(summary)
+        fakeAvisoRepo.result = NetworkResult.Success(emptyList())
+        fakeAsistenciaRepo.marcaResult = NetworkResult.Success(
+            AsistenciaMarcaResponse(tipo = "entrada", hora = "08:15", mensaje = "Entrada registrada correctamente")
+        )
+
+        val clock = java.time.Clock.fixed(java.time.Instant.parse("2026-10-06T10:00:00Z"), java.time.ZoneId.of("UTC"))
+        viewModel = DashboardViewModel(fakeDashboardRepo, fakeAvisoRepo, clock, fakeAsistenciaRepo)
+        advanceUntilIdle()
+
+        viewModel.marcarAsistencia()
+        advanceUntilIdle()
+
+        val msg = viewModel.asistenciaMessage.value
+        assertFalse(msg.isNullOrEmpty())
+        assertTrue(msg!!.contains("Entrada registrada"))
+        assertFalse(viewModel.asistenciaIsError.value)
+    }
+
+    @Test
+    fun `marcarAsistencia with error keywords sets error flag true`() = runTest {
+        val summary = DashboardSummary(100, 200, 50, false)
+        fakeDashboardRepo.result = NetworkResult.Success(summary)
+        fakeAvisoRepo.result = NetworkResult.Success(emptyList())
+        fakeAsistenciaRepo.marcaResult = NetworkResult.Success(
+            AsistenciaMarcaResponse(tipo = "error", hora = "08:15", mensaje = "No se pudo conectar con la planilla")
+        )
+
+        val clock = java.time.Clock.fixed(java.time.Instant.parse("2026-10-06T10:00:00Z"), java.time.ZoneId.of("UTC"))
+        viewModel = DashboardViewModel(fakeDashboardRepo, fakeAvisoRepo, clock, fakeAsistenciaRepo)
+        advanceUntilIdle()
+
+        viewModel.marcarAsistencia()
+        advanceUntilIdle()
+
+        val msg = viewModel.asistenciaMessage.value
+        assertFalse(msg.isNullOrEmpty())
+        assertTrue(viewModel.asistenciaIsError.value)
+    }
+
+    @Test
+    fun `marcarAsistencia with network error sets error message`() = runTest {
+        val summary = DashboardSummary(100, 200, 50, false)
+        fakeDashboardRepo.result = NetworkResult.Success(summary)
+        fakeAvisoRepo.result = NetworkResult.Success(emptyList())
+        fakeAsistenciaRepo.marcaResult = NetworkResult.Error(500, "Error de servidor")
+
+        val clock = java.time.Clock.fixed(java.time.Instant.parse("2026-10-06T10:00:00Z"), java.time.ZoneId.of("UTC"))
+        viewModel = DashboardViewModel(fakeDashboardRepo, fakeAvisoRepo, clock, fakeAsistenciaRepo)
+        advanceUntilIdle()
+
+        viewModel.marcarAsistencia()
+        advanceUntilIdle()
+
+        val msg = viewModel.asistenciaMessage.value
+        assertFalse(msg.isNullOrEmpty())
+        assertTrue(viewModel.asistenciaIsError.value)
+    }
+
+    @Test
+    fun `setModoMarcacion accepts valid modes only`() = runTest {
+        val summary = DashboardSummary(100, 200, 50, false)
+        fakeDashboardRepo.result = NetworkResult.Success(summary)
+        fakeAvisoRepo.result = NetworkResult.Success(emptyList())
+
+        val clock = java.time.Clock.fixed(java.time.Instant.parse("2026-10-06T10:00:00Z"), java.time.ZoneId.of("UTC"))
+        viewModel = DashboardViewModel(fakeDashboardRepo, fakeAvisoRepo, clock)
+        advanceUntilIdle()
+
+        assertEquals(DashboardViewModel.MODO_NORMAL, viewModel.modoMarcacion.value)
+
+        viewModel.setModoMarcacion(DashboardViewModel.MODO_DIRECTO)
+        assertEquals(DashboardViewModel.MODO_DIRECTO, viewModel.modoMarcacion.value)
+
+        viewModel.setModoMarcacion("invalido")
+        assertEquals(DashboardViewModel.MODO_DIRECTO, viewModel.modoMarcacion.value)
+
+        viewModel.setModoMarcacion(DashboardViewModel.MODO_NORMAL)
+        assertEquals(DashboardViewModel.MODO_NORMAL, viewModel.modoMarcacion.value)
+    }
+
+    @Test
+    fun `onScreenVisible reloads dashboard without resetting ui to Loading`() = runTest {
+        val initialSummary = DashboardSummary(100, 200, 50, false)
+        val updatedSummary = DashboardSummary(500, 800, 70, false)
+
+        fakeDashboardRepo.result = NetworkResult.Success(initialSummary)
+        fakeAvisoRepo.result = NetworkResult.Success(emptyList())
+
+        val clock = java.time.Clock.fixed(java.time.Instant.parse("2026-10-06T10:00:00Z"), java.time.ZoneId.of("UTC"))
+        viewModel = DashboardViewModel(fakeDashboardRepo, fakeAvisoRepo, clock)
+        advanceUntilIdle()
+
+        val state1 = viewModel.uiState.value
+        assertTrue(state1 is DashboardUiState.Success)
+        assertEquals(100L, (state1 as DashboardUiState.Success).summary.margenLibreDisponible)
+
+        // Cambiamos el repo para simular nuevos datos tras una transacción
+        fakeDashboardRepo.result = NetworkResult.Success(updatedSummary)
+        viewModel.onScreenVisible()
+        advanceUntilIdle()
+
+        val state2 = viewModel.uiState.value
+        assertTrue(state2 is DashboardUiState.Success)
+        assertEquals(500L, (state2 as DashboardUiState.Success).summary.margenLibreDisponible)
+    }
 }
 
 class FakeDashboardRepository : DashboardRepository {
@@ -167,6 +283,19 @@ class FakeAvisoRepository : AvisoRepository {
 
     override suspend fun createAviso(aviso: Aviso): NetworkResult<Unit> = NetworkResult.Success(Unit)
     override suspend fun deleteAviso(id: String): NetworkResult<Unit> = NetworkResult.Success(Unit)
+    override suspend fun updateAviso(aviso: Aviso): NetworkResult<Unit> = NetworkResult.Success(Unit)
     override suspend fun interpretarAvisoIa(texto: String): NetworkResult<Aviso> = NetworkResult.Success(Aviso())
+}
+
+class FakeAsistenciaRepository : AsistenciaRepository {
+    var marcaResult: NetworkResult<AsistenciaMarcaResponse> =
+        NetworkResult.Success(AsistenciaMarcaResponse(tipo = "entrada", hora = "08:00", mensaje = "OK"))
+    var materiaResult: NetworkResult<AsistenciaMateriaResponse> =
+        NetworkResult.Success(AsistenciaMateriaResponse(materia = "Test", hora = "08:00", mensaje = "OK"))
+    var materiasListResult: NetworkResult<List<String>> = NetworkResult.Success(emptyList())
+
+    override suspend fun marcarAsistencia(modo: String): NetworkResult<AsistenciaMarcaResponse> = marcaResult
+    override suspend fun marcarMateria(materia: String): NetworkResult<AsistenciaMateriaResponse> = materiaResult
+    override suspend fun getMaterias(): NetworkResult<List<String>> = materiasListResult
 }
 

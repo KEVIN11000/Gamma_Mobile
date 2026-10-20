@@ -1,10 +1,12 @@
 package com.gamma.mobile.presentation.avisos
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.gamma.mobile.data.remote.NetworkResult
 import com.gamma.mobile.domain.model.Aviso
 import com.gamma.mobile.domain.repository.AvisoRepository
+import com.gamma.mobile.utils.AvisoAlarmScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -58,12 +60,15 @@ class AvisosViewModel @Inject constructor(
         }
     }
 
-    fun createAviso(aviso: Aviso) {
+    fun createAviso(aviso: Aviso, context: Context? = null) {
         _isCreating.value = true
         _createError.value = null
         viewModelScope.launch {
             when (val result = avisoRepository.createAviso(aviso)) {
                 is NetworkResult.Success -> {
+                    context?.let { ctx ->
+                        AvisoAlarmScheduler.programarAviso(ctx, aviso)
+                    }
                     loadAvisos(forceRefresh = true)
                 }
                 is NetworkResult.Error -> {
@@ -77,8 +82,34 @@ class AvisosViewModel @Inject constructor(
         }
     }
 
-    fun deleteAviso(id: String) {
+    fun updateAviso(aviso: Aviso, context: Context? = null) {
+        _isCreating.value = true
+        _createError.value = null
         viewModelScope.launch {
+            when (val result = avisoRepository.updateAviso(aviso)) {
+                is NetworkResult.Success -> {
+                    context?.let { ctx ->
+                        AvisoAlarmScheduler.cancelarAviso(ctx, aviso.id)
+                        AvisoAlarmScheduler.programarAviso(ctx, aviso)
+                    }
+                    loadAvisos(forceRefresh = true)
+                }
+                is NetworkResult.Error -> {
+                    _createError.value = result.message
+                }
+                is NetworkResult.Exception -> {
+                    _createError.value = "Error de red al actualizar"
+                }
+            }
+            _isCreating.value = false
+        }
+    }
+
+    fun deleteAviso(id: String, context: Context? = null) {
+        viewModelScope.launch {
+            context?.let { ctx ->
+                AvisoAlarmScheduler.cancelarAviso(ctx, id)
+            }
             when (avisoRepository.deleteAviso(id)) {
                 is NetworkResult.Success -> {
                     loadAvisos(forceRefresh = true)
@@ -90,17 +121,22 @@ class AvisosViewModel @Inject constructor(
         }
     }
 
-    fun interpretarAvisoIa(texto: String) {
+    fun interpretarAvisoIa(texto: String, onPropuesto: ((Aviso) -> Unit)? = null) {
         _isCreating.value = true
         _createError.value = null
         viewModelScope.launch {
             when (val result = avisoRepository.interpretarAvisoIa(texto)) {
                 is NetworkResult.Success -> {
                     val avisoPropuesto = result.data
-                    when (val createResult = avisoRepository.createAviso(avisoPropuesto)) {
-                        is NetworkResult.Success -> loadAvisos(forceRefresh = true)
-                        is NetworkResult.Error -> _createError.value = createResult.message
-                        is NetworkResult.Exception -> _createError.value = "Error de red"
+                    if (onPropuesto != null) {
+                        onPropuesto(avisoPropuesto)
+                    } else {
+                        // Compatibilidad hacia atrás si no se pasa callback: guarda directamente
+                        when (val createResult = avisoRepository.createAviso(avisoPropuesto)) {
+                            is NetworkResult.Success -> loadAvisos(forceRefresh = true)
+                            is NetworkResult.Error -> _createError.value = createResult.message
+                            is NetworkResult.Exception -> _createError.value = "Error de red"
+                        }
                     }
                 }
                 is NetworkResult.Error -> {

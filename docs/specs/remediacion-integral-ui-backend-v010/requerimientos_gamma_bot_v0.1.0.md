@@ -33,6 +33,9 @@
      - Amortizar la deuda en `Obligaciones_Maestro`.
      - Invocar `repo.insert_movimiento_diario()` con categoría `"Préstamos / Deudas"` y el monto abonado para reflejar el egreso contable en `Libro_Diario`.
      - Retirar el bloque `except` que silenciaba fallos devolviendo 200 con saldo 0.
+  5. Soporte para estado `Pausado` / `Pausada`:
+     - En `get_obligaciones_activas()`, `calcular_margen_de_ataque()` y `proyectar_cola_deudas()`, excluir de la pila de cuotas activas a aquellas deudas cuyo `Estado` sea `"Pausado"` o `"Pausada"`.
+     - En `PUT /obligaciones/{id}`, permitir transicionar el estado entre `"Activo"` y `"Pausado"`, invalidando la caché de `obligaciones_` para recalcular el margen de ataque de inmediato.
 
 ---
 

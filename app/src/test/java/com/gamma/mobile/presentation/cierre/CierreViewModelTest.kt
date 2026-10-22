@@ -45,6 +45,14 @@ class FakeCierreRepository : CierreRepository {
         lastUrlCalled = url
         return downloadResult
     }
+
+    override suspend fun getCierres(forceRefresh: Boolean): NetworkResult<List<com.gamma.mobile.domain.model.CierreHistorialItem>> {
+        return NetworkResult.Success(emptyList())
+    }
+
+    override suspend fun descargarReporteCierre(filename: String): NetworkResult<ByteArray> {
+        return downloadResult
+    }
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)

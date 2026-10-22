@@ -57,6 +57,12 @@ abstract class AppModule {
 
     @Binds
     @Singleton
+    abstract fun bindCierresRepository(
+        impl: com.gamma.mobile.data.repository.CierreRepositoryImpl
+    ): com.gamma.mobile.domain.repository.CierresRepository
+
+    @Binds
+    @Singleton
     abstract fun bindSistemaRepository(
         impl: com.gamma.mobile.data.repository.SistemaRepositoryImpl
     ): com.gamma.mobile.domain.repository.SistemaRepository

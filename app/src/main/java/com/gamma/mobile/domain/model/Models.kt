@@ -108,7 +108,13 @@ data class Obligacion(
 
     val esSimulada: Boolean
         get() = estado.trim().lowercase() in listOf("simulado", "simulada")
+
+    val esPausada: Boolean
+        get() = estado.trim().lowercase() in listOf("pausado", "pausada") && saldoActual > 0L
 }
+
+fun List<Obligacion>.calcularCompromisoMensual(): Long =
+    filter { it.esActiva && !it.esPausada }.sumOf { it.cuotaReferenciaGs }
 
 data class AbonoRequest(
     @SerializedName(value = "id_obligacion", alternate = ["idObligacion"])
@@ -131,3 +137,63 @@ data class AbonoResponse(
     @SerializedName("estado")
     val estado: String = "Activo"
 )
+
+data class CierreHistorialItem(
+    @SerializedName("id")
+    val id: String = "",
+    @SerializedName("tipo")
+    val tipo: String = "contable", // "contable" o "laboral"
+    @SerializedName("periodo")
+    val periodo: String = "",
+    @SerializedName("fecha")
+    val fecha: String = "",
+    @SerializedName(value = "total_monto", alternate = ["totalMonto"])
+    val totalMonto: Long = 0L,
+    @SerializedName(value = "total_horas", alternate = ["totalHoras"])
+    val totalHoras: Double = 0.0,
+    @SerializedName("resumen")
+    val resumen: String = "",
+    @SerializedName(value = "pdf_url", alternate = ["pdfUrl"])
+    val pdfUrl: String? = null,
+    @SerializedName(value = "pdf_disponible", alternate = ["pdfDisponible"])
+    val pdfDisponible: Boolean = false
+)
+
+typealias Cierre = CierreHistorialItem
+
+enum class SemaforoViabilidad {
+    SUPERAVIT,
+    AJUSTADO,
+    DEFICIT
+}
+
+data class CapacidadPagoRequest(
+    @SerializedName("deudas_pausadas_simuladas")
+    val deudasPausadasSimuladas: List<String> = emptyList(),
+    @SerializedName("abonos_extraordinarios")
+    val abonosExtraordinarios: Map<String, Long> = emptyMap(),
+    @SerializedName("ajuste_ingreso_extra")
+    val ajusteIngresoExtra: Long = 0L
+)
+
+data class CapacidadPagoResponse(
+    @SerializedName("compromiso_total_mes")
+    val compromisoTotalMes: Long = 0L,
+    @SerializedName("fondo_disponible_mes")
+    val fondoDisponibleMes: Long = 0L,
+    @SerializedName("capacidad_neta")
+    val capacidadNeta: Long = 0L,
+    @SerializedName("semaforo")
+    val semaforo: String = "SUPERAVIT", // "SUPERAVIT", "AJUSTADO", "DEFICIT"
+    @SerializedName("dti_proyectado")
+    val dtiProyectado: Double = 0.0,
+    @SerializedName("meses_ahorrados_por_abonos")
+    val mesesAhorradosPorAbonos: Map<String, Int> = emptyMap()
+) {
+    val semaforoEnum: SemaforoViabilidad
+        get() = when (semaforo.trim().uppercase()) {
+            "DEFICIT" -> SemaforoViabilidad.DEFICIT
+            "AJUSTADO" -> SemaforoViabilidad.AJUSTADO
+            else -> SemaforoViabilidad.SUPERAVIT
+        }
+}

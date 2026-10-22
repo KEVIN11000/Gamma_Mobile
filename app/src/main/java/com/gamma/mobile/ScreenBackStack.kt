@@ -23,4 +23,6 @@ class ScreenBackStack {
 }
 
 /** Pantallas que se abren encima de otra y deben responder al botón/gesto Atrás. */
-fun Screen.isSecondary(): Boolean = this == Screen.NuevaTransaccion || this == Screen.SifenScanner
+fun Screen.isSecondary(): Boolean =
+    this == Screen.NuevaTransaccion || this == Screen.SifenScanner || this == Screen.CapacidadPago || this == Screen.HistorialCierres
+

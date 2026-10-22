@@ -288,6 +288,93 @@ class ObligacionesViewModelTest {
         assertEquals(1, fakeRepo.abonosList.size)
         assertEquals("1" to 200000L, fakeRepo.abonosList[0])
     }
+
+    @Test
+    fun `pausarObligacion changes estado to Pausada and excludes from compromisoMensual`() = runTest {
+        val o1 = Obligacion("1", "Préstamo", 1000000, 1000000, "Activo", cuotaReferenciaGs = 200000)
+        val o2 = Obligacion("2", "Tarjeta", 500000, 500000, "Activo", cuotaReferenciaGs = 100000)
+        fakeRepo.data = listOf(o1, o2)
+        viewModel = ObligacionesViewModel(fakeRepo, fakeDashboardRepo)
+        advanceUntilIdle()
+
+        // Compromiso mensual inicial: 200.000 + 100.000 = 300.000
+        assertEquals(300000L, viewModel.compromisoMensual.value)
+
+        // Pausar o1
+        viewModel.pausarObligacion(o1)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value as ObligacionesUiState.Success
+        val o1Actualizada = state.obligaciones.first { it.id == "1" }
+        assertEquals("Pausada", o1Actualizada.estado)
+        assertTrue(o1Actualizada.esPausada)
+        assertFalse(o1Actualizada.esActiva)
+
+        // Compromiso mensual recalculado excluyendo la deuda pausada: solo 100.000
+        assertEquals(100000L, viewModel.compromisoMensual.value)
+        assertEquals("Pausada", fakeRepo.updatedList.last().estado)
+    }
+
+    @Test
+    fun `reanudarObligacion changes estado to Activo and restores into compromisoMensual`() = runTest {
+        val oPausada = Obligacion("1", "Préstamo", 1000000, 1000000, "Pausada", cuotaReferenciaGs = 200000)
+        fakeRepo.data = listOf(oPausada)
+        viewModel = ObligacionesViewModel(fakeRepo, fakeDashboardRepo)
+        advanceUntilIdle()
+
+        assertEquals(0L, viewModel.compromisoMensual.value)
+
+        viewModel.reanudarObligacion(oPausada)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value as ObligacionesUiState.Success
+        assertEquals("Activo", state.obligaciones[0].estado)
+        assertTrue(state.obligaciones[0].esActiva)
+        assertEquals(200000L, viewModel.compromisoMensual.value)
+    }
+
+    @Test
+    fun `togglePausarObligacion alternates correctly between Pausada and Activo`() = runTest {
+        val oActiva = Obligacion("1", "Préstamo", 1000000, 1000000, "Activo", cuotaReferenciaGs = 150000)
+        fakeRepo.data = listOf(oActiva)
+        viewModel = ObligacionesViewModel(fakeRepo, fakeDashboardRepo)
+        advanceUntilIdle()
+
+        // Toggle: activa -> pausada
+        viewModel.togglePausarObligacion(oActiva)
+        advanceUntilIdle()
+        var item = (viewModel.uiState.value as ObligacionesUiState.Success).obligaciones[0]
+        assertEquals("Pausada", item.estado)
+        assertEquals(0L, viewModel.compromisoMensual.value)
+
+        // Toggle: pausada -> activa
+        viewModel.togglePausarObligacion(item)
+        advanceUntilIdle()
+        item = (viewModel.uiState.value as ObligacionesUiState.Success).obligaciones[0]
+        assertEquals("Activo", item.estado)
+        assertEquals(150000L, viewModel.compromisoMensual.value)
+    }
+
+    @Test
+    fun `setFiltro PAUSADAS displays only paused obligations`() = runTest {
+        val list = listOf(
+            Obligacion("1", "Deuda Activa", 100000, 100000, "Activo"),
+            Obligacion("2", "Deuda Pausada 1", 200000, 200000, "Pausada"),
+            Obligacion("3", "Deuda Pausada 2", 300000, 300000, "Pausado"),
+            Obligacion("4", "Deuda Saldada", 400000, 0, "Saldado")
+        )
+        fakeRepo.data = list
+        viewModel = ObligacionesViewModel(fakeRepo, fakeDashboardRepo)
+        advanceUntilIdle()
+
+        viewModel.setFiltro(FiltroObligacion.PAUSADAS)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value as ObligacionesUiState.Success
+        assertEquals(2, state.obligaciones.size)
+        assertTrue(state.obligaciones.all { it.esPausada })
+        assertEquals(listOf("2", "3"), state.obligaciones.map { it.id })
+    }
 }
 
 class FakeDashboardRepository : com.gamma.mobile.domain.repository.DashboardRepository {

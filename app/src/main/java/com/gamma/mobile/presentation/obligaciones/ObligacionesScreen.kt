@@ -3,6 +3,7 @@ package com.gamma.mobile.presentation.obligaciones
 import android.app.DatePickerDialog
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -15,7 +16,9 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -30,13 +33,15 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.gamma.mobile.ui.theme.GammaTheme
 import com.gamma.mobile.domain.model.Obligacion
 import com.gamma.mobile.utils.formatGuaranies
+import com.gamma.mobile.utils.obtenerEstadoVencimiento
 import java.util.Calendar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ObligacionesScreen(
     viewModel: ObligacionesViewModel,
-    showTopBar: Boolean = true
+    showTopBar: Boolean = true,
+    onNavigateToCapacidad: () -> Unit = {}
 ) {
     var showCrearModal by remember { mutableStateOf(false) }
     var showSimulador by remember { mutableStateOf(false) }
@@ -91,6 +96,45 @@ fun ObligacionesScreen(
                 onFilterSelected = { viewModel.setFiltro(it) }
             )
 
+            val compromisoMensual by viewModel.compromisoMensual.collectAsState()
+            if (compromisoMensual > 0L) {
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                "Compromiso mensual activo:",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                formatGuaranies(compromisoMensual),
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        FilledTonalButton(
+                            onClick = onNavigateToCapacidad,
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                        ) {
+                            Text("Simular", style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                }
+            }
+
             Box(modifier = Modifier.fillMaxSize()) {
                 when (val state = uiState) {
                     is ObligacionesUiState.Loading -> {
@@ -121,7 +165,9 @@ fun ObligacionesScreen(
                                         onAprobar = { viewModel.aprobarObligacion(obligacion) },
                                         onCancelarSimulada = { viewModel.cancelarObligacionSimulada(obligacion) },
                                         onAbonarClick = { selectedObligacionToAbonar = obligacion },
-                                        onDeleteClick = { obligacionToDelete = obligacion }
+                                        onDeleteClick = { obligacionToDelete = obligacion },
+                                        onPausarClick = { viewModel.pausarObligacion(obligacion) },
+                                        onReanudarClick = { viewModel.reanudarObligacion(obligacion) }
                                     )
                                 }
                             }
@@ -207,7 +253,9 @@ fun ObligacionItem(
     onAprobar: () -> Unit,
     onCancelarSimulada: () -> Unit,
     onAbonarClick: () -> Unit,
-    onDeleteClick: () -> Unit
+    onDeleteClick: () -> Unit,
+    onPausarClick: () -> Unit = {},
+    onReanudarClick: () -> Unit = {}
 ) {
     var showConfirmCancelar by remember { mutableStateOf(false) }
 
@@ -238,11 +286,13 @@ fun ObligacionItem(
                     val badgeColor = when {
                         obligacion.esSaldada -> MaterialTheme.colorScheme.primaryContainer
                         obligacion.esSimulada -> MaterialTheme.colorScheme.tertiaryContainer
+                        obligacion.esPausada -> MaterialTheme.colorScheme.surfaceVariant
                         else -> MaterialTheme.colorScheme.errorContainer
                     }
                     val textColor = when {
                         obligacion.esSaldada -> MaterialTheme.colorScheme.onPrimaryContainer
                         obligacion.esSimulada -> MaterialTheme.colorScheme.onTertiaryContainer
+                        obligacion.esPausada -> MaterialTheme.colorScheme.onSurfaceVariant
                         else -> MaterialTheme.colorScheme.onErrorContainer
                     }
 
@@ -270,9 +320,11 @@ fun ObligacionItem(
             Spacer(modifier = Modifier.height(8.dp))
 
             // Datos de cuotas y vencimiento si existen
+            val vencimientoInfo = obligacion.obtenerEstadoVencimiento()
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 if (obligacion.cuotasTotales > 0) {
                     val pagadas = (obligacion.cuotasTotales - obligacion.cuotasRestantes).coerceAtLeast(0)
@@ -282,13 +334,31 @@ fun ObligacionItem(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                if (obligacion.diaVencimiento > 0) {
-                    Text(
-                        "Vence día ${obligacion.diaVencimiento}",
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
+                if (vencimientoInfo != null) {
+                    val vencimientoColor = when {
+                        obligacion.esSaldada -> MaterialTheme.colorScheme.onSurfaceVariant
+                        vencimientoInfo.esVencido -> MaterialTheme.colorScheme.error
+                        vencimientoInfo.esHoy -> MaterialTheme.colorScheme.tertiary
+                        else -> MaterialTheme.colorScheme.primary
+                    }
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (vencimientoInfo.esVencido && !obligacion.esSaldada) {
+                            Icon(
+                                imageVector = Icons.Default.Warning,
+                                contentDescription = "Vencido",
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                        }
+                        Text(
+                            vencimientoInfo.texto,
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = if (vencimientoInfo.esVencido) FontWeight.Bold else FontWeight.SemiBold,
+                            color = vencimientoColor
+                        )
+                    }
                 }
             }
 
@@ -334,9 +404,27 @@ fun ObligacionItem(
                         Spacer(modifier = Modifier.width(4.dp))
                         Text("Cancelar")
                     }
+                } else if (obligacion.esPausada) {
+                    Button(
+                        onClick = onReanudarClick,
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                    ) {
+                        Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Reanudar Cuota")
+                    }
                 } else if (obligacion.esActiva) {
                     Button(onClick = onAbonarClick, modifier = Modifier.weight(1f)) {
                         Text("Abonar Cuota")
+                    }
+                    OutlinedButton(
+                        onClick = onPausarClick,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Default.Pause, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Pausar este mes")
                     }
                 }
             }
@@ -508,12 +596,17 @@ fun CrearObligacionModal(
                     FilterChip(
                         selected = estadoInicial.equals("Activo", ignoreCase = true),
                         onClick = { estadoInicial = "Activo" },
-                        label = { Text("Activa (Vigente)", style = MaterialTheme.typography.labelSmall) }
+                        label = { Text("Activa", style = MaterialTheme.typography.labelSmall) }
+                    )
+                    FilterChip(
+                        selected = estadoInicial.equals("Pausada", ignoreCase = true) || estadoInicial.equals("Pausado", ignoreCase = true),
+                        onClick = { estadoInicial = "Pausada" },
+                        label = { Text("Pausada", style = MaterialTheme.typography.labelSmall) }
                     )
                     FilterChip(
                         selected = estadoInicial.equals("Simulado", ignoreCase = true) || estadoInicial.equals("Simulada", ignoreCase = true),
                         onClick = { estadoInicial = "Simulado" },
-                        label = { Text("Simulada (Proyectada)", style = MaterialTheme.typography.labelSmall) }
+                        label = { Text("Simulada", style = MaterialTheme.typography.labelSmall) }
                     )
                 }
                 Spacer(modifier = Modifier.height(8.dp))
@@ -763,6 +856,7 @@ fun FilterTabsObligaciones(
     val filters = listOf(
         FiltroObligacion.TODAS to "Todas",
         FiltroObligacion.ACTIVAS to "Activas",
+        FiltroObligacion.PAUSADAS to "Pausadas",
         FiltroObligacion.SALDADAS to "Saldadas",
         FiltroObligacion.SIMULADAS to "Simuladas"
     )
@@ -770,6 +864,7 @@ fun FilterTabsObligaciones(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
             .padding(horizontal = 16.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
@@ -787,7 +882,10 @@ fun FilterTabsObligaciones(
 @Composable
 fun ObligacionItemPreview() {
     GammaTheme {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
             ObligacionItem(
                 obligacion = Obligacion(
                     id = "preview-1",
@@ -804,7 +902,49 @@ fun ObligacionItemPreview() {
                 onAprobar = {},
                 onCancelarSimulada = {},
                 onAbonarClick = {},
-                onDeleteClick = {}
+                onDeleteClick = {},
+                onPausarClick = {},
+                onReanudarClick = {}
+            )
+            ObligacionItem(
+                obligacion = Obligacion(
+                    id = "preview-2",
+                    nombre = "Préstamo Cooperativa (Vencido)",
+                    montoInicial = 4000000L,
+                    saldoActual = 2500000L,
+                    estado = "Activo",
+                    entidad = "Coop. San Cristóbal",
+                    cuotaReferenciaGs = 450000L,
+                    cuotasTotales = 10,
+                    cuotasRestantes = 6,
+                    diaVencimiento = 10
+                ),
+                onAprobar = {},
+                onCancelarSimulada = {},
+                onAbonarClick = {},
+                onDeleteClick = {},
+                onPausarClick = {},
+                onReanudarClick = {}
+            )
+            ObligacionItem(
+                obligacion = Obligacion(
+                    id = "preview-3",
+                    nombre = "Tarjeta Financiada",
+                    montoInicial = 3000000L,
+                    saldoActual = 1500000L,
+                    estado = "Pausada",
+                    entidad = "Banco Familiar",
+                    cuotaReferenciaGs = 500000L,
+                    cuotasTotales = 6,
+                    cuotasRestantes = 3,
+                    diaVencimiento = 12
+                ),
+                onAprobar = {},
+                onCancelarSimulada = {},
+                onAbonarClick = {},
+                onDeleteClick = {},
+                onPausarClick = {},
+                onReanudarClick = {}
             )
         }
     }

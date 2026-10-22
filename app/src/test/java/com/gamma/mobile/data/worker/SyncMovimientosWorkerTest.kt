@@ -178,6 +178,8 @@ open class FakeWorkerApi : GammaApi {
     override suspend fun marcarAsistencia(request: com.gamma.mobile.domain.model.AsistenciaMarcaRequest) = throw NotImplementedError()
     override suspend fun marcarMateria(request: com.gamma.mobile.domain.model.AsistenciaMateriaRequest) = throw NotImplementedError()
     override suspend fun ejecutarCierre(request: com.gamma.mobile.domain.model.CierreRequest) = throw NotImplementedError()
+    override suspend fun getCierres(): Response<List<com.gamma.mobile.domain.model.CierreHistorialItem>> = throw NotImplementedError()
+    override suspend fun descargarReporteCierre(filename: String): Response<okhttp3.ResponseBody> = throw NotImplementedError()
     override suspend fun descargarArchivoPdf(url: String) = throw NotImplementedError()
     override suspend fun getHealthStatus() = throw NotImplementedError()
     override suspend fun getTickets() = throw NotImplementedError()

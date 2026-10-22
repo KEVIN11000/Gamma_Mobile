@@ -47,6 +47,8 @@ enum class Screen {
     NuevaTransaccion,
     SifenScanner,
     Compromisos,
+    HistorialCierres,
+    CapacidadPago,
     Sistema
 }
 
@@ -189,7 +191,24 @@ fun GammaApp() {
                     )
                 }
                 Screen.Compromisos -> {
-                    CompromisosScreen(initialTab = compromisosTab)
+                    CompromisosScreen(
+                        initialTab = compromisosTab,
+                        onNavigateToCapacidad = { pushScreen(Screen.CapacidadPago) }
+                    )
+                }
+                Screen.HistorialCierres -> {
+                    val cierresViewModel: com.gamma.mobile.presentation.cierre.CierresViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+                    com.gamma.mobile.presentation.cierre.HistorialCierresScreen(
+                        viewModel = cierresViewModel,
+                        showTopBar = true
+                    )
+                }
+                Screen.CapacidadPago -> {
+                    val capacidadViewModel: com.gamma.mobile.presentation.capacidad.CapacidadPagoViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+                    com.gamma.mobile.presentation.capacidad.CapacidadPagoScreen(
+                        viewModel = capacidadViewModel,
+                        onBack = navigateBack
+                    )
                 }
                 Screen.Sistema -> com.gamma.mobile.presentation.sistema.SistemaScreen()
             }

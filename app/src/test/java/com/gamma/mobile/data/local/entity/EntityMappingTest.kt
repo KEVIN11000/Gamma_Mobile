@@ -117,4 +117,17 @@ class EntityMappingTest {
         assertEquals("01/01/2026", o.fechaInicio)
         assertEquals("obs", o.observaciones)
     }
+
+    @Test
+    fun obligacion_esPausada_evaluatesCorrectly() {
+        val oPausada = Obligacion("1", "Deuda 1", 1000, 1000, "Pausada")
+        val oPausado = Obligacion("2", "Deuda 2", 1000, 1000, "Pausado")
+        val oActiva = Obligacion("3", "Deuda 3", 1000, 1000, "Activo")
+        val oSaldada = Obligacion("4", "Deuda 4", 1000, 0, "Pausada")
+
+        assertTrue(oPausada.esPausada)
+        assertTrue(oPausado.esPausada)
+        org.junit.Assert.assertFalse(oActiva.esPausada)
+        org.junit.Assert.assertFalse(oSaldada.esPausada)
+    }
 }

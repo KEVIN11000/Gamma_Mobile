@@ -23,7 +23,7 @@ sealed class ObligacionesUiState {
 enum class NivelRiesgo { VERDE, AMARILLO, ROJO }
 
 enum class FiltroObligacion {
-    TODAS, ACTIVAS, SALDADAS, SIMULADAS
+    TODAS, ACTIVAS, PAUSADAS, SALDADAS, SIMULADAS
 }
 
 data class SimulacionResult(
@@ -47,6 +47,9 @@ class ObligacionesViewModel @Inject constructor(
     private var todasLasObligaciones: List<Obligacion> = emptyList()
     private val _filtroActual = MutableStateFlow(FiltroObligacion.TODAS)
     val filtroActual: StateFlow<FiltroObligacion> = _filtroActual.asStateFlow()
+
+    private val _compromisoMensual = MutableStateFlow(0L)
+    val compromisoMensual: StateFlow<Long> = _compromisoMensual.asStateFlow()
 
     init {
         loadObligaciones()
@@ -82,10 +85,16 @@ class ObligacionesViewModel @Inject constructor(
         val filtered = when (_filtroActual.value) {
             FiltroObligacion.TODAS -> todasLasObligaciones
             FiltroObligacion.ACTIVAS -> todasLasObligaciones.filter { it.esActiva }
+            FiltroObligacion.PAUSADAS -> todasLasObligaciones.filter { it.esPausada }
             FiltroObligacion.SALDADAS -> todasLasObligaciones.filter { it.esSaldada }
             FiltroObligacion.SIMULADAS -> todasLasObligaciones.filter { it.esSimulada }
         }
+        _compromisoMensual.value = todasLasObligaciones.filter { it.esActiva && !it.esPausada }.sumOf { it.cuotaReferenciaGs }
         _uiState.value = ObligacionesUiState.Success(filtered)
+    }
+
+    fun calcularCompromisoMensual(obligaciones: List<Obligacion> = todasLasObligaciones): Long {
+        return obligaciones.filter { it.esActiva && !it.esPausada }.sumOf { it.cuotaReferenciaGs }
     }
 
     fun simularCuota(monto: Long, cuotas: Int, cuotaPersonalizada: Long? = null) {
@@ -159,6 +168,28 @@ class ObligacionesViewModel @Inject constructor(
     fun cancelarObligacionSimulada(obligacion: Obligacion) {
         if (obligacion.esSimulada) {
             eliminarObligacion(obligacion.id)
+        }
+    }
+
+    fun pausarObligacion(obligacion: Obligacion) {
+        if (obligacion.esActiva) {
+            val pausada = obligacion.copy(estado = "Pausada")
+            updateInListAndRemote(pausada)
+        }
+    }
+
+    fun reanudarObligacion(obligacion: Obligacion) {
+        if (obligacion.esPausada) {
+            val reactivada = obligacion.copy(estado = "Activo")
+            updateInListAndRemote(reactivada)
+        }
+    }
+
+    fun togglePausarObligacion(obligacion: Obligacion) {
+        if (obligacion.esPausada) {
+            reanudarObligacion(obligacion)
+        } else if (obligacion.esActiva) {
+            pausarObligacion(obligacion)
         }
     }
 

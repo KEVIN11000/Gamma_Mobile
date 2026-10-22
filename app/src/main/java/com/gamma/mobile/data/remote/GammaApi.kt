@@ -83,6 +83,13 @@ interface GammaApi {
     @POST("cierres/ejecutar")
     suspend fun ejecutarCierre(@Body request: com.gamma.mobile.domain.model.CierreRequest): Response<com.gamma.mobile.domain.model.CierreResponse>
 
+    @GET("cierres")
+    suspend fun getCierres(): Response<List<com.gamma.mobile.domain.model.CierreHistorialItem>>
+
+    @retrofit2.http.Streaming
+    @GET("cierres/reportes/{filename}")
+    suspend fun descargarReporteCierre(@Path("filename") filename: String): Response<okhttp3.ResponseBody>
+
     @retrofit2.http.Streaming
     @GET
     suspend fun descargarArchivoPdf(@retrofit2.http.Url url: String): Response<okhttp3.ResponseBody>

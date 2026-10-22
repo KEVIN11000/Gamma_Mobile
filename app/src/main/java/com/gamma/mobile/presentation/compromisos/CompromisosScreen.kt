@@ -34,7 +34,8 @@ import com.gamma.mobile.presentation.obligaciones.ObligacionesViewModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CompromisosScreen(
-    initialTab: Int = 0
+    initialTab: Int = 0,
+    onNavigateToCapacidad: () -> Unit = {}
 ) {
     var selectedTab by remember(initialTab) { mutableIntStateOf(initialTab) }
 
@@ -77,7 +78,11 @@ fun CompromisosScreen(
             when (selectedTab) {
                 0 -> {
                     val obligacionesViewModel: ObligacionesViewModel = hiltViewModel()
-                    ObligacionesScreen(viewModel = obligacionesViewModel, showTopBar = false)
+                    ObligacionesScreen(
+                        viewModel = obligacionesViewModel,
+                        showTopBar = false,
+                        onNavigateToCapacidad = onNavigateToCapacidad
+                    )
                 }
                 1 -> {
                     val avisosViewModel: AvisosViewModel = hiltViewModel()

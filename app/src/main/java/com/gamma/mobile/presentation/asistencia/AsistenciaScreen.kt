@@ -9,6 +9,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Warning
@@ -22,6 +23,8 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import com.gamma.mobile.presentation.cierre.CierreUiState
 import com.gamma.mobile.presentation.cierre.CierreViewModel
+import com.gamma.mobile.presentation.cierre.CierresViewModel
+import com.gamma.mobile.presentation.cierre.HistorialCierresScreen
 import com.gamma.mobile.utils.formatGuaranies
 import java.io.File
 import java.io.FileOutputStream
@@ -62,14 +65,24 @@ fun AsistenciaScreen(
                 Tab(
                     selected = selectedTab == 1,
                     onClick = { selectedTab = 1 },
-                    text = { Text("Cierre Mensual") },
+                    text = { Text("Ejecutar") },
                     icon = { Icon(Icons.Default.DateRange, contentDescription = null) }
+                )
+                Tab(
+                    selected = selectedTab == 2,
+                    onClick = { selectedTab = 2 },
+                    text = { Text("Historial") },
+                    icon = { Icon(Icons.Default.History, contentDescription = null) }
                 )
             }
 
             when (selectedTab) {
                 0 -> MarcacionesTabContent(viewModel = viewModel)
                 1 -> CierreTabContent(cierreViewModel = cierreViewModel)
+                2 -> {
+                    val cierresViewModel: CierresViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+                    HistorialCierresScreen(viewModel = cierresViewModel, showTopBar = false)
+                }
             }
         }
     }

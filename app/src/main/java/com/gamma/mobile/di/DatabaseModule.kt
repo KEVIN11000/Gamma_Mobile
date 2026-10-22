@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.gamma.mobile.data.local.GammaDatabase
 import com.gamma.mobile.data.local.dao.AvisoDao
+import com.gamma.mobile.data.local.dao.CierreDao
 import com.gamma.mobile.data.local.dao.MovimientoDao
 import com.gamma.mobile.data.local.dao.ObligacionDao
 import com.gamma.mobile.data.local.dao.SyncStateDao
@@ -25,7 +26,10 @@ object DatabaseModule {
             context,
             GammaDatabase::class.java,
             "gamma_database"
-        ).fallbackToDestructiveMigration().build()
+        )
+        .addMigrations(GammaDatabase.MIGRATION_3_4)
+        .fallbackToDestructiveMigration()
+        .build()
     }
 
     @Provides
@@ -39,4 +43,7 @@ object DatabaseModule {
 
     @Provides
     fun provideSyncStateDao(db: GammaDatabase): SyncStateDao = db.syncStateDao()
+
+    @Provides
+    fun provideCierreDao(db: GammaDatabase): CierreDao = db.cierreDao()
 }

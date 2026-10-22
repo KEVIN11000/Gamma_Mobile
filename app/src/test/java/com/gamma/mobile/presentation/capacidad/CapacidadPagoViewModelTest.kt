@@ -2,12 +2,17 @@ package com.gamma.mobile.presentation.capacidad
 
 import com.gamma.mobile.data.remote.NetworkResult
 import com.gamma.mobile.domain.model.DashboardSummary
+import com.gamma.mobile.domain.model.EscenarioCapacidad
+import com.gamma.mobile.domain.model.GastoSimulado
 import com.gamma.mobile.domain.model.Obligacion
 import com.gamma.mobile.domain.model.SemaforoViabilidad
 import com.gamma.mobile.domain.repository.DashboardRepository
+import com.gamma.mobile.domain.repository.EscenarioCapacidadRepository
 import com.gamma.mobile.domain.repository.ObligacionRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -26,6 +31,7 @@ class CapacidadPagoViewModelTest {
     private lateinit var viewModel: CapacidadPagoViewModel
     private lateinit var fakeObligacionRepo: FakeCapacidadObligacionRepo
     private lateinit var fakeDashboardRepo: FakeCapacidadDashboardRepo
+    private lateinit var fakeEscenarioRepo: FakeEscenarioCapacidadRepository
     private val testDispatcher = StandardTestDispatcher()
 
     @Before
@@ -33,6 +39,7 @@ class CapacidadPagoViewModelTest {
         Dispatchers.setMain(testDispatcher)
         fakeObligacionRepo = FakeCapacidadObligacionRepo()
         fakeDashboardRepo = FakeCapacidadDashboardRepo()
+        fakeEscenarioRepo = FakeEscenarioCapacidadRepository()
     }
 
     @After
@@ -48,7 +55,7 @@ class CapacidadPagoViewModelTest {
             Obligacion(id = "2", nombre = "Tarjeta", saldoActual = 4000000L, cuotaReferenciaGs = 800000L, cuotasRestantes = 5, estado = "Activo")
         )
 
-        viewModel = CapacidadPagoViewModel(fakeObligacionRepo, fakeDashboardRepo)
+        viewModel = CapacidadPagoViewModel(fakeObligacionRepo, fakeDashboardRepo, fakeEscenarioRepo)
         advanceUntilIdle()
 
         val state = viewModel.uiState.value
@@ -69,12 +76,11 @@ class CapacidadPagoViewModelTest {
             Obligacion(id = "1", nombre = "Deuda Pesada", saldoActual = 3600000L, cuotaReferenciaGs = 900000L, cuotasRestantes = 4, estado = "Activo")
         )
 
-        viewModel = CapacidadPagoViewModel(fakeObligacionRepo, fakeDashboardRepo)
+        viewModel = CapacidadPagoViewModel(fakeObligacionRepo, fakeDashboardRepo, fakeEscenarioRepo)
         advanceUntilIdle()
 
         val state = viewModel.uiState.value as CapacidadPagoUiState.Success
         assertEquals(100000L, state.resultado.capacidadNeta)
-        // 100000 < (1000000 * 0.15 = 150000) -> AJUSTADO
         assertEquals(SemaforoViabilidad.AJUSTADO, state.resultado.semaforoEnum)
     }
 
@@ -85,7 +91,7 @@ class CapacidadPagoViewModelTest {
             Obligacion(id = "1", nombre = "Super Cuota", saldoActual = 4500000L, cuotaReferenciaGs = 1500000L, cuotasRestantes = 3, estado = "Activo")
         )
 
-        viewModel = CapacidadPagoViewModel(fakeObligacionRepo, fakeDashboardRepo)
+        viewModel = CapacidadPagoViewModel(fakeObligacionRepo, fakeDashboardRepo, fakeEscenarioRepo)
         advanceUntilIdle()
 
         val state = viewModel.uiState.value as CapacidadPagoUiState.Success
@@ -101,15 +107,13 @@ class CapacidadPagoViewModelTest {
             Obligacion(id = "2", nombre = "Electrodoméstico", saldoActual = 3000000L, cuotaReferenciaGs = 500000L, cuotasRestantes = 6, estado = "Activo")
         )
 
-        viewModel = CapacidadPagoViewModel(fakeObligacionRepo, fakeDashboardRepo)
+        viewModel = CapacidadPagoViewModel(fakeObligacionRepo, fakeDashboardRepo, fakeEscenarioRepo)
         advanceUntilIdle()
 
-        // Asignar abono a deuda 1 primero
         viewModel.setAbonoExtraordinario("1", 200000L)
         advanceUntilIdle()
         assertEquals(200000L, viewModel.abonosExtraordinarios.value["1"])
 
-        // Simular pausar la deuda 1
         viewModel.toggleSimularPausa("1")
         advanceUntilIdle()
 
@@ -117,10 +121,9 @@ class CapacidadPagoViewModelTest {
         assertFalse(viewModel.abonosExtraordinarios.value.containsKey("1"))
 
         val state = viewModel.uiState.value as CapacidadPagoUiState.Success
-        assertEquals(500000L, state.resultado.compromisoTotalMes) // Solo la deuda 2
+        assertEquals(500000L, state.resultado.compromisoTotalMes)
         assertEquals(2500000L, state.resultado.capacidadNeta)
 
-        // Despausar la deuda 1
         viewModel.toggleSimularPausa("1")
         advanceUntilIdle()
         assertFalse(viewModel.deudasPausadasSimuladas.value.contains("1"))
@@ -136,14 +139,13 @@ class CapacidadPagoViewModelTest {
             Obligacion(id = "1", nombre = "Deuda", saldoActual = 7500000L, cuotaReferenciaGs = 1500000L, cuotasRestantes = 5, estado = "Activo")
         )
 
-        viewModel = CapacidadPagoViewModel(fakeObligacionRepo, fakeDashboardRepo)
+        viewModel = CapacidadPagoViewModel(fakeObligacionRepo, fakeDashboardRepo, fakeEscenarioRepo)
         advanceUntilIdle()
 
         var state = viewModel.uiState.value as CapacidadPagoUiState.Success
         assertEquals(2000000L, state.resultado.fondoDisponibleMes)
         assertEquals(500000L, state.resultado.capacidadNeta)
 
-        // Ajuste con aguinaldo / ingreso extra
         viewModel.setAjusteIngresoExtra(1000000L)
         advanceUntilIdle()
 
@@ -159,10 +161,9 @@ class CapacidadPagoViewModelTest {
             Obligacion(id = "1", nombre = "Préstamo", saldoActual = 2000000L, cuotaReferenciaGs = 400000L, cuotasRestantes = 5, estado = "Activo")
         )
 
-        viewModel = CapacidadPagoViewModel(fakeObligacionRepo, fakeDashboardRepo)
+        viewModel = CapacidadPagoViewModel(fakeObligacionRepo, fakeDashboardRepo, fakeEscenarioRepo)
         advanceUntilIdle()
 
-        // Abono de 800.000 Gs (2 cuotas de 400.000)
         viewModel.setAbonoExtraordinario("1", 800000L)
         advanceUntilIdle()
 
@@ -170,31 +171,169 @@ class CapacidadPagoViewModelTest {
         assertEquals(2, state.resultado.mesesAhorradosPorAbonos["1"])
         assertEquals(3000000L - 400000L - 800000L, state.resultado.capacidadNeta)
 
-        // Abono que excede las cuotas restantes (6 cuotas equivalentes vs 5 restantes)
         viewModel.setAbonoExtraordinario("1", 2400000L)
         advanceUntilIdle()
 
         state = viewModel.uiState.value as CapacidadPagoUiState.Success
-        assertEquals(5, state.resultado.mesesAhorradosPorAbonos["1"]) // tope en cuotasRestantes (5)
+        assertEquals(5, state.resultado.mesesAhorradosPorAbonos["1"])
     }
 
     @Test
-    fun `resetSimulacion clears all simulation parameters`() = runTest {
+    fun `agregarGastoAdHoc adds expense and updates totalGastosProyectados and capacidadNeta`() = runTest {
+        fakeDashboardRepo.summary = DashboardSummary(margenLibreDisponible = 4000000L)
+        fakeObligacionRepo.obligaciones = listOf(
+            Obligacion(id = "1", nombre = "Deuda", saldoActual = 2000000L, cuotaReferenciaGs = 1000000L, cuotasRestantes = 2, estado = "Activo")
+        )
+
+        viewModel = CapacidadPagoViewModel(fakeObligacionRepo, fakeDashboardRepo, fakeEscenarioRepo)
+        advanceUntilIdle()
+
+        viewModel.agregarGastoAdHoc("Mantenimiento Vehículo", 500000L)
+        advanceUntilIdle()
+
+        assertEquals(1, viewModel.gastosSimulados.value.size)
+        assertEquals("Mantenimiento Vehículo", viewModel.gastosSimulados.value[0].concepto)
+        assertEquals(500000L, viewModel.gastosSimulados.value[0].monto)
+        assertTrue(viewModel.gastosSimulados.value[0].incluido)
+
+        val state = viewModel.uiState.value as CapacidadPagoUiState.Success
+        assertEquals(500000L, state.resultado.totalGastosProyectados)
+        // 4.000.000 - 1.000.000 - 500.000 = 2.500.000
+        assertEquals(2500000L, state.resultado.capacidadNeta)
+        // DTI: (1.000.000 + 500.000) / 4.000.000 = 37.5%
+        assertEquals(37.5, state.resultado.dtiProyectado, 0.1)
+    }
+
+    @Test
+    fun `toggleGastoAdHoc pauses expense without deleting it`() = runTest {
+        fakeDashboardRepo.summary = DashboardSummary(margenLibreDisponible = 3000000L)
+        fakeObligacionRepo.obligaciones = emptyList()
+
+        viewModel = CapacidadPagoViewModel(fakeObligacionRepo, fakeDashboardRepo, fakeEscenarioRepo)
+        advanceUntilIdle()
+
+        viewModel.agregarGastoAdHoc("Gasto Opcional", 1000000L)
+        advanceUntilIdle()
+
+        val gastoId = viewModel.gastosSimulados.value[0].id
+        var state = viewModel.uiState.value as CapacidadPagoUiState.Success
+        assertEquals(1000000L, state.resultado.totalGastosProyectados)
+        assertEquals(2000000L, state.resultado.capacidadNeta)
+
+        // Pausar gasto
+        viewModel.toggleGastoAdHoc(gastoId)
+        advanceUntilIdle()
+
+        assertFalse(viewModel.gastosSimulados.value[0].incluido)
+        state = viewModel.uiState.value as CapacidadPagoUiState.Success
+        assertEquals(0L, state.resultado.totalGastosProyectados)
+        assertEquals(3000000L, state.resultado.capacidadNeta)
+
+        // Reactivar gasto
+        viewModel.toggleGastoAdHoc(gastoId)
+        advanceUntilIdle()
+
+        assertTrue(viewModel.gastosSimulados.value[0].incluido)
+        state = viewModel.uiState.value as CapacidadPagoUiState.Success
+        assertEquals(1000000L, state.resultado.totalGastosProyectados)
+        assertEquals(2000000L, state.resultado.capacidadNeta)
+    }
+
+    @Test
+    fun `eliminarGastoAdHoc removes expense completely from calculation`() = runTest {
+        fakeDashboardRepo.summary = DashboardSummary(margenLibreDisponible = 3000000L)
+        viewModel = CapacidadPagoViewModel(fakeObligacionRepo, fakeDashboardRepo, fakeEscenarioRepo)
+        advanceUntilIdle()
+
+        viewModel.agregarGastoAdHoc("Gasto 1", 500000L)
+        viewModel.agregarGastoAdHoc("Gasto 2", 700000L)
+        advanceUntilIdle()
+        assertEquals(2, viewModel.gastosSimulados.value.size)
+
+        val idAEliminar = viewModel.gastosSimulados.value[0].id
+        viewModel.eliminarGastoAdHoc(idAEliminar)
+        advanceUntilIdle()
+
+        assertEquals(1, viewModel.gastosSimulados.value.size)
+        assertEquals("Gasto 2", viewModel.gastosSimulados.value[0].concepto)
+        val state = viewModel.uiState.value as CapacidadPagoUiState.Success
+        assertEquals(700000L, state.resultado.totalGastosProyectados)
+    }
+
+    @Test
+    fun `guardarEscenarioActual and cargarEscenario restores entire simulation state`() = runTest {
+        fakeDashboardRepo.summary = DashboardSummary(margenLibreDisponible = 5000000L)
+        fakeObligacionRepo.obligaciones = listOf(
+            Obligacion(id = "1", nombre = "Deuda 1", saldoActual = 5000000L, cuotaReferenciaGs = 500000L, cuotasRestantes = 10, estado = "Activo"),
+            Obligacion(id = "2", nombre = "Deuda 2", saldoActual = 3000000L, cuotaReferenciaGs = 600000L, cuotasRestantes = 5, estado = "Activo")
+        )
+
+        viewModel = CapacidadPagoViewModel(fakeObligacionRepo, fakeDashboardRepo, fakeEscenarioRepo)
+        advanceUntilIdle()
+
+        // Configurar simulación compleja
+        viewModel.setAjusteIngresoExtra(1000000L)
+        viewModel.toggleSimularPausa("1")
+        viewModel.setAbonoExtraordinario("2", 1200000L)
+        viewModel.agregarGastoAdHoc("Viaje", 1500000L)
+        advanceUntilIdle()
+
+        // Guardar escenario
+        viewModel.guardarEscenarioActual("Vacaciones Julio")
+        advanceUntilIdle()
+
+        assertEquals(1, fakeEscenarioRepo.escenarios.size)
+        val guardado = fakeEscenarioRepo.escenarios[0]
+        assertEquals("Vacaciones Julio", guardado.nombre)
+        assertEquals(viewModel.escenarioActivoNombre.value, "Vacaciones Julio")
+
+        // Resetear simulación
+        viewModel.resetSimulacion()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.deudasPausadasSimuladas.value.isEmpty())
+        assertTrue(viewModel.abonosExtraordinarios.value.isEmpty())
+        assertEquals(0L, viewModel.ajusteIngresoExtra.value)
+        assertTrue(viewModel.gastosSimulados.value.isEmpty())
+
+        // Recargar escenario guardado
+        viewModel.cargarEscenario(guardado)
+        advanceUntilIdle()
+
+        assertEquals(setOf("1"), viewModel.deudasPausadasSimuladas.value)
+        assertEquals(1200000L, viewModel.abonosExtraordinarios.value["2"])
+        assertEquals(1000000L, viewModel.ajusteIngresoExtra.value)
+        assertEquals(1, viewModel.gastosSimulados.value.size)
+        assertEquals("Viaje", viewModel.gastosSimulados.value[0].concepto)
+        assertEquals("Vacaciones Julio", viewModel.escenarioActivoNombre.value)
+
+        val state = viewModel.uiState.value as CapacidadPagoUiState.Success
+        // Fondo: 5.000.000 + 1.000.000 = 6.000.000
+        // Deudas activas no pausadas: solo Deuda 2 (600.000)
+        // Abono: 1.200.000
+        // Gastos: 1.500.000
+        // Capacidad neta: 6.000.000 - 600.000 - 1.200.000 - 1.500.000 = 2.700.000
+        assertEquals(6000000L, state.resultado.fondoDisponibleMes)
+        assertEquals(600000L, state.resultado.compromisoTotalMes)
+        assertEquals(1500000L, state.resultado.totalGastosProyectados)
+        assertEquals(2700000L, state.resultado.capacidadNeta)
+    }
+
+    @Test
+    fun `resetSimulacion clears all simulation parameters including ad hoc expenses`() = runTest {
         fakeDashboardRepo.summary = DashboardSummary(margenLibreDisponible = 4000000L)
         fakeObligacionRepo.obligaciones = listOf(
             Obligacion(id = "1", nombre = "Deuda A", saldoActual = 2000000L, cuotaReferenciaGs = 500000L, cuotasRestantes = 4, estado = "Activo")
         )
 
-        viewModel = CapacidadPagoViewModel(fakeObligacionRepo, fakeDashboardRepo)
+        viewModel = CapacidadPagoViewModel(fakeObligacionRepo, fakeDashboardRepo, fakeEscenarioRepo)
         advanceUntilIdle()
 
         viewModel.setAjusteIngresoExtra(500000L)
         viewModel.setAbonoExtraordinario("1", 1000000L)
         viewModel.toggleSimularPausa("1")
+        viewModel.agregarGastoAdHoc("Reparación", 300000L)
         advanceUntilIdle()
-
-        assertTrue(viewModel.deudasPausadasSimuladas.value.isNotEmpty())
-        assertEquals(500000L, viewModel.ajusteIngresoExtra.value)
 
         viewModel.resetSimulacion()
         advanceUntilIdle()
@@ -202,10 +341,12 @@ class CapacidadPagoViewModelTest {
         assertTrue(viewModel.deudasPausadasSimuladas.value.isEmpty())
         assertTrue(viewModel.abonosExtraordinarios.value.isEmpty())
         assertEquals(0L, viewModel.ajusteIngresoExtra.value)
+        assertTrue(viewModel.gastosSimulados.value.isEmpty())
 
         val state = viewModel.uiState.value as CapacidadPagoUiState.Success
         assertEquals(4000000L, state.resultado.fondoDisponibleMes)
         assertEquals(500000L, state.resultado.compromisoTotalMes)
+        assertEquals(0L, state.resultado.totalGastosProyectados)
         assertEquals(3500000L, state.resultado.capacidadNeta)
     }
 
@@ -213,12 +354,30 @@ class CapacidadPagoViewModelTest {
     fun `loadDatos emits Error state when repository returns failure`() = runTest {
         fakeDashboardRepo.shouldFail = true
 
-        viewModel = CapacidadPagoViewModel(fakeObligacionRepo, fakeDashboardRepo)
+        viewModel = CapacidadPagoViewModel(fakeObligacionRepo, fakeDashboardRepo, fakeEscenarioRepo)
         advanceUntilIdle()
 
         val state = viewModel.uiState.value
         assertTrue(state is CapacidadPagoUiState.Error)
         assertEquals("Fallo al obtener dashboard", (state as CapacidadPagoUiState.Error).message)
+    }
+}
+
+class FakeEscenarioCapacidadRepository : EscenarioCapacidadRepository {
+    val escenarios = mutableListOf<EscenarioCapacidad>()
+    private val flow = MutableStateFlow<List<EscenarioCapacidad>>(emptyList())
+
+    override fun getEscenarios(): Flow<List<EscenarioCapacidad>> = flow
+
+    override suspend fun guardarEscenario(escenario: EscenarioCapacidad) {
+        escenarios.removeAll { it.id == escenario.id }
+        escenarios.add(escenario)
+        flow.value = escenarios.toList()
+    }
+
+    override suspend fun eliminarEscenario(id: String) {
+        escenarios.removeAll { it.id == id }
+        flow.value = escenarios.toList()
     }
 }
 

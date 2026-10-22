@@ -8,7 +8,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Warning
@@ -23,10 +26,15 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.gamma.mobile.domain.model.CapacidadPagoResponse
+import com.gamma.mobile.domain.model.EscenarioCapacidad
+import com.gamma.mobile.domain.model.GastoSimulado
 import com.gamma.mobile.domain.model.Obligacion
 import com.gamma.mobile.domain.model.SemaforoViabilidad
 import com.gamma.mobile.ui.theme.GammaTheme
 import com.gamma.mobile.utils.formatGuaranies
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -38,17 +46,38 @@ fun CapacidadPagoScreen(
     val deudasPausadas by viewModel.deudasPausadasSimuladas.collectAsState()
     val abonosExtra by viewModel.abonosExtraordinarios.collectAsState()
     val ajusteIngreso by viewModel.ajusteIngresoExtra.collectAsState()
+    val gastosSimulados by viewModel.gastosSimulados.collectAsState()
+    val escenariosGuardados by viewModel.escenariosGuardados.collectAsState()
+    val escenarioActivoNombre by viewModel.escenarioActivoNombre.collectAsState()
+
+    var showEscenariosSheet by remember { mutableStateOf(false) }
+    var showGuardarDialog by remember { mutableStateOf(false) }
+    var showAgregarGastoDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Proyector de Capacidad", fontWeight = FontWeight.Bold) },
+                title = {
+                    Column {
+                        Text("Proyector de Capacidad", fontWeight = FontWeight.Bold)
+                        if (escenarioActivoNombre != null) {
+                            Text(
+                                text = "Escenario: $escenarioActivoNombre",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
                     }
                 },
                 actions = {
+                    IconButton(onClick = { showEscenariosSheet = true }) {
+                        Icon(Icons.Default.Bookmark, contentDescription = "Escenarios guardados")
+                    }
                     IconButton(onClick = { viewModel.resetSimulacion() }) {
                         Icon(Icons.Default.RestartAlt, contentDescription = "Restablecer Simulación")
                     }
@@ -93,13 +122,54 @@ fun CapacidadPagoScreen(
                         deudasPausadas = deudasPausadas,
                         abonosExtra = abonosExtra,
                         ajusteIngreso = ajusteIngreso,
+                        gastosSimulados = gastosSimulados,
                         onTogglePausa = { viewModel.toggleSimularPausa(it) },
                         onSetAbono = { id, monto -> viewModel.setAbonoExtraordinario(id, monto) },
-                        onSetIngresoExtra = { viewModel.setAjusteIngresoExtra(it) }
+                        onSetIngresoExtra = { viewModel.setAjusteIngresoExtra(it) },
+                        onToggleGasto = { viewModel.toggleGastoAdHoc(it) },
+                        onEliminarGasto = { viewModel.eliminarGastoAdHoc(it) },
+                        onOpenAgregarGasto = { showAgregarGastoDialog = true }
                     )
                 }
             }
         }
+    }
+
+    if (showAgregarGastoDialog) {
+        AgregarGastoDialog(
+            onDismiss = { showAgregarGastoDialog = false },
+            onConfirm = { concepto, monto ->
+                viewModel.agregarGastoAdHoc(concepto, monto)
+                showAgregarGastoDialog = false
+            }
+        )
+    }
+
+    if (showGuardarDialog) {
+        GuardarEscenarioDialog(
+            onDismiss = { showGuardarDialog = false },
+            onConfirm = { nombre ->
+                viewModel.guardarEscenarioActual(nombre)
+                showGuardarDialog = false
+            }
+        )
+    }
+
+    if (showEscenariosSheet) {
+        EscenariosBottomSheet(
+            escenarios = escenariosGuardados,
+            onDismiss = { showEscenariosSheet = false },
+            onGuardarNuevo = {
+                showGuardarDialog = true
+            },
+            onCargar = { escenario ->
+                viewModel.cargarEscenario(escenario)
+                showEscenariosSheet = false
+            },
+            onEliminar = { id ->
+                viewModel.eliminarEscenario(id)
+            }
+        )
     }
 }
 
@@ -110,9 +180,13 @@ fun CapacidadPagoContent(
     deudasPausadas: Set<String>,
     abonosExtra: Map<String, Long>,
     ajusteIngreso: Long,
+    gastosSimulados: List<GastoSimulado> = emptyList(),
     onTogglePausa: (String) -> Unit,
     onSetAbono: (String, Long) -> Unit,
-    onSetIngresoExtra: (Long) -> Unit
+    onSetIngresoExtra: (Long) -> Unit,
+    onToggleGasto: (String) -> Unit = {},
+    onEliminarGasto: (String) -> Unit = {},
+    onOpenAgregarGasto: () -> Unit = {}
 ) {
     LazyColumn(
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 120.dp),
@@ -137,7 +211,61 @@ fun CapacidadPagoContent(
             )
         }
 
-        // 4. Encabezado de Deudas
+        // 4. Sección de Gastos Adicionales / Imprevistos
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = "Gastos Adicionales / Imprevistos",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "Simula compras o gastos no fijos para este mes.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                FilledTonalButton(
+                    onClick = onOpenAgregarGasto,
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("+ Gasto", style = MaterialTheme.typography.labelMedium)
+                }
+            }
+        }
+
+        if (gastosSimulados.isEmpty()) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+                ) {
+                    Text(
+                        text = "No has agregado gastos adicionales. Usa '+ Gasto' para proyectar compras o imprevistos.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(14.dp)
+                    )
+                }
+            }
+        } else {
+            items(gastosSimulados, key = { it.id }) { gasto ->
+                GastoSimuladoItem(
+                    gasto = gasto,
+                    onToggle = { onToggleGasto(gasto.id) },
+                    onEliminar = { onEliminarGasto(gasto.id) }
+                )
+            }
+        }
+
+        // 5. Encabezado de Deudas
         item {
             Text(
                 text = "Simulador de Cuotas y Abonos del Mes",
@@ -174,6 +302,64 @@ fun CapacidadPagoContent(
 }
 
 @Composable
+fun GastoSimuladoItem(
+    gasto: GastoSimulado,
+    onToggle: () -> Unit,
+    onEliminar: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = if (gasto.incluido) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = gasto.concepto,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = formatGuaranies(gasto.monto),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = if (gasto.incluido) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                if (!gasto.incluido) {
+                    Text(
+                        text = "Excluido del cálculo temporalmente",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Switch(
+                    checked = gasto.incluido,
+                    onCheckedChange = { onToggle() }
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                IconButton(onClick = onEliminar) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Eliminar gasto",
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
 fun SemaforoViabilidadCard(resultado: CapacidadPagoResponse) {
     val semaforo = resultado.semaforoEnum
 
@@ -198,9 +384,9 @@ fun SemaforoViabilidadCard(resultado: CapacidadPagoResponse) {
         SemaforoViabilidad.DEFICIT -> "Déficit de Cobertura"
     }
     val descripcion = when (semaforo) {
-        SemaforoViabilidad.SUPERAVIT -> "El fondo disponible cubre con holgura todas las cuotas del mes y permite abonos extraordinarios."
-        SemaforoViabilidad.AJUSTADO -> "Las cuotas se cubren, pero el margen remanente es inferior al 15%. Precaución ante gastos imprevistos."
-        SemaforoViabilidad.DEFICIT -> "Los compromisos superan tu fondo mensual disponible. Pausa cuotas o aporta ingresos para evitar mora."
+        SemaforoViabilidad.SUPERAVIT -> "El fondo disponible cubre con holgura todas las cuotas y gastos del mes, permitiendo abonos extraordinarios."
+        SemaforoViabilidad.AJUSTADO -> "Los egresos se cubren, pero el margen remanente es inferior al 15%. Precaución ante gastos imprevistos."
+        SemaforoViabilidad.DEFICIT -> "Los compromisos superan tu fondo mensual disponible. Pausa cuotas, reduce gastos o aporta ingresos para evitar déficit."
     }
 
     Card(
@@ -257,6 +443,16 @@ fun MetricasCapacidadCard(resultado: CapacidadPagoResponse) {
             ) {
                 Text("Compromisos Cuotas:", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(formatGuaranies(resultado.compromisoTotalMes), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+            }
+
+            if (resultado.totalGastosProyectados > 0L) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Gastos Proyectados:", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(formatGuaranies(resultado.totalGastosProyectados), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.tertiary)
+                }
             }
 
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
@@ -432,6 +628,230 @@ fun DeudaSimuladaItem(
     }
 }
 
+@Composable
+fun AgregarGastoDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (String, Long) -> Unit
+) {
+    var concepto by remember { mutableStateOf("") }
+    var montoTexto by remember { mutableStateOf("") }
+    var errorMonto by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Agregar Gasto Proyectado", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    text = "Ingresa el concepto y monto del gasto que deseas simular para este período.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                OutlinedTextField(
+                    value = concepto,
+                    onValueChange = { concepto = it },
+                    label = { Text("Concepto o motivo") },
+                    placeholder = { Text("Ej: Mantenimiento vehículo") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = montoTexto,
+                    onValueChange = { input ->
+                        if (input.all { it.isDigit() }) {
+                            montoTexto = input
+                            errorMonto = false
+                        }
+                    },
+                    label = { Text("Monto estimado (Gs.)") },
+                    isError = errorMonto,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val monto = montoTexto.toLongOrNull() ?: 0L
+                    if (concepto.isNotBlank() && monto > 0L) {
+                        onConfirm(concepto, monto)
+                    } else {
+                        errorMonto = monto <= 0L
+                    }
+                }
+            ) {
+                Text("Agregar")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancelar")
+            }
+        }
+    )
+}
+
+@Composable
+fun GuardarEscenarioDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
+    var nombre by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Guardar Escenario", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = "Asigna un nombre para recordar este escenario de proyección (incluye deudas pausadas, abonos, ingresos y gastos simulados).",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                OutlinedTextField(
+                    value = nombre,
+                    onValueChange = { nombre = it },
+                    label = { Text("Nombre del escenario") },
+                    placeholder = { Text("Ej: Fin de Año / Vacaciones") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (nombre.isNotBlank()) {
+                        onConfirm(nombre)
+                    }
+                },
+                enabled = nombre.isNotBlank()
+            ) {
+                Text("Guardar")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancelar")
+            }
+        }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun EscenariosBottomSheet(
+    escenarios: List<EscenarioCapacidad>,
+    onDismiss: () -> Unit,
+    onGuardarNuevo: () -> Unit,
+    onCargar: (EscenarioCapacidad) -> Unit,
+    onEliminar: (String) -> Unit
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Escenarios de Simulación",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                FilledTonalButton(onClick = onGuardarNuevo) {
+                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Guardar actual", style = MaterialTheme.typography.labelSmall)
+                }
+            }
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+            if (escenarios.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "No tienes escenarios guardados aún.\nConfigura tu simulación y presiona 'Guardar actual'.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                }
+            } else {
+                val dateFormat = remember { SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()) }
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    items(escenarios, key = { it.id }) { escenario ->
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = escenario.nombre,
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = "Actualizado: ${dateFormat.format(Date(escenario.fechaActualizacion))}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Text(
+                                        text = "${escenario.gastosAdHoc.size} gasto(s) • ${escenario.deudasPausadasIds.size} pausada(s)",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Button(
+                                        onClick = { onCargar(escenario) },
+                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                                    ) {
+                                        Text("Cargar", style = MaterialTheme.typography.labelSmall)
+                                    }
+                                    IconButton(onClick = { onEliminar(escenario.id) }) {
+                                        Icon(
+                                            imageVector = Icons.Default.Delete,
+                                            contentDescription = "Eliminar escenario",
+                                            tint = MaterialTheme.colorScheme.error
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 @Preview(showBackground = true)
 @Composable
 fun CapacidadPagoScreenPreview() {
@@ -440,9 +860,10 @@ fun CapacidadPagoScreenPreview() {
             resultado = CapacidadPagoResponse(
                 compromisoTotalMes = 1350000L,
                 fondoDisponibleMes = 3500000L,
-                capacidadNeta = 1650000L,
+                totalGastosProyectados = 500000L,
+                capacidadNeta = 1150000L,
                 semaforo = "SUPERAVIT",
-                dtiProyectado = 52.8,
+                dtiProyectado = 67.1,
                 mesesAhorradosPorAbonos = mapOf("1" to 2)
             ),
             deudasActivas = listOf(
@@ -468,9 +889,16 @@ fun CapacidadPagoScreenPreview() {
             deudasPausadas = emptySet(),
             abonosExtra = mapOf("1" to 1000000L),
             ajusteIngreso = 500000L,
+            gastosSimulados = listOf(
+                GastoSimulado(id = "g1", concepto = "Mantenimiento Camioneta", monto = 500000L, incluido = true),
+                GastoSimulado(id = "g2", concepto = "Curso de Capacitación", monto = 300000L, incluido = false)
+            ),
             onTogglePausa = {},
             onSetAbono = { _, _ -> },
-            onSetIngresoExtra = {}
+            onSetIngresoExtra = {},
+            onToggleGasto = {},
+            onEliminarGasto = {},
+            onOpenAgregarGasto = {}
         )
     }
 }
@@ -483,9 +911,10 @@ fun CapacidadPagoDeficitPreview() {
             resultado = CapacidadPagoResponse(
                 compromisoTotalMes = 2500000L,
                 fondoDisponibleMes = 1800000L,
-                capacidadNeta = -700000L,
+                totalGastosProyectados = 600000L,
+                capacidadNeta = -1300000L,
                 semaforo = "DEFICIT",
-                dtiProyectado = 138.9,
+                dtiProyectado = 172.2,
                 mesesAhorradosPorAbonos = emptyMap()
             ),
             deudasActivas = listOf(
@@ -511,9 +940,15 @@ fun CapacidadPagoDeficitPreview() {
             deudasPausadas = setOf("2"),
             abonosExtra = emptyMap(),
             ajusteIngreso = 0L,
+            gastosSimulados = listOf(
+                GastoSimulado(id = "g1", concepto = "Reparación Urgente", monto = 600000L, incluido = true)
+            ),
             onTogglePausa = {},
             onSetAbono = { _, _ -> },
-            onSetIngresoExtra = {}
+            onSetIngresoExtra = {},
+            onToggleGasto = {},
+            onEliminarGasto = {},
+            onOpenAgregarGasto = {}
         )
     }
 }

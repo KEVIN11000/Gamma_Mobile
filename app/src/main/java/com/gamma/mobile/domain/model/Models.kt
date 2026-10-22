@@ -181,6 +181,8 @@ data class CapacidadPagoResponse(
     val compromisoTotalMes: Long = 0L,
     @SerializedName("fondo_disponible_mes")
     val fondoDisponibleMes: Long = 0L,
+    @SerializedName("total_gastos_proyectados")
+    val totalGastosProyectados: Long = 0L,
     @SerializedName("capacidad_neta")
     val capacidadNeta: Long = 0L,
     @SerializedName("semaforo")
@@ -197,3 +199,25 @@ data class CapacidadPagoResponse(
             else -> SemaforoViabilidad.SUPERAVIT
         }
 }
+
+data class GastoSimulado(
+    @SerializedName("id")
+    val id: String = java.util.UUID.randomUUID().toString(),
+    @SerializedName("concepto")
+    val concepto: String = "",
+    @SerializedName("monto")
+    val monto: Long = 0L,
+    @SerializedName("incluido")
+    val incluido: Boolean = true
+)
+
+data class EscenarioCapacidad(
+    val id: String = java.util.UUID.randomUUID().toString(),
+    val nombre: String = "",
+    val fechaCreacion: Long = System.currentTimeMillis(),
+    val fechaActualizacion: Long = System.currentTimeMillis(),
+    val ingresoExtra: Long = 0L,
+    val deudasPausadasIds: Set<String> = emptySet(),
+    val abonosExtraordinarios: Map<String, Long> = emptyMap(),
+    val gastosAdHoc: List<GastoSimulado> = emptyList()
+)

@@ -4,8 +4,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.gamma.mobile.data.remote.NetworkResult
 import com.gamma.mobile.domain.model.CapacidadPagoResponse
+import com.gamma.mobile.domain.model.EscenarioCapacidad
+import com.gamma.mobile.domain.model.GastoSimulado
 import com.gamma.mobile.domain.model.Obligacion
 import com.gamma.mobile.domain.repository.DashboardRepository
+import com.gamma.mobile.domain.repository.EscenarioCapacidadRepository
 import com.gamma.mobile.domain.repository.ObligacionRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,7 +30,8 @@ sealed class CapacidadPagoUiState {
 @HiltViewModel
 class CapacidadPagoViewModel @Inject constructor(
     private val obligacionRepository: ObligacionRepository,
-    private val dashboardRepository: DashboardRepository
+    private val dashboardRepository: DashboardRepository,
+    private val escenarioRepository: EscenarioCapacidadRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<CapacidadPagoUiState>(CapacidadPagoUiState.Loading)
@@ -42,11 +46,29 @@ class CapacidadPagoViewModel @Inject constructor(
     private val _ajusteIngresoExtra = MutableStateFlow<Long>(0L)
     val ajusteIngresoExtra: StateFlow<Long> = _ajusteIngresoExtra.asStateFlow()
 
+    private val _gastosSimulados = MutableStateFlow<List<GastoSimulado>>(emptyList())
+    val gastosSimulados: StateFlow<List<GastoSimulado>> = _gastosSimulados.asStateFlow()
+
+    private val _escenariosGuardados = MutableStateFlow<List<EscenarioCapacidad>>(emptyList())
+    val escenariosGuardados: StateFlow<List<EscenarioCapacidad>> = _escenariosGuardados.asStateFlow()
+
+    private val _escenarioActivoNombre = MutableStateFlow<String?>(null)
+    val escenarioActivoNombre: StateFlow<String?> = _escenarioActivoNombre.asStateFlow()
+
     private var todasLasDeudasActivas: List<Obligacion> = emptyList()
     private var margenBase: Long = 0L
 
     init {
         loadDatos()
+        observarEscenarios()
+    }
+
+    private fun observarEscenarios() {
+        viewModelScope.launch {
+            escenarioRepository.getEscenarios().collect { list ->
+                _escenariosGuardados.value = list
+            }
+        }
     }
 
     fun loadDatos(forceRefresh: Boolean = false) {
@@ -80,7 +102,6 @@ class CapacidadPagoViewModel @Inject constructor(
             current.remove(deudaId)
         } else {
             current.add(deudaId)
-            // Si se pausa, removemos abono extraordinario de esa deuda en simulación
             val abonos = _abonosExtraordinarios.value.toMutableMap()
             abonos.remove(deudaId)
             _abonosExtraordinarios.value = abonos
@@ -105,10 +126,69 @@ class CapacidadPagoViewModel @Inject constructor(
         recalcular()
     }
 
+    fun agregarGastoAdHoc(concepto: String, monto: Long) {
+        if (concepto.isNotBlank() && monto > 0L) {
+            val nuevo = GastoSimulado(
+                concepto = concepto.trim(),
+                monto = monto,
+                incluido = true
+            )
+            _gastosSimulados.value = _gastosSimulados.value + nuevo
+            recalcular()
+        }
+    }
+
+    fun toggleGastoAdHoc(id: String) {
+        _gastosSimulados.value = _gastosSimulados.value.map {
+            if (it.id == id) it.copy(incluido = !it.incluido) else it
+        }
+        recalcular()
+    }
+
+    fun eliminarGastoAdHoc(id: String) {
+        _gastosSimulados.value = _gastosSimulados.value.filterNot { it.id == id }
+        recalcular()
+    }
+
+    fun guardarEscenarioActual(nombre: String) {
+        if (nombre.isBlank()) return
+        viewModelScope.launch {
+            val nuevo = EscenarioCapacidad(
+                nombre = nombre.trim(),
+                ingresoExtra = _ajusteIngresoExtra.value,
+                deudasPausadasIds = _deudasPausadasSimuladas.value,
+                abonosExtraordinarios = _abonosExtraordinarios.value,
+                gastosAdHoc = _gastosSimulados.value
+            )
+            escenarioRepository.guardarEscenario(nuevo)
+            _escenarioActivoNombre.value = nuevo.nombre
+        }
+    }
+
+    fun cargarEscenario(escenario: EscenarioCapacidad) {
+        _ajusteIngresoExtra.value = escenario.ingresoExtra
+        _deudasPausadasSimuladas.value = escenario.deudasPausadasIds
+        _abonosExtraordinarios.value = escenario.abonosExtraordinarios
+        _gastosSimulados.value = escenario.gastosAdHoc
+        _escenarioActivoNombre.value = escenario.nombre
+        recalcular()
+    }
+
+    fun eliminarEscenario(id: String) {
+        viewModelScope.launch {
+            escenarioRepository.eliminarEscenario(id)
+            if (_escenarioActivoNombre.value != null && _escenariosGuardados.value.find { it.id == id }?.nombre == _escenarioActivoNombre.value) {
+                _escenarioActivoNombre.value = null
+            }
+        }
+    }
+
     fun resetSimulacion() {
         _deudasPausadasSimuladas.value = emptySet()
         _abonosExtraordinarios.value = emptyMap()
         _ajusteIngresoExtra.value = 0L
+        _gastosSimulados.value = emptyList()
+        _escenarioActivoNombre.value = null
         recalcular()
     }
 
@@ -117,16 +197,18 @@ class CapacidadPagoViewModel @Inject constructor(
         val deudasNoPausadas = todasLasDeudasActivas.filterNot { it.id in _deudasPausadasSimuladas.value }
         val compromisoTotalMes = deudasNoPausadas.sumOf { it.cuotaReferenciaGs }
         val totalAbonos = _abonosExtraordinarios.value.values.sum()
-        val capacidadNeta = fondoDisponible - compromisoTotalMes - totalAbonos
+        val totalGastos = _gastosSimulados.value.filter { it.incluido }.sumOf { it.monto }
+        val capacidadNeta = fondoDisponible - compromisoTotalMes - totalAbonos - totalGastos
 
         val semaforoStr = when {
-            fondoDisponible <= 0L || compromisoTotalMes > fondoDisponible || capacidadNeta < 0L -> "DEFICIT"
+            fondoDisponible <= 0L || capacidadNeta < 0L -> "DEFICIT"
             capacidadNeta < (fondoDisponible * 0.15).toLong() -> "AJUSTADO"
             else -> "SUPERAVIT"
         }
 
+        val totalEgresosSimulados = compromisoTotalMes + totalAbonos + totalGastos
         val dti = if (fondoDisponible > 0L) {
-            ((compromisoTotalMes.toDouble() + totalAbonos.toDouble()) / fondoDisponible.toDouble()) * 100.0
+            (totalEgresosSimulados.toDouble() / fondoDisponible.toDouble()) * 100.0
         } else {
             100.0
         }
@@ -143,6 +225,7 @@ class CapacidadPagoViewModel @Inject constructor(
         val resultado = CapacidadPagoResponse(
             compromisoTotalMes = compromisoTotalMes,
             fondoDisponibleMes = fondoDisponible,
+            totalGastosProyectados = totalGastos,
             capacidadNeta = capacidadNeta,
             semaforo = semaforoStr,
             dtiProyectado = dti,

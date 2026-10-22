@@ -67,11 +67,23 @@ abstract class AppModule {
         impl: com.gamma.mobile.data.repository.SistemaRepositoryImpl
     ): com.gamma.mobile.domain.repository.SistemaRepository
 
+    @Binds
+    @Singleton
+    abstract fun bindEscenarioCapacidadRepository(
+        impl: com.gamma.mobile.data.repository.EscenarioCapacidadRepositoryImpl
+    ): com.gamma.mobile.domain.repository.EscenarioCapacidadRepository
+
     companion object {
         @Provides
         @Singleton
         fun provideClock(): java.time.Clock {
             return java.time.Clock.systemDefaultZone()
+        }
+
+        @Provides
+        @Singleton
+        fun provideGson(): com.google.gson.Gson {
+            return com.google.gson.Gson()
         }
     }
 }

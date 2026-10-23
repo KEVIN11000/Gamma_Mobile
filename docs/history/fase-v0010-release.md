@@ -14,6 +14,7 @@
 - **Soporte de Estado Pausado y Asiento Contable de Abonos:** Integración bidireccional con el backend que excluye deudas pausadas (`PUT /obligaciones/{id}`) y registra egresos contables en `Libro_Diario` tras abonos (`POST /obligaciones/abonar`).
 - **Historial de Cierres Contables y Laborales:** `GET /cierres` consumido y persistido en Room v4, con visor nativo de comprobantes PDF y descarga protegida.
 - **Simulador de Capacidad con Gastos Ad-Hoc y Escenarios Persistentes (Room v5):** `CapacidadPagoScreen` con gestión de imprevistos, switches de exclusión y guardado/restauración de escenarios en Room.
+- **Publicación Oficial de Release `v0.0.10` en GitHub Releases:** Tag `v0.0.10` y commit `b6268b4` publicados en `origin/main`. Binario firmado `gamma-mobile-v0.0.10-release.apk` (33,476,278 bytes, verificado bajo APK Signature Scheme v2) subido y publicado en GitHub Releases (`https://github.com/KEVIN11000/Gamma_Mobile/releases/tag/v0.0.10`).
 
 ## 2. Decisiones tomadas en esta fase
 

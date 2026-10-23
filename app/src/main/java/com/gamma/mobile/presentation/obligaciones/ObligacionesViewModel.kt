@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.gamma.mobile.data.remote.NetworkResult
 import com.gamma.mobile.domain.model.Obligacion
+import com.gamma.mobile.domain.model.VencimientoCronogramaItem
+import com.gamma.mobile.domain.model.DeudaFocoResponse
 import com.gamma.mobile.domain.repository.DashboardRepository
 import com.gamma.mobile.domain.repository.ObligacionRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -51,6 +53,15 @@ class ObligacionesViewModel @Inject constructor(
     private val _compromisoMensual = MutableStateFlow(0L)
     val compromisoMensual: StateFlow<Long> = _compromisoMensual.asStateFlow()
 
+    private val _cronogramaVencimientos = MutableStateFlow<List<VencimientoCronogramaItem>>(emptyList())
+    val cronogramaVencimientos: StateFlow<List<VencimientoCronogramaItem>> = _cronogramaVencimientos.asStateFlow()
+
+    private val _deudaFoco = MutableStateFlow<DeudaFocoResponse?>(null)
+    val deudaFoco: StateFlow<DeudaFocoResponse?> = _deudaFoco.asStateFlow()
+
+    private val _criterioFoco = MutableStateFlow<String>("saldo")
+    val criterioFoco: StateFlow<String> = _criterioFoco.asStateFlow()
+
     init {
         loadObligaciones()
     }
@@ -72,6 +83,33 @@ class ObligacionesViewModel @Inject constructor(
                     _uiState.value = ObligacionesUiState.Error("Error: ${result.message}")
                 }
             }
+        }
+        loadCronograma(forceRefresh)
+        loadDeudaFoco(_criterioFoco.value)
+    }
+
+    fun loadCronograma(forceRefresh: Boolean = false) {
+        viewModelScope.launch {
+            when (val result = repository.getCronogramaVencimientos(forceRefresh)) {
+                is NetworkResult.Success -> _cronogramaVencimientos.value = result.data
+                else -> {}
+            }
+        }
+    }
+
+    fun loadDeudaFoco(criterio: String = _criterioFoco.value) {
+        viewModelScope.launch {
+            when (val result = repository.getDeudaFoco(criterio)) {
+                is NetworkResult.Success -> _deudaFoco.value = result.data
+                else -> {}
+            }
+        }
+    }
+
+    fun cambiarCriterioFoco(criterio: String) {
+        if (_criterioFoco.value != criterio) {
+            _criterioFoco.value = criterio
+            loadDeudaFoco(criterio)
         }
     }
 
@@ -141,6 +179,8 @@ class ObligacionesViewModel @Inject constructor(
 
         viewModelScope.launch {
             repository.createObligacion(nueva)
+            loadCronograma(true)
+            loadDeudaFoco()
         }
     }
 
@@ -162,6 +202,8 @@ class ObligacionesViewModel @Inject constructor(
 
         viewModelScope.launch {
             repository.deleteObligacion(id)
+            loadCronograma(true)
+            loadDeudaFoco()
         }
     }
 
@@ -219,6 +261,8 @@ class ObligacionesViewModel @Inject constructor(
             viewModelScope.launch {
                 repository.updateObligacion(actualizada)
                 repository.abonarObligacion(obligacion.id, montoAbono)
+                loadCronograma(true)
+                loadDeudaFoco()
             }
         }
     }
@@ -229,6 +273,8 @@ class ObligacionesViewModel @Inject constructor(
 
         viewModelScope.launch {
             repository.updateObligacion(updated)
+            loadCronograma(true)
+            loadDeudaFoco()
         }
     }
 }

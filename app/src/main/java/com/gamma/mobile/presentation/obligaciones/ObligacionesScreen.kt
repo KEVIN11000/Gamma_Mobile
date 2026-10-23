@@ -1,12 +1,16 @@
 package com.gamma.mobile.presentation.obligaciones
 
 import android.app.DatePickerDialog
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import com.gamma.mobile.domain.model.VencimientoCronogramaItem
+import com.gamma.mobile.domain.model.DeudaFocoResponse
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -19,6 +23,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -52,6 +57,9 @@ fun ObligacionesScreen(
     val uiState by viewModel.uiState.collectAsState()
     val filtroActual by viewModel.filtroActual.collectAsState()
     val simulacionResult by viewModel.simulacionResult.collectAsState()
+    val cronogramaVencimientos by viewModel.cronogramaVencimientos.collectAsState()
+    val deudaFoco by viewModel.deudaFoco.collectAsState()
+    val criterioFoco by viewModel.criterioFoco.collectAsState()
 
     Scaffold(
         topBar = {
@@ -79,7 +87,7 @@ fun ObligacionesScreen(
                         showCrearModal = true
                     },
                     icon = { Icon(Icons.Default.Add, contentDescription = null) },
-                    text = { Text("Nueva Obligación") },
+                    text = { Text("Nueva ObligaciÃ³n") },
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary
                 )
@@ -150,7 +158,7 @@ fun ObligacionesScreen(
                     is ObligacionesUiState.Success -> {
                         if (state.obligaciones.isEmpty()) {
                             Text(
-                                "No hay obligaciones en esta categoría.",
+                                "No hay obligaciones en esta categorÃ­a.",
                                 modifier = Modifier.align(Alignment.Center)
                             )
                         } else {
@@ -159,6 +167,34 @@ fun ObligacionesScreen(
                                 verticalArrangement = Arrangement.spacedBy(16.dp),
                                 modifier = Modifier.fillMaxSize()
                             ) {
+                                if (filtroActual == FiltroObligacion.TODAS || filtroActual == FiltroObligacion.ACTIVAS) {
+                                    if (cronogramaVencimientos.isNotEmpty()) {
+                                        item(key = "cronograma_vencimientos") {
+                                            CronogramaVencimientosSection(
+                                                cronograma = cronogramaVencimientos
+                                            )
+                                        }
+                                    }
+
+                                    deudaFoco?.let { foco ->
+                                        if (!foco.idDeuda.isNullOrBlank()) {
+                                            item(key = "deuda_foco") {
+                                                DeudaFocoCard(
+                                                    deudaFoco = foco,
+                                                    criterioActual = criterioFoco,
+                                                    onCriterioSelected = { viewModel.cambiarCriterioFoco(it) },
+                                                    onAbonarClick = { idDeuda ->
+                                                        val deuda = state.obligaciones.find { it.id == idDeuda }
+                                                        if (deuda != null) {
+                                                            selectedObligacionToAbonar = deuda
+                                                        }
+                                                    }
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+
                                 items(state.obligaciones, key = { it.id }) { obligacion ->
                                     ObligacionItem(
                                         obligacion = obligacion,
@@ -208,8 +244,8 @@ fun ObligacionesScreen(
         AlertDialog(
             onDismissRequest = { obligacionToDelete = null },
             icon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
-            title = { Text("¿Eliminar registro de deuda?") },
-            text = { Text("Se eliminará definitivamente '${obligacion.nombre}' del sistema.") },
+            title = { Text("Â¿Eliminar registro de deuda?") },
+            text = { Text("Se eliminarÃ¡ definitivamente '${obligacion.nombre}' del sistema.") },
             confirmButton = {
                 Button(
                     onClick = {
@@ -305,7 +341,7 @@ fun ObligacionItem(
                         Text(obligacion.estado, style = MaterialTheme.typography.labelSmall, color = textColor, fontWeight = FontWeight.Bold)
                     }
 
-                    // Botón Eliminar para deudas
+                    // BotÃ³n Eliminar para deudas
                     IconButton(onClick = onDeleteClick, modifier = Modifier.size(36.dp)) {
                         Icon(
                             imageVector = Icons.Default.Delete,
@@ -434,8 +470,8 @@ fun ObligacionItem(
     if (showConfirmCancelar) {
         AlertDialog(
             onDismissRequest = { showConfirmCancelar = false },
-            title = { Text("¿Cancelar simulación?") },
-            text = { Text("Se descartará la simulación de '${obligacion.nombre}'.") },
+            title = { Text("Â¿Cancelar simulaciÃ³n?") },
+            text = { Text("Se descartarÃ¡ la simulaciÃ³n de '${obligacion.nombre}'.") },
             confirmButton = {
                 Button(
                     onClick = {
@@ -444,7 +480,7 @@ fun ObligacionItem(
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Text("Cancelar Simulación")
+                    Text("Cancelar SimulaciÃ³n")
                 }
             },
             dismissButton = {
@@ -475,7 +511,7 @@ fun CrearObligacionModal(
     var observaciones by remember { mutableStateOf(initialData?.observaciones ?: "") }
     var estadoInicial by remember { mutableStateOf(initialData?.estado?.takeIf { it.isNotBlank() } ?: "Activo") }
 
-    val tiposDisponibles = listOf("Deuda", "Préstamo", "Tarjeta", "Gasto Fijo")
+    val tiposDisponibles = listOf("Deuda", "PrÃ©stamo", "Tarjeta", "Gasto Fijo")
     val calendar = remember { Calendar.getInstance() }
 
     val showDatePicker = {
@@ -490,7 +526,7 @@ fun CrearObligacionModal(
         ).show()
     }
 
-    // Auto-cálculo de cuota si cambia monto o cantidad de cuotas y cuotaRef no fue editada manualmente
+    // Auto-cÃ¡lculo de cuota si cambia monto o cantidad de cuotas y cuotaRef no fue editada manualmente
     LaunchedEffect(montoTotal, cuotasTotales) {
         val m = montoTotal.toLongOrNull() ?: 0L
         val c = cuotasTotales.toIntOrNull() ?: 0
@@ -501,7 +537,7 @@ fun CrearObligacionModal(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Nueva Obligación / Deuda") },
+        title = { Text("Nueva ObligaciÃ³n / Deuda") },
         text = {
             Column(
                 modifier = Modifier
@@ -511,7 +547,7 @@ fun CrearObligacionModal(
                 OutlinedTextField(
                     value = entidad,
                     onValueChange = { entidad = it },
-                    label = { Text("Entidad / Acreedor (ej. Banco Itaú)") },
+                    label = { Text("Entidad / Acreedor (ej. Banco ItaÃº)") },
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(8.dp))
@@ -519,12 +555,12 @@ fun CrearObligacionModal(
                 OutlinedTextField(
                     value = nombre,
                     onValueChange = { nombre = it },
-                    label = { Text("Concepto (ej. Préstamo Personal)*") },
+                    label = { Text("Concepto (ej. PrÃ©stamo Personal)*") },
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(8.dp))
 
-                Text("Tipo de Obligación:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                Text("Tipo de ObligaciÃ³n:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -570,14 +606,14 @@ fun CrearObligacionModal(
                     OutlinedTextField(
                         value = diaVencimiento,
                         onValueChange = { if (it.all { c -> c.isDigit() } && it.length <= 2) diaVencimiento = it },
-                        label = { Text("Día Venc. (1-31)") },
+                        label = { Text("DÃ­a Venc. (1-31)") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier.weight(1f)
                     )
                     OutlinedTextField(
                         value = fechaInicio,
                         onValueChange = { fechaInicio = it },
-                        label = { Text("1° Vencimiento") },
+                        label = { Text("1Â° Vencimiento") },
                         trailingIcon = {
                             IconButton(onClick = showDatePicker) {
                                 Icon(Icons.Default.CalendarToday, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -648,7 +684,7 @@ fun CrearObligacionModal(
                 },
                 enabled = nombre.isNotBlank() && (montoTotal.toLongOrNull() ?: 0L) > 0L
             ) {
-                Text("Guardar Obligación")
+                Text("Guardar ObligaciÃ³n")
             }
         },
         dismissButton = {
@@ -717,7 +753,7 @@ fun SimuladorCuotasModal(
     var cuotas by remember { mutableStateOf("") }
     var cuotaPersonalizada by remember { mutableStateOf("") }
 
-    // Auto-cálculo de cuota sugerida al cambiar monto o cuotas
+    // Auto-cÃ¡lculo de cuota sugerida al cambiar monto o cuotas
     LaunchedEffect(monto, cuotas) {
         val m = monto.toLongOrNull() ?: 0L
         val c = cuotas.toIntOrNull() ?: 0
@@ -738,7 +774,7 @@ fun SimuladorCuotasModal(
                 OutlinedTextField(
                     value = concepto,
                     onValueChange = { concepto = it },
-                    label = { Text("Concepto (ej. Préstamo Auto)") },
+                    label = { Text("Concepto (ej. PrÃ©stamo Auto)") },
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(8.dp))
@@ -754,7 +790,7 @@ fun SimuladorCuotasModal(
                 OutlinedTextField(
                     value = monto,
                     onValueChange = { if (it.all { char -> char.isDigit() }) monto = it },
-                    label = { Text("Monto del préstamo (Gs.)*") },
+                    label = { Text("Monto del prÃ©stamo (Gs.)*") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -824,7 +860,7 @@ fun SimuladorCuotasModal(
                             val c = cuotas.toIntOrNull() ?: 0
                             val cp = cuotaPersonalizada.toLongOrNull() ?: (if (c > 0) m / c else 0L)
                             val prep = Obligacion(
-                                nombre = if (concepto.isNotBlank()) concepto else "Préstamo Simulado",
+                                nombre = if (concepto.isNotBlank()) concepto else "PrÃ©stamo Simulado",
                                 entidad = entidad,
                                 montoInicial = m,
                                 saldoActual = m,
@@ -837,7 +873,7 @@ fun SimuladorCuotasModal(
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("Crear como Nueva Obligación")
+                        Text("Crear como Nueva ObligaciÃ³n")
                     }
                 }
             }
@@ -878,6 +914,372 @@ fun FilterTabsObligaciones(
     }
 }
 
+@Composable
+fun CronogramaVencimientosSection(
+    cronograma: List<VencimientoCronogramaItem>,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CalendarToday,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Text(
+                        text = "Cronograma de Vencimientos",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                ) {
+                    Text(
+                        text = "${cronograma.size} este mes",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                    )
+                }
+            }
+
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                contentPadding = PaddingValues(horizontal = 2.dp)
+            ) {
+                items(cronograma, key = { it.id }) { item ->
+                    VencimientoItemChip(item = item)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun VencimientoItemChip(
+    item: VencimientoCronogramaItem,
+    modifier: Modifier = Modifier
+) {
+    val statusBgColor = when {
+        item.vencido -> MaterialTheme.colorScheme.error.copy(alpha = 0.12f)
+        item.diasRestantes == 0 -> MaterialTheme.colorScheme.tertiary.copy(alpha = 0.16f)
+        item.diasRestantes in 1..7 -> MaterialTheme.colorScheme.secondary.copy(alpha = 0.14f)
+        else -> MaterialTheme.colorScheme.surface
+    }
+
+    val statusTextColor = when {
+        item.vencido -> MaterialTheme.colorScheme.error
+        item.diasRestantes == 0 -> MaterialTheme.colorScheme.tertiary
+        item.diasRestantes in 1..7 -> MaterialTheme.colorScheme.secondary
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+
+    val statusText = when {
+        item.vencido -> "VenciÃ³"
+        item.diasRestantes == 0 -> "Hoy"
+        item.diasRestantes == 1 -> "MaÃ±ana"
+        else -> "En ${item.diasRestantes}d"
+    }
+
+    Surface(
+        modifier = modifier.widthIn(min = 130.dp, max = 150.dp),
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 2.dp,
+        border = BorderStroke(
+            width = 1.dp,
+            color = if (item.vencido) MaterialTheme.colorScheme.error.copy(alpha = 0.4f) else MaterialTheme.colorScheme.outlineVariant
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(10.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer
+                ) {
+                    Text(
+                        text = "DÃ­a ${item.diaVencimiento}",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = statusBgColor
+                ) {
+                    Text(
+                        text = statusText,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = statusTextColor,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
+            }
+
+            Text(
+                text = item.nombre,
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+
+            if (item.entidad.isNotBlank()) {
+                Text(
+                    text = item.entidad,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1
+                )
+            }
+
+            Text(
+                text = formatGuaranies(item.cuotaGs),
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+    }
+}
+
+@Composable
+fun DeudaFocoCard(
+    deudaFoco: DeudaFocoResponse,
+    criterioActual: String,
+    onCriterioSelected: (String) -> Unit,
+    onAbonarClick: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)
+        ),
+        border = BorderStroke(
+            width = 1.dp,
+            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Star,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Text(
+                        text = "Estrategia: Deuda Foco",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    FilterChip(
+                        selected = criterioActual == "saldo",
+                        onClick = { onCriterioSelected("saldo") },
+                        label = { Text("Bola de Nieve", style = MaterialTheme.typography.labelSmall) },
+                        leadingIcon = if (criterioActual == "saldo") {
+                            { Text("â„ï¸", style = MaterialTheme.typography.labelSmall) }
+                        } else null
+                    )
+                    FilterChip(
+                        selected = criterioActual == "prioridad",
+                        onClick = { onCriterioSelected("prioridad") },
+                        label = { Text("Avalancha", style = MaterialTheme.typography.labelSmall) },
+                        leadingIcon = if (criterioActual == "prioridad") {
+                            { Text("âš¡", style = MaterialTheme.typography.labelSmall) }
+                        } else null
+                    )
+                }
+            }
+
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surface,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = deudaFoco.nombre.ifBlank { "Deuda sugerida" },
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            if (deudaFoco.entidad.isNotBlank()) {
+                                Text(
+                                    text = deudaFoco.entidad,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+
+                        if (!deudaFoco.idDeuda.isNullOrBlank()) {
+                            Button(
+                                onClick = { onAbonarClick(deudaFoco.idDeuda) },
+                                shape = RoundedCornerShape(10.dp),
+                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                            ) {
+                                Text("Abonar", style = MaterialTheme.typography.labelMedium)
+                            }
+                        }
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Text(
+                            text = "Saldo: ${formatGuaranies(deudaFoco.saldoActual)}",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Cuota: ${formatGuaranies(deudaFoco.cuotaGs)}",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+
+                    if (deudaFoco.explicacion.isNotBlank()) {
+                        Text(
+                            text = deudaFoco.explicacion,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun CronogramaVencimientosPreview() {
+    GammaTheme {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            CronogramaVencimientosSection(
+                cronograma = listOf(
+                    VencimientoCronogramaItem(
+                        id = "1",
+                        nombre = "Tarjeta Visa",
+                        entidad = "Banco Continental",
+                        diaVencimiento = 5,
+                        cuotaGs = 350000L,
+                        saldoActual = 1200000L,
+                        vencido = true,
+                        diasRestantes = 0,
+                        fechaVencimientoExacta = "05/10/2026"
+                    ),
+                    VencimientoCronogramaItem(
+                        id = "2",
+                        nombre = "PrÃ©stamo Personal",
+                        entidad = "ItaÃº",
+                        diaVencimiento = 18,
+                        cuotaGs = 850000L,
+                        saldoActual = 8500000L,
+                        vencido = false,
+                        diasRestantes = 0,
+                        fechaVencimientoExacta = "18/10/2026"
+                    ),
+                    VencimientoCronogramaItem(
+                        id = "3",
+                        nombre = "Cuota Auto",
+                        entidad = "Ueno Bank",
+                        diaVencimiento = 25,
+                        cuotaGs = 1200000L,
+                        saldoActual = 24000000L,
+                        vencido = false,
+                        diasRestantes = 7,
+                        fechaVencimientoExacta = "25/10/2026"
+                    )
+                )
+            )
+
+            DeudaFocoCard(
+                deudaFoco = DeudaFocoResponse(
+                    idDeuda = "1",
+                    nombre = "Tarjeta Visa",
+                    entidad = "Banco Continental",
+                    saldoActual = 1200000L,
+                    cuotaGs = 350000L,
+                    criterio = "saldo",
+                    ahorroEstimadoMeses = 3,
+                    explicacion = "Estrategia Bola de Nieve: Tarjeta Visa tiene el menor saldo (1.200.000 ₲). Liquidarla primero genera una victoria rápida."
+                ),
+                criterioActual = "saldo",
+                onCriterioSelected = {},
+                onAbonarClick = {}
+            )
+        }
+    }
+}
+
 @Preview(showBackground = true)
 @Composable
 fun ObligacionItemPreview() {
@@ -889,7 +1291,7 @@ fun ObligacionItemPreview() {
             ObligacionItem(
                 obligacion = Obligacion(
                     id = "preview-1",
-                    nombre = "Préstamo Bancario",
+                    nombre = "PrÃ©stamo Bancario",
                     montoInicial = 10000000L,
                     saldoActual = 6500000L,
                     estado = "Activo",
@@ -909,11 +1311,11 @@ fun ObligacionItemPreview() {
             ObligacionItem(
                 obligacion = Obligacion(
                     id = "preview-2",
-                    nombre = "Préstamo Cooperativa (Vencido)",
+                    nombre = "PrÃ©stamo Cooperativa (Vencido)",
                     montoInicial = 4000000L,
                     saldoActual = 2500000L,
                     estado = "Activo",
-                    entidad = "Coop. San Cristóbal",
+                    entidad = "Coop. San CristÃ³bal",
                     cuotaReferenciaGs = 450000L,
                     cuotasTotales = 10,
                     cuotasRestantes = 6,

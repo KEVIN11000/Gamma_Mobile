@@ -11,6 +11,7 @@ import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.PUT
+import retrofit2.http.Query
 
 data class IaTextRequest(val texto: String)
 
@@ -70,6 +71,19 @@ interface GammaApi {
 
     @POST("obligaciones/abonar")
     suspend fun abonarObligacion(@Body request: com.gamma.mobile.domain.model.AbonoRequest): Response<com.gamma.mobile.domain.model.AbonoResponse>
+
+    @GET("obligaciones/vencimientos")
+    suspend fun getCronogramaVencimientos(): Response<List<com.gamma.mobile.domain.model.VencimientoCronogramaItem>>
+
+    @GET("obligaciones/foco")
+    suspend fun getDeudaFoco(
+        @Query("criterio") criterio: String = "saldo"
+    ): Response<com.gamma.mobile.domain.model.DeudaFocoResponse>
+
+    @POST("obligaciones/proyectar-capacidad")
+    suspend fun proyectarCapacidad(
+        @Body request: com.gamma.mobile.domain.model.CapacidadPagoRequest
+    ): Response<com.gamma.mobile.domain.model.CapacidadPagoResponse>
 
     @GET("asistencia/materias")
     suspend fun getMaterias(): Response<List<String>>

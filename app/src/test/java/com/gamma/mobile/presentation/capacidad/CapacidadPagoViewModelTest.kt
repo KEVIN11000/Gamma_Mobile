@@ -361,6 +361,57 @@ class CapacidadPagoViewModelTest {
         assertTrue(state is CapacidadPagoUiState.Error)
         assertEquals("Fallo al obtener dashboard", (state as CapacidadPagoUiState.Error).message)
     }
+
+    @Test
+    fun `sincronizarProyeccionRemota merges backend projection with ad-hoc expenses`() = runTest {
+        fakeDashboardRepo.summary = DashboardSummary(margenLibreDisponible = 5000000L)
+        fakeObligacionRepo.obligaciones = listOf(
+            Obligacion(id = "1", nombre = "Préstamo", saldoActual = 5000000L, cuotaReferenciaGs = 500000L, cuotasRestantes = 10, estado = "Activo")
+        )
+        fakeObligacionRepo.proyeccionResponse = NetworkResult.Success(
+            com.gamma.mobile.domain.model.CapacidadPagoResponse(
+                compromisoTotalMes = 500000L,
+                fondoDisponibleMes = 5000000L,
+                capacidadNeta = 4500000L,
+                semaforo = "SUPERAVIT",
+                dtiProyectado = 10.0
+            )
+        )
+
+        viewModel = CapacidadPagoViewModel(fakeObligacionRepo, fakeDashboardRepo, fakeEscenarioRepo)
+        advanceUntilIdle()
+
+        viewModel.agregarGastoAdHoc("Reparación coche", 300000L)
+        advanceUntilIdle()
+
+        viewModel.sincronizarProyeccionRemota()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value as CapacidadPagoUiState.Success
+        assertEquals(300000L, state.resultado.totalGastosProyectados)
+        assertEquals(4200000L, state.resultado.capacidadNeta)
+        assertEquals("SUPERAVIT", state.resultado.semaforo)
+    }
+
+    @Test
+    fun `sincronizarProyeccionRemota preserves local calculation if backend returns error`() = runTest {
+        fakeDashboardRepo.summary = DashboardSummary(margenLibreDisponible = 5000000L)
+        fakeObligacionRepo.obligaciones = listOf(
+            Obligacion(id = "1", nombre = "Préstamo", saldoActual = 5000000L, cuotaReferenciaGs = 500000L, cuotasRestantes = 10, estado = "Activo")
+        )
+        fakeObligacionRepo.proyeccionResponse = NetworkResult.Error(500, "Backend error")
+
+        viewModel = CapacidadPagoViewModel(fakeObligacionRepo, fakeDashboardRepo, fakeEscenarioRepo)
+        advanceUntilIdle()
+
+        val localCapacidadNeta = (viewModel.uiState.value as CapacidadPagoUiState.Success).resultado.capacidadNeta
+
+        viewModel.sincronizarProyeccionRemota()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value as CapacidadPagoUiState.Success
+        assertEquals(localCapacidadNeta, state.resultado.capacidadNeta)
+    }
 }
 
 class FakeEscenarioCapacidadRepository : EscenarioCapacidadRepository {
@@ -397,6 +448,8 @@ class FakeCapacidadDashboardRepo : DashboardRepository {
 class FakeCapacidadObligacionRepo : ObligacionRepository {
     var obligaciones: List<Obligacion> = emptyList()
     var shouldFail: Boolean = false
+    var lastProyectarRequest: com.gamma.mobile.domain.model.CapacidadPagoRequest? = null
+    var proyeccionResponse: NetworkResult<com.gamma.mobile.domain.model.CapacidadPagoResponse>? = null
 
     override suspend fun getObligaciones(forceRefresh: Boolean): NetworkResult<List<Obligacion>> {
         return if (shouldFail) {
@@ -410,4 +463,10 @@ class FakeCapacidadObligacionRepo : ObligacionRepository {
     override suspend fun updateObligacion(obligacion: Obligacion): NetworkResult<Unit> = NetworkResult.Success(Unit)
     override suspend fun deleteObligacion(id: String): NetworkResult<Unit> = NetworkResult.Success(Unit)
     override suspend fun abonarObligacion(idObligacion: String, monto: Long): NetworkResult<Unit> = NetworkResult.Success(Unit)
+    override suspend fun getCronogramaVencimientos(forceRefresh: Boolean): NetworkResult<List<com.gamma.mobile.domain.model.VencimientoCronogramaItem>> = NetworkResult.Success(emptyList())
+    override suspend fun getDeudaFoco(criterio: String): NetworkResult<com.gamma.mobile.domain.model.DeudaFocoResponse> = NetworkResult.Success(com.gamma.mobile.domain.model.DeudaFocoResponse())
+    override suspend fun proyectarCapacidad(request: com.gamma.mobile.domain.model.CapacidadPagoRequest): NetworkResult<com.gamma.mobile.domain.model.CapacidadPagoResponse> {
+        lastProyectarRequest = request
+        return proyeccionResponse ?: NetworkResult.Success(com.gamma.mobile.domain.model.CapacidadPagoResponse())
+    }
 }

@@ -192,6 +192,34 @@ class CapacidadPagoViewModel @Inject constructor(
         recalcular()
     }
 
+    fun sincronizarProyeccionRemota() {
+        val request = com.gamma.mobile.domain.model.CapacidadPagoRequest(
+            deudasPausadasSimuladas = _deudasPausadasSimuladas.value.toList(),
+            abonosExtraordinarios = _abonosExtraordinarios.value,
+            ajusteIngresoExtra = _ajusteIngresoExtra.value
+        )
+        viewModelScope.launch {
+            when (val res = obligacionRepository.proyectarCapacidad(request)) {
+                is NetworkResult.Success -> {
+                    val totalGastos = _gastosSimulados.value.filter { it.incluido }.sumOf { it.monto }
+                    val remote = res.data
+                    val merged = remote.copy(
+                        totalGastosProyectados = totalGastos,
+                        capacidadNeta = remote.capacidadNeta - totalGastos
+                    )
+                    _uiState.value = CapacidadPagoUiState.Success(
+                        resultado = merged,
+                        deudasActivas = todasLasDeudasActivas,
+                        margenBase = margenBase
+                    )
+                }
+                else -> {
+                    // Fallback transparente: el cálculo reactivo local permanece intacto
+                }
+            }
+        }
+    }
+
     private fun recalcular() {
         val fondoDisponible = (margenBase + _ajusteIngresoExtra.value).coerceAtLeast(0L)
         val deudasNoPausadas = todasLasDeudasActivas.filterNot { it.id in _deudasPausadasSimuladas.value }

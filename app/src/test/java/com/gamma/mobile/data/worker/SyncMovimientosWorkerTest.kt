@@ -186,4 +186,7 @@ open class FakeWorkerApi : GammaApi {
     override suspend fun createTicket(request: com.gamma.mobile.domain.model.TicketCreate) = throw NotImplementedError()
     override suspend fun updateTicket(id: String, request: com.gamma.mobile.domain.model.TicketUpdate) = throw NotImplementedError()
     override suspend fun getLogs() = throw NotImplementedError()
+    override suspend fun getCronogramaVencimientos(): Response<List<com.gamma.mobile.domain.model.VencimientoCronogramaItem>> = throw NotImplementedError()
+    override suspend fun getDeudaFoco(criterio: String): Response<com.gamma.mobile.domain.model.DeudaFocoResponse> = throw NotImplementedError()
+    override suspend fun proyectarCapacidad(request: com.gamma.mobile.domain.model.CapacidadPagoRequest): Response<com.gamma.mobile.domain.model.CapacidadPagoResponse> = throw NotImplementedError()
 }

@@ -221,3 +221,43 @@ data class EscenarioCapacidad(
     val abonosExtraordinarios: Map<String, Long> = emptyMap(),
     val gastosAdHoc: List<GastoSimulado> = emptyList()
 )
+
+data class VencimientoCronogramaItem(
+    @SerializedName(value = "id", alternate = ["id_obligacion", "ID_Obligacion"])
+    val id: String = "",
+    @SerializedName(value = "nombre", alternate = ["Nombre"])
+    val nombre: String = "",
+    @SerializedName(value = "entidad", alternate = ["Entidad"])
+    val entidad: String = "",
+    @SerializedName(value = "dia_vencimiento", alternate = ["diaVencimiento", "Dia_Vencimiento"])
+    val diaVencimiento: Int = 0,
+    @SerializedName(value = "cuota_gs", alternate = ["cuotaReferenciaGs", "cuota_referencia_gs"])
+    val cuotaGs: Long = 0L,
+    @SerializedName(value = "saldo_actual", alternate = ["saldoActual", "Saldo_Actual"])
+    val saldoActual: Long = 0L,
+    @SerializedName("vencido")
+    val vencido: Boolean = false,
+    @SerializedName(value = "dias_restantes", alternate = ["diasRestantes"])
+    val diasRestantes: Int = 0,
+    @SerializedName(value = "fecha_vencimiento_exacta", alternate = ["fechaVencimientoExacta"])
+    val fechaVencimientoExacta: String = ""
+)
+
+data class DeudaFocoResponse(
+    @SerializedName(value = "id_deuda", alternate = ["idDeuda", "id"])
+    val idDeuda: String? = null,
+    @SerializedName(value = "nombre", alternate = ["Nombre"])
+    val nombre: String = "",
+    @SerializedName(value = "entidad", alternate = ["Entidad"])
+    val entidad: String = "",
+    @SerializedName(value = "saldo_actual", alternate = ["saldoActual"])
+    val saldoActual: Long = 0L,
+    @SerializedName(value = "cuota_gs", alternate = ["cuotaGs", "cuota_referencia_gs"])
+    val cuotaGs: Long = 0L,
+    @SerializedName("criterio")
+    val criterio: String = "saldo", // "saldo" (bola de nieve) o "prioridad" (avalancha)
+    @SerializedName(value = "ahorro_estimado_meses", alternate = ["ahorroEstimadoMeses"])
+    val ahorroEstimadoMeses: Int = 0,
+    @SerializedName(value = "explicacion", alternate = ["motivo", "motivoRecomendacion"])
+    val explicacion: String = ""
+)

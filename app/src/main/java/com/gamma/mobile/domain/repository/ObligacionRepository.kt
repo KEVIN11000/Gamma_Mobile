@@ -9,4 +9,7 @@ interface ObligacionRepository {
     suspend fun updateObligacion(obligacion: Obligacion): NetworkResult<Unit>
     suspend fun deleteObligacion(id: String): NetworkResult<Unit>
     suspend fun abonarObligacion(idObligacion: String, monto: Long): NetworkResult<Unit>
+    suspend fun getCronogramaVencimientos(forceRefresh: Boolean = false): NetworkResult<List<com.gamma.mobile.domain.model.VencimientoCronogramaItem>>
+    suspend fun getDeudaFoco(criterio: String = "saldo"): NetworkResult<com.gamma.mobile.domain.model.DeudaFocoResponse>
+    suspend fun proyectarCapacidad(request: com.gamma.mobile.domain.model.CapacidadPagoRequest): NetworkResult<com.gamma.mobile.domain.model.CapacidadPagoResponse>
 }

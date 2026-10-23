@@ -375,6 +375,63 @@ class ObligacionesViewModelTest {
         assertTrue(state.obligaciones.all { it.esPausada })
         assertEquals(listOf("2", "3"), state.obligaciones.map { it.id })
     }
+
+    @Test
+    fun `loadObligaciones loads cronograma de vencimientos and updates StateFlow`() = runTest {
+        val cronograma = listOf(
+            com.gamma.mobile.domain.model.VencimientoCronogramaItem(
+                id = "v1",
+                nombre = "Préstamo Banco",
+                diaVencimiento = 10,
+                cuotaGs = 450000L
+            )
+        )
+        fakeRepo.cronogramaItems = cronograma
+        viewModel = ObligacionesViewModel(fakeRepo, fakeDashboardRepo)
+        advanceUntilIdle()
+
+        assertEquals(1, viewModel.cronogramaVencimientos.value.size)
+        assertEquals("v1", viewModel.cronogramaVencimientos.value[0].id)
+        assertEquals(450000L, viewModel.cronogramaVencimientos.value[0].cuotaGs)
+    }
+
+    @Test
+    fun `loadObligaciones loads deuda foco with default criterio saldo`() = runTest {
+        fakeRepo.deudaFocoMap["saldo"] = com.gamma.mobile.domain.model.DeudaFocoResponse(
+            idDeuda = "d_foco",
+            nombre = "Tarjeta Express",
+            criterio = "saldo",
+            saldoActual = 500000L
+        )
+        viewModel = ObligacionesViewModel(fakeRepo, fakeDashboardRepo)
+        advanceUntilIdle()
+
+        val foco = viewModel.deudaFoco.value
+        assertEquals("d_foco", foco?.idDeuda)
+        assertEquals("saldo", viewModel.criterioFoco.value)
+    }
+
+    @Test
+    fun `cambiarCriterioFoco updates criterio and requests new deuda foco`() = runTest {
+        fakeRepo.deudaFocoMap["saldo"] = com.gamma.mobile.domain.model.DeudaFocoResponse(
+            idDeuda = "d_saldo",
+            criterio = "saldo"
+        )
+        fakeRepo.deudaFocoMap["prioridad"] = com.gamma.mobile.domain.model.DeudaFocoResponse(
+            idDeuda = "d_prioridad",
+            criterio = "prioridad"
+        )
+        viewModel = ObligacionesViewModel(fakeRepo, fakeDashboardRepo)
+        advanceUntilIdle()
+
+        assertEquals("d_saldo", viewModel.deudaFoco.value?.idDeuda)
+
+        viewModel.cambiarCriterioFoco("prioridad")
+        advanceUntilIdle()
+
+        assertEquals("prioridad", viewModel.criterioFoco.value)
+        assertEquals("d_prioridad", viewModel.deudaFoco.value?.idDeuda)
+    }
 }
 
 class FakeDashboardRepository : com.gamma.mobile.domain.repository.DashboardRepository {
@@ -390,6 +447,8 @@ class FakeDashboardRepository : com.gamma.mobile.domain.repository.DashboardRepo
 
 class FakeObligacionRepository : ObligacionRepository {
     var data: List<Obligacion> = emptyList()
+    var cronogramaItems: List<com.gamma.mobile.domain.model.VencimientoCronogramaItem> = emptyList()
+    val deudaFocoMap = mutableMapOf<String, com.gamma.mobile.domain.model.DeudaFocoResponse>()
     val createdList = mutableListOf<Obligacion>()
     val updatedList = mutableListOf<Obligacion>()
     val deletedIds = mutableListOf<String>()
@@ -418,4 +477,8 @@ class FakeObligacionRepository : ObligacionRepository {
         abonosList.add(idObligacion to monto)
         return NetworkResult.Success(Unit)
     }
+
+    override suspend fun getCronogramaVencimientos(forceRefresh: Boolean): NetworkResult<List<com.gamma.mobile.domain.model.VencimientoCronogramaItem>> = NetworkResult.Success(cronogramaItems)
+    override suspend fun getDeudaFoco(criterio: String): NetworkResult<com.gamma.mobile.domain.model.DeudaFocoResponse> = NetworkResult.Success(deudaFocoMap[criterio] ?: com.gamma.mobile.domain.model.DeudaFocoResponse(criterio = criterio))
+    override suspend fun proyectarCapacidad(request: com.gamma.mobile.domain.model.CapacidadPagoRequest): NetworkResult<com.gamma.mobile.domain.model.CapacidadPagoResponse> = NetworkResult.Success(com.gamma.mobile.domain.model.CapacidadPagoResponse())
 }

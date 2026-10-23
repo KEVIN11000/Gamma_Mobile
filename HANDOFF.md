@@ -1,6 +1,6 @@
 # HANDOFF — Gamma Mobile
 
-**Fase cerrada:** v0.2.2 (Mobile) — Cronograma de Vencimientos, Deuda Foco y Sincronización Remota de Proyección
+**Fase cerrada:** v0.0.10 (Mobile) — Cronograma de Vencimientos, Deuda Foco y Sincronización Remota de Proyección
 **Fecha de cierre:** 2026-10-23
 **Estado del build/tests:** ✅ pasando — Compilación y tests verificados al 100% (`./gradlew testDebugUnitTest` 50+ tests exitosos en 28s, `./gradlew assembleDebug` limpio en 37s).
 
@@ -39,7 +39,8 @@
 | `app/src/test/java/com/gamma/mobile/presentation/obligaciones/ObligacionesViewModelTest.kt` | Tests de ViewModel para cronograma, foco y cambio de criterio. |
 | `app/src/test/java/com/gamma/mobile/presentation/capacidad/CapacidadPagoViewModelTest.kt` | Tests de sincronización remota y fusión con gastos simulados. |
 | `docs/specs/culminacion-integracion-backend-v022/` | Documentación SDD completa (`spec.md`, `plan.md`, `tasks.md`). |
-| `VERSION` | Bump a versión 0.2.2. |
+| `VERSION` | Bump a versión 0.0.10. |
+| `app/build/outputs/apk/release/gamma-mobile-v0.0.10-release.apk` | Binario de producción compilado y firmado bajo APK Signature Scheme v2 (33,476,278 bytes). |
 
 ## 4. Pendientes explícitos para la próxima fase
 

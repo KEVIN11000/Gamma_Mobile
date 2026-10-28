@@ -342,5 +342,21 @@ class FakeAsistenciaRepository : AsistenciaRepository {
     }
     override suspend fun marcarMateria(materia: String): NetworkResult<AsistenciaMateriaResponse> = materiaResult
     override suspend fun getMaterias(): NetworkResult<List<String>> = materiasListResult
+    override suspend fun getPeriodos(): NetworkResult<com.gamma.mobile.domain.model.PeriodosResponse> =
+        NetworkResult.Success(com.gamma.mobile.domain.model.PeriodosResponse("Octubre 2026", "Octubre 2026", true))
+    override suspend fun getAnaliticas(hoja: String?): NetworkResult<com.gamma.mobile.domain.model.AnaliticasHorasResponse> =
+        NetworkResult.Success(com.gamma.mobile.domain.model.AnaliticasHorasResponse(periodo = "Octubre 2026"))
+    override suspend fun descargarReporteExcel(
+        hoja: String?,
+        descuento: Double,
+        saldoAnterior: Double,
+        incluirIva: Boolean
+    ): NetworkResult<ByteArray> = NetworkResult.Success(byteArrayOf(1, 2, 3))
+    override suspend fun descargarReportePdfAsistencia(
+        hoja: String?,
+        descuento: Double,
+        saldoAnterior: Double,
+        incluirIva: Boolean
+    ): NetworkResult<ByteArray> = NetworkResult.Success(byteArrayOf(4, 5, 6))
 }
 

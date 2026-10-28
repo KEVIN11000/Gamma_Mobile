@@ -198,4 +198,77 @@ class CierreViewModelTest {
         viewModel.resetState()
         assertEquals(CierreUiState.Idle, viewModel.uiState.value)
     }
+
+    @Test
+    fun `descargarExcel without asistenciaRepo sets Error`() = runTest {
+        viewModel.descargarExcel("Octubre 2026")
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertTrue(state is CierreUiState.Error)
+        assertEquals("Servicio de exportación Excel no disponible", (state as CierreUiState.Error).message)
+    }
+
+    @Test
+    fun `descargarExcel with asistenciaRepo success sets ExcelDownloaded`() = runTest {
+        val fakeAsistencia = FakeAsistenciaRepoForCierre()
+        val dummyBytes = byteArrayOf(10, 20, 30)
+        fakeAsistencia.excelResult = NetworkResult.Success(dummyBytes)
+
+        val vmWithAsistencia = CierreViewModel(fakeRepo, fakeAsistencia)
+        vmWithAsistencia.setAplicarDescuento(true)
+        vmWithAsistencia.descargarExcel("Octubre 2026")
+        advanceUntilIdle()
+
+        assertEquals("Octubre 2026", fakeAsistencia.lastHojaCalled)
+        assertEquals(1.0, fakeAsistencia.lastDescuentoCalled)
+
+        val state = vmWithAsistencia.uiState.value
+        assertTrue(state is CierreUiState.ExcelDownloaded)
+        val excelState = state as CierreUiState.ExcelDownloaded
+        assertEquals("Planilla_Octubre_2026.xlsx", excelState.fileName)
+        assertTrue(dummyBytes.contentEquals(excelState.fileBytes))
+    }
+
+    @Test
+    fun `descargarExcel with error from repo sets Error`() = runTest {
+        val fakeAsistencia = FakeAsistenciaRepoForCierre()
+        fakeAsistencia.excelResult = NetworkResult.Error(500, "Error generando Excel")
+
+        val vmWithAsistencia = CierreViewModel(fakeRepo, fakeAsistencia)
+        vmWithAsistencia.descargarExcel("Octubre 2026")
+        advanceUntilIdle()
+
+        val state = vmWithAsistencia.uiState.value
+        assertTrue(state is CierreUiState.Error)
+        assertEquals("Error generando Excel", (state as CierreUiState.Error).message)
+    }
+}
+
+class FakeAsistenciaRepoForCierre : com.gamma.mobile.domain.repository.AsistenciaRepository {
+    var excelResult: NetworkResult<ByteArray> = NetworkResult.Success(byteArrayOf(1, 2, 3))
+    var lastHojaCalled: String? = null
+    var lastDescuentoCalled: Double? = null
+
+    override suspend fun marcarAsistencia(modo: String) = throw NotImplementedError()
+    override suspend fun marcarMateria(materia: String) = throw NotImplementedError()
+    override suspend fun getMaterias() = throw NotImplementedError()
+    override suspend fun getPeriodos() = throw NotImplementedError()
+    override suspend fun getAnaliticas(hoja: String?) = throw NotImplementedError()
+    override suspend fun descargarReporteExcel(
+        hoja: String?,
+        descuento: Double,
+        saldoAnterior: Double,
+        incluirIva: Boolean
+    ): NetworkResult<ByteArray> {
+        lastHojaCalled = hoja
+        lastDescuentoCalled = descuento
+        return excelResult
+    }
+    override suspend fun descargarReportePdfAsistencia(
+        hoja: String?,
+        descuento: Double,
+        saldoAnterior: Double,
+        incluirIva: Boolean
+    ): NetworkResult<ByteArray> = throw NotImplementedError()
 }

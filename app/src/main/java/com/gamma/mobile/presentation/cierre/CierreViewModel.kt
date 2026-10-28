@@ -12,6 +12,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+import com.gamma.mobile.domain.repository.AsistenciaRepository
+
 sealed interface CierreUiState {
     data object Idle : CierreUiState
     data object LoadingCierre : CierreUiState
@@ -31,13 +33,32 @@ sealed interface CierreUiState {
             return result
         }
     }
+    data object DownloadingExcel : CierreUiState
+    data class ExcelDownloaded(val fileBytes: ByteArray, val fileName: String) : CierreUiState {
+        override fun equals(other: Any?): Boolean {
+            if (this === other) return true
+            if (javaClass != other?.javaClass) return false
+            other as ExcelDownloaded
+            return fileBytes.contentEquals(other.fileBytes) && fileName == other.fileName
+        }
+
+        override fun hashCode(): Int {
+            var result = fileBytes.contentHashCode()
+            result = 31 * result + fileName.hashCode()
+            return result
+        }
+    }
     data class Error(val message: String) : CierreUiState
 }
 
 @HiltViewModel
 class CierreViewModel @Inject constructor(
-    private val repository: CierreRepository
+    private val repository: CierreRepository,
+    private val asistenciaRepository: AsistenciaRepository? = null
 ) : ViewModel() {
+
+    // Constructor secundario para compatibilidad existente con tests unitarios
+    constructor(repository: CierreRepository) : this(repository, null)
 
     private val _uiState = MutableStateFlow<CierreUiState>(CierreUiState.Idle)
     val uiState: StateFlow<CierreUiState> = _uiState.asStateFlow()
@@ -122,6 +143,38 @@ class CierreViewModel @Inject constructor(
                 }
                 is NetworkResult.Exception -> {
                     _uiState.value = CierreUiState.Error(result.e.localizedMessage ?: "Error de red al descargar PDF")
+                }
+            }
+        }
+    }
+
+    fun descargarExcel(
+        hojaCierre: String = _hoja.value,
+        conDescuento: Boolean = _aplicarDescuento.value
+    ) {
+        if (asistenciaRepository == null) {
+            _uiState.value = CierreUiState.Error("Servicio de exportación Excel no disponible")
+            return
+        }
+        val hojaValida = hojaCierre.trim()
+        if (hojaValida.isEmpty()) {
+            _uiState.value = CierreUiState.Error("Debe indicar la hoja para el reporte Excel")
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.value = CierreUiState.DownloadingExcel
+            val descuentoVal = if (conDescuento) 1.0 else 0.0
+            when (val result = asistenciaRepository.descargarReporteExcel(hoja = hojaValida, descuento = descuentoVal)) {
+                is NetworkResult.Success -> {
+                    val fileName = "Planilla_${hojaValida.replace(" ", "_")}.xlsx"
+                    _uiState.value = CierreUiState.ExcelDownloaded(result.data, fileName)
+                }
+                is NetworkResult.Error -> {
+                    _uiState.value = CierreUiState.Error(result.message.ifEmpty { "Error al descargar Excel (${result.code})" })
+                }
+                is NetworkResult.Exception -> {
+                    _uiState.value = CierreUiState.Error(result.e.localizedMessage ?: "Error de red al descargar Excel")
                 }
             }
         }

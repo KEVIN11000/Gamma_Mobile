@@ -50,6 +50,28 @@ class FakeAsistenciaRepository : AsistenciaRepository {
     override suspend fun getMaterias(): NetworkResult<List<String>> {
         return NetworkResult.Success(listOf("Algoritmos", "Base de Datos"))
     }
+
+    var periodosResult: NetworkResult<com.gamma.mobile.domain.model.PeriodosResponse> =
+        NetworkResult.Success(com.gamma.mobile.domain.model.PeriodosResponse("Octubre 2026", "Octubre 2026", true))
+    var analiticasResult: NetworkResult<com.gamma.mobile.domain.model.AnaliticasHorasResponse> =
+        NetworkResult.Success(com.gamma.mobile.domain.model.AnaliticasHorasResponse(periodo = "Octubre 2026", totalHorasDecimal = 107.3, totalHorasFormato = "107h 18m", salarioAcumuladoGs = 1570228L))
+    var excelResult: NetworkResult<ByteArray> = NetworkResult.Success(byteArrayOf(1, 2, 3))
+    var pdfResult: NetworkResult<ByteArray> = NetworkResult.Success(byteArrayOf(4, 5, 6))
+
+    override suspend fun getPeriodos(): NetworkResult<com.gamma.mobile.domain.model.PeriodosResponse> = periodosResult
+    override suspend fun getAnaliticas(hoja: String?): NetworkResult<com.gamma.mobile.domain.model.AnaliticasHorasResponse> = analiticasResult
+    override suspend fun descargarReporteExcel(
+        hoja: String?,
+        descuento: Double,
+        saldoAnterior: Double,
+        incluirIva: Boolean
+    ): NetworkResult<ByteArray> = excelResult
+    override suspend fun descargarReportePdfAsistencia(
+        hoja: String?,
+        descuento: Double,
+        saldoAnterior: Double,
+        incluirIva: Boolean
+    ): NetworkResult<ByteArray> = pdfResult
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -236,5 +258,56 @@ class AsistenciaViewModelTest {
 
         viewModel.resetState()
         assertEquals(AsistenciaUiState.Idle, viewModel.uiState.value)
+    }
+
+    @Test
+    fun `loadAnaliticas success updates analiticasState to Success with periodos and metrics`() = runTest {
+        viewModel.loadAnaliticas("Octubre 2026")
+        advanceUntilIdle()
+
+        val state = viewModel.analiticasState.value
+        assertTrue(state is AnaliticasUiState.Success)
+        val success = state as AnaliticasUiState.Success
+        assertEquals("Octubre 2026", success.analiticas.periodo)
+        assertEquals("107h 18m", success.analiticas.totalHorasFormato)
+        assertEquals(1570228L, success.analiticas.salarioAcumuladoGs)
+        assertEquals(true, success.periodos?.sincronizados)
+    }
+
+    @Test
+    fun `loadAnaliticas error updates analiticasState to Error`() = runTest {
+        fakeRepo.analiticasResult = NetworkResult.Error(500, "Error en Google Sheets")
+        viewModel.loadAnaliticas("Noviembre 2026")
+        advanceUntilIdle()
+
+        val state = viewModel.analiticasState.value
+        assertTrue(state is AnaliticasUiState.Error)
+        assertEquals("Error en Google Sheets", (state as AnaliticasUiState.Error).message)
+    }
+
+    @Test
+    fun `descargarExcel success updates excelDownloadState to Success and reset works`() = runTest {
+        viewModel.descargarExcel("Octubre 2026")
+        advanceUntilIdle()
+
+        val state = viewModel.excelDownloadState.value
+        assertTrue(state is ExcelDownloadState.Success)
+        val success = state as ExcelDownloadState.Success
+        assertEquals("Planilla_Octubre 2026.xlsx", success.fileName)
+        assertEquals(3, success.fileBytes.size)
+
+        viewModel.resetExcelDownloadState()
+        assertEquals(ExcelDownloadState.Idle, viewModel.excelDownloadState.value)
+    }
+
+    @Test
+    fun `descargarExcel error updates excelDownloadState to Error`() = runTest {
+        fakeRepo.excelResult = NetworkResult.Error(404, "Planilla no encontrada")
+        viewModel.descargarExcel("Inexistente")
+        advanceUntilIdle()
+
+        val state = viewModel.excelDownloadState.value
+        assertTrue(state is ExcelDownloadState.Error)
+        assertEquals("Planilla no encontrada", (state as ExcelDownloadState.Error).message)
     }
 }

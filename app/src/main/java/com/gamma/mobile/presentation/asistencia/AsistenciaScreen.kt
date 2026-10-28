@@ -11,6 +11,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
@@ -19,12 +20,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
+import com.gamma.mobile.domain.model.AnaliticasHorasResponse
+import com.gamma.mobile.domain.model.PeriodosResponse
 import com.gamma.mobile.presentation.cierre.CierreUiState
 import com.gamma.mobile.presentation.cierre.CierreViewModel
 import com.gamma.mobile.presentation.cierre.CierresViewModel
 import com.gamma.mobile.presentation.cierre.HistorialCierresScreen
+import com.gamma.mobile.ui.theme.GammaTheme
 import com.gamma.mobile.utils.formatGuaranies
 import java.io.File
 import java.io.FileOutputStream
@@ -92,10 +97,45 @@ fun AsistenciaScreen(
 @Composable
 fun MarcacionesTabContent(viewModel: AsistenciaViewModel) {
     val uiState by viewModel.uiState.collectAsState()
+    val analiticasState by viewModel.analiticasState.collectAsState()
+    val excelDownloadState by viewModel.excelDownloadState.collectAsState()
     val modo by viewModel.modo.collectAsState()
     val materia by viewModel.materia.collectAsState()
     val scrollState = rememberScrollState()
     val context = LocalContext.current
+
+    LaunchedEffect(excelDownloadState) {
+        if (excelDownloadState is ExcelDownloadState.Success) {
+            val success = excelDownloadState as ExcelDownloadState.Success
+            try {
+                val cacheDir = File(context.cacheDir, "comprobantes")
+                if (!cacheDir.exists()) cacheDir.mkdirs()
+                val tempFile = File(cacheDir, success.fileName)
+                FileOutputStream(tempFile).use { it.write(success.fileBytes) }
+
+                val uri = FileProvider.getUriForFile(
+                    context,
+                    "${context.packageName}.fileprovider",
+                    tempFile
+                )
+                val intent = Intent(Intent.ACTION_VIEW).apply {
+                    setDataAndType(uri, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+                context.startActivity(intent)
+            } catch (e: ActivityNotFoundException) {
+                Toast.makeText(context, "Planilla guardada en caché. No hay visor de Excel instalado.", Toast.LENGTH_LONG).show()
+            } catch (e: Exception) {
+                Toast.makeText(context, "Error al abrir Excel: ${e.message}", Toast.LENGTH_LONG).show()
+            } finally {
+                viewModel.resetExcelDownloadState()
+            }
+        } else if (excelDownloadState is ExcelDownloadState.Error) {
+            val msg = (excelDownloadState as ExcelDownloadState.Error).message
+            Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+            viewModel.resetExcelDownloadState()
+        }
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -105,6 +145,14 @@ fun MarcacionesTabContent(viewModel: AsistenciaViewModel) {
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // Card Analíticas Laborales MTD
+            AnaliticasCard(
+                analiticasState = analiticasState,
+                excelDownloadState = excelDownloadState,
+                onRefresh = { viewModel.loadAnaliticas() },
+                onDescargarExcel = { hoja -> viewModel.descargarExcel(hoja) }
+            )
+
             // Card Marcación Laboral (Entrada / Salida)
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -384,6 +432,32 @@ fun CierreTabContent(cierreViewModel: CierreViewModel) {
             } catch (e: Exception) {
                 Toast.makeText(context, "Error al abrir el PDF: ${e.message}", Toast.LENGTH_LONG).show()
             }
+        } else if (uiState is CierreUiState.ExcelDownloaded) {
+            val excelState = uiState as CierreUiState.ExcelDownloaded
+            try {
+                val cacheDir = File(context.cacheDir, "comprobantes")
+                if (!cacheDir.exists()) {
+                    cacheDir.mkdirs()
+                }
+                val tempFile = File(cacheDir, excelState.fileName)
+                FileOutputStream(tempFile).use { it.write(excelState.fileBytes) }
+
+                val uri = FileProvider.getUriForFile(
+                    context,
+                    "${context.packageName}.fileprovider",
+                    tempFile
+                )
+
+                val intent = Intent(Intent.ACTION_VIEW).apply {
+                    setDataAndType(uri, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+                context.startActivity(intent)
+            } catch (e: ActivityNotFoundException) {
+                Toast.makeText(context, "Planilla Excel guardada. No hay visor de Excel instalado.", Toast.LENGTH_LONG).show()
+            } catch (e: Exception) {
+                Toast.makeText(context, "Error al abrir el Excel: ${e.message}", Toast.LENGTH_LONG).show()
+            }
         }
     }
 
@@ -508,7 +582,7 @@ fun CierreTabContent(cierreViewModel: CierreViewModel) {
             }
 
             // Progreso
-            if (uiState is CierreUiState.LoadingCierre || uiState is CierreUiState.DownloadingPdf) {
+            if (uiState is CierreUiState.LoadingCierre || uiState is CierreUiState.DownloadingPdf || uiState is CierreUiState.DownloadingExcel) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -518,7 +592,11 @@ fun CierreTabContent(cierreViewModel: CierreViewModel) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         CircularProgressIndicator(modifier = Modifier.size(24.dp))
                         Spacer(modifier = Modifier.width(12.dp))
-                        val text = if (uiState is CierreUiState.DownloadingPdf) "Descargando reporte PDF..." else "Ejecutando cierre en el servidor..."
+                        val text = when (uiState) {
+                            is CierreUiState.DownloadingPdf -> "Descargando reporte PDF..."
+                            is CierreUiState.DownloadingExcel -> "Generando y descargando planilla Excel..."
+                            else -> "Ejecutando cierre en el servidor..."
+                        }
                         Text(text, style = MaterialTheme.typography.bodyMedium)
                     }
                 }
@@ -566,6 +644,17 @@ fun CierreTabContent(cierreViewModel: CierreViewModel) {
                                 Text("Ver / Descargar Reporte PDF")
                             }
                         }
+
+                        if (tipoCierre == "horas") {
+                            FilledTonalButton(
+                                onClick = { cierreViewModel.descargarExcel(hoja) },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(Icons.Default.DateRange, contentDescription = null)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Descargar Planilla Excel (.xlsx)")
+                            }
+                        }
                     }
                 }
             }
@@ -586,5 +675,251 @@ fun CierreTabContent(cierreViewModel: CierreViewModel) {
                 }
             )
         }
+    }
+}
+
+@Composable
+fun AnaliticasCard(
+    analiticasState: AnaliticasUiState,
+    excelDownloadState: ExcelDownloadState,
+    onRefresh: () -> Unit,
+    onDescargarExcel: (String?) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Info,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        "Analíticas MTD",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                IconButton(
+                    onClick = onRefresh,
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Refresh,
+                        contentDescription = "Refrescar analíticas",
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+
+            when (val aState = analiticasState) {
+                is AnaliticasUiState.Loading -> {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 12.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Cargando analíticas...", style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+                is AnaliticasUiState.Success -> {
+                    val data = aState.analiticas
+                    val periodos = aState.periodos
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = data.periodo.ifEmpty { "Período Actual" },
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.SemiBold
+                        )
+
+                        if (periodos != null) {
+                            val (badgeBg, badgeText, badgeLabel) = if (periodos.sincronizados) {
+                                Triple(
+                                    MaterialTheme.colorScheme.primaryContainer,
+                                    MaterialTheme.colorScheme.onPrimaryContainer,
+                                    "✓ Sincronizado"
+                                )
+                            } else {
+                                Triple(
+                                    MaterialTheme.colorScheme.errorContainer,
+                                    MaterialTheme.colorScheme.onErrorContainer,
+                                    "⚠️ Desfasado"
+                                )
+                            }
+                            Surface(
+                                shape = MaterialTheme.shapes.extraSmall,
+                                color = badgeBg
+                            ) {
+                                Text(
+                                    text = badgeLabel,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = badgeText,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Surface(
+                            modifier = Modifier.weight(1f),
+                            shape = MaterialTheme.shapes.small,
+                            color = MaterialTheme.colorScheme.surface
+                        ) {
+                            Column(modifier = Modifier.padding(10.dp)) {
+                                Text("Horas MTD", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(data.totalHorasFormato, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                Text("${data.diasTrabajados} días trabajados", style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
+
+                        Surface(
+                            modifier = Modifier.weight(1f),
+                            shape = MaterialTheme.shapes.small,
+                            color = MaterialTheme.colorScheme.surface
+                        ) {
+                            Column(modifier = Modifier.padding(10.dp)) {
+                                Text("Devengado", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(formatGuaranies(data.salarioAcumuladoGs), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                Text("${formatGuaranies(data.montoPorHora.toLong())}/h", style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Extras: +${data.horasExtrasFormato}",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = "Perdidas: -${data.horasPerdidasFormato}",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                        Text(
+                            text = "Neto: ${data.balanceNetoFormato}",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    OutlinedButton(
+                        onClick = { onDescargarExcel(data.periodo) },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = excelDownloadState !is ExcelDownloadState.Downloading
+                    ) {
+                        if (excelDownloadState is ExcelDownloadState.Downloading) {
+                            CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Descargando Excel...", style = MaterialTheme.typography.labelMedium)
+                        } else {
+                            Icon(Icons.Default.DateRange, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Exportar Planilla Excel (.xlsx)", style = MaterialTheme.typography.labelMedium)
+                        }
+                    }
+                }
+                is AnaliticasUiState.Error -> {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = aState.message,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.weight(1f)
+                        )
+                        TextButton(onClick = onRefresh) {
+                            Text("Reintentar", style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Preview(name = "Analíticas MTD Exitosas", showBackground = true)
+@Composable
+fun AnaliticasCardPreview_Success() {
+    GammaTheme {
+        AnaliticasCard(
+            analiticasState = AnaliticasUiState.Success(
+                analiticas = AnaliticasHorasResponse(
+                    periodo = "Octubre 2026",
+                    montoPorHora = 14634,
+                    diasTrabajados = 14,
+                    totalHorasDecimal = 107.3,
+                    totalHorasFormato = "107h 18m",
+                    salarioAcumuladoGs = 1570228L,
+                    horasPerdidasDecimal = 1.4,
+                    horasExtrasDecimal = 2.5,
+                    balanceNetoDecimal = 1.1,
+                    horasPerdidasFormato = "1h 24m",
+                    horasExtrasFormato = "2h 30m",
+                    balanceNetoFormato = "+1h 06m",
+                    promedioHorasPorDia = 7.66
+                ),
+                periodos = PeriodosResponse(
+                    periodoLaboral = "Octubre 2026",
+                    periodoContable = "Octubre 2026",
+                    sincronizados = true
+                )
+            ),
+            excelDownloadState = ExcelDownloadState.Idle,
+            onRefresh = {},
+            onDescargarExcel = {}
+        )
+    }
+}
+
+@Preview(name = "Analíticas MTD Cargando", showBackground = true)
+@Composable
+fun AnaliticasCardPreview_Loading() {
+    GammaTheme {
+        AnaliticasCard(
+            analiticasState = AnaliticasUiState.Loading,
+            excelDownloadState = ExcelDownloadState.Idle,
+            onRefresh = {},
+            onDescargarExcel = {}
+        )
     }
 }

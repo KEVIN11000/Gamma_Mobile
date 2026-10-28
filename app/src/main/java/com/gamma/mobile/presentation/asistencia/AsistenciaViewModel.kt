@@ -4,10 +4,13 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.gamma.mobile.data.remote.NetworkResult
+import com.gamma.mobile.domain.model.AnaliticasHorasResponse
+import com.gamma.mobile.domain.model.PeriodosResponse
 import com.gamma.mobile.domain.repository.AsistenciaRepository
 import com.gamma.mobile.presentation.dashboard.evaluarMarcacion
 import com.gamma.mobile.utils.MarcacionNotificationHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -29,6 +32,22 @@ sealed interface AsistenciaUiState {
         val confirmadoEnPlanilla: Boolean = false
     ) : AsistenciaUiState
     data class Error(val message: String) : AsistenciaUiState
+}
+
+sealed interface AnaliticasUiState {
+    data object Loading : AnaliticasUiState
+    data class Success(
+        val analiticas: AnaliticasHorasResponse,
+        val periodos: PeriodosResponse? = null
+    ) : AnaliticasUiState
+    data class Error(val message: String) : AnaliticasUiState
+}
+
+sealed interface ExcelDownloadState {
+    data object Idle : ExcelDownloadState
+    data object Downloading : ExcelDownloadState
+    data class Success(val fileBytes: ByteArray, val fileName: String) : ExcelDownloadState
+    data class Error(val message: String) : ExcelDownloadState
 }
 
 @HiltViewModel
@@ -65,8 +84,15 @@ class AsistenciaViewModel @Inject constructor(
     private val _materiasDisponibles = MutableStateFlow<List<String>>(fallbackMaterias)
     val materiasDisponibles: StateFlow<List<String>> = _materiasDisponibles.asStateFlow()
 
+    private val _analiticasState = MutableStateFlow<AnaliticasUiState>(AnaliticasUiState.Loading)
+    val analiticasState: StateFlow<AnaliticasUiState> = _analiticasState.asStateFlow()
+
+    private val _excelDownloadState = MutableStateFlow<ExcelDownloadState>(ExcelDownloadState.Idle)
+    val excelDownloadState: StateFlow<ExcelDownloadState> = _excelDownloadState.asStateFlow()
+
     init {
         loadMaterias()
+        loadAnaliticas()
     }
 
     fun loadMaterias() {
@@ -134,6 +160,9 @@ class AsistenciaViewModel @Inject constructor(
                                 planilla = evaluacion.planilla
                             )
                         }
+
+                        // Actualizar analíticas tras marcación exitosa
+                        loadAnaliticas()
                     }
                 }
                 is NetworkResult.Error -> {
@@ -173,6 +202,59 @@ class AsistenciaViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    fun loadAnaliticas(hoja: String? = null) {
+        viewModelScope.launch {
+            _analiticasState.value = AnaliticasUiState.Loading
+            val periodosDeferred = async { repository.getPeriodos() }
+            val analiticasDeferred = async { repository.getAnaliticas(hoja) }
+
+            val periodosResult = periodosDeferred.await()
+            val analiticasResult = analiticasDeferred.await()
+
+            when (analiticasResult) {
+                is NetworkResult.Success -> {
+                    val periodos = if (periodosResult is NetworkResult.Success) periodosResult.data else null
+                    _analiticasState.value = AnaliticasUiState.Success(
+                        analiticas = analiticasResult.data,
+                        periodos = periodos
+                    )
+                }
+                is NetworkResult.Error -> {
+                    _analiticasState.value = AnaliticasUiState.Error(
+                        analiticasResult.message.ifEmpty { "Error ${analiticasResult.code} al obtener analíticas" }
+                    )
+                }
+                is NetworkResult.Exception -> {
+                    _analiticasState.value = AnaliticasUiState.Error(
+                        analiticasResult.e.localizedMessage ?: "Error de red al obtener analíticas"
+                    )
+                }
+            }
+        }
+    }
+
+    fun descargarExcel(hoja: String? = null) {
+        viewModelScope.launch {
+            _excelDownloadState.value = ExcelDownloadState.Downloading
+            when (val res = repository.descargarReporteExcel(hoja = hoja)) {
+                is NetworkResult.Success -> {
+                    val nombre = if (!hoja.isNullOrBlank()) "Planilla_$hoja.xlsx" else "Planilla_Horas.xlsx"
+                    _excelDownloadState.value = ExcelDownloadState.Success(res.data, nombre)
+                }
+                is NetworkResult.Error -> {
+                    _excelDownloadState.value = ExcelDownloadState.Error(res.message.ifEmpty { "Error al descargar Excel" })
+                }
+                is NetworkResult.Exception -> {
+                    _excelDownloadState.value = ExcelDownloadState.Error(res.e.localizedMessage ?: "Error de conexión al descargar Excel")
+                }
+            }
+        }
+    }
+
+    fun resetExcelDownloadState() {
+        _excelDownloadState.value = ExcelDownloadState.Idle
     }
 
     fun resetState() {

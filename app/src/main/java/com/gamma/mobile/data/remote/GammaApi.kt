@@ -94,6 +94,32 @@ interface GammaApi {
     @POST("asistencia/materia")
     suspend fun marcarMateria(@Body request: com.gamma.mobile.domain.model.AsistenciaMateriaRequest): Response<com.gamma.mobile.domain.model.AsistenciaMateriaResponse>
 
+    @GET("asistencia/periodos")
+    suspend fun getPeriodos(): Response<com.gamma.mobile.domain.model.PeriodosResponse>
+
+    @GET("asistencia/analiticas")
+    suspend fun getAnaliticas(
+        @Query("hoja") hoja: String? = null
+    ): Response<com.gamma.mobile.domain.model.AnaliticasHorasResponse>
+
+    @retrofit2.http.Streaming
+    @GET("asistencia/reporte/excel")
+    suspend fun descargarReporteExcel(
+        @Query("hoja") hoja: String? = null,
+        @Query("descuento") descuento: Double = 0.0,
+        @Query("saldo_anterior") saldoAnterior: Double = 0.0,
+        @Query("incluir_iva") incluirIva: Boolean = true
+    ): Response<okhttp3.ResponseBody>
+
+    @retrofit2.http.Streaming
+    @GET("asistencia/reporte/pdf")
+    suspend fun descargarReportePdfAsistencia(
+        @Query("hoja") hoja: String? = null,
+        @Query("descuento") descuento: Double = 0.0,
+        @Query("saldo_anterior") saldoAnterior: Double = 0.0,
+        @Query("incluir_iva") incluirIva: Boolean = true
+    ): Response<okhttp3.ResponseBody>
+
     @POST("cierres/ejecutar")
     suspend fun ejecutarCierre(@Body request: com.gamma.mobile.domain.model.CierreRequest): Response<com.gamma.mobile.domain.model.CierreResponse>
 

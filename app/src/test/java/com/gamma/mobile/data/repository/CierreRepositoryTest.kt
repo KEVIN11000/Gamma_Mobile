@@ -235,4 +235,8 @@ class FakeApiForCierreRepo : GammaApi {
     override suspend fun getCronogramaVencimientos(): Response<List<com.gamma.mobile.domain.model.VencimientoCronogramaItem>> = throw NotImplementedError()
     override suspend fun getDeudaFoco(criterio: String): Response<com.gamma.mobile.domain.model.DeudaFocoResponse> = throw NotImplementedError()
     override suspend fun proyectarCapacidad(request: com.gamma.mobile.domain.model.CapacidadPagoRequest): Response<com.gamma.mobile.domain.model.CapacidadPagoResponse> = throw NotImplementedError()
+    override suspend fun getPeriodos(): Response<com.gamma.mobile.domain.model.PeriodosResponse> = throw NotImplementedError()
+    override suspend fun getAnaliticas(hoja: String?): Response<com.gamma.mobile.domain.model.AnaliticasHorasResponse> = throw NotImplementedError()
+    override suspend fun descargarReporteExcel(hoja: String?, descuento: Double, saldoAnterior: Double, incluirIva: Boolean): Response<okhttp3.ResponseBody> = throw NotImplementedError()
+    override suspend fun descargarReportePdfAsistencia(hoja: String?, descuento: Double, saldoAnterior: Double, incluirIva: Boolean): Response<okhttp3.ResponseBody> = throw NotImplementedError()
 }

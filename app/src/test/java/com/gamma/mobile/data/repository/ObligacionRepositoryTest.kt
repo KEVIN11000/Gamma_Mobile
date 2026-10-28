@@ -320,6 +320,10 @@ class FakeApiForObligacionRepo : GammaApi {
     override suspend fun createTicket(request: com.gamma.mobile.domain.model.TicketCreate): Response<com.gamma.mobile.domain.model.TicketItem> = throw NotImplementedError()
     override suspend fun updateTicket(id: String, request: com.gamma.mobile.domain.model.TicketUpdate): Response<com.gamma.mobile.domain.model.TicketItem> = throw NotImplementedError()
     override suspend fun getLogs(): Response<List<com.gamma.mobile.domain.model.LogEntry>> = throw NotImplementedError()
+    override suspend fun getPeriodos(): Response<com.gamma.mobile.domain.model.PeriodosResponse> = throw NotImplementedError()
+    override suspend fun getAnaliticas(hoja: String?): Response<com.gamma.mobile.domain.model.AnaliticasHorasResponse> = throw NotImplementedError()
+    override suspend fun descargarReporteExcel(hoja: String?, descuento: Double, saldoAnterior: Double, incluirIva: Boolean): Response<okhttp3.ResponseBody> = throw NotImplementedError()
+    override suspend fun descargarReportePdfAsistencia(hoja: String?, descuento: Double, saldoAnterior: Double, incluirIva: Boolean): Response<okhttp3.ResponseBody> = throw NotImplementedError()
 }
 
 class FakeObligacionDao : ObligacionDao {

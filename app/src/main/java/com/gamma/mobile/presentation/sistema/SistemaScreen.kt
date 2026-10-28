@@ -144,7 +144,7 @@ fun SistemaScreen(
                             Spacer(modifier = Modifier.width(16.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text("Gamma Mobile", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                                Text("Versión instalada: ${uiState.appVersion.ifEmpty { "0.0.10" }}", fontWeight = FontWeight.SemiBold)
+                                Text("Versión instalada: ${uiState.appVersion.ifEmpty { "0.0.11" }}", fontWeight = FontWeight.SemiBold)
                             }
                         }
 
@@ -772,7 +772,7 @@ fun SistemaUpdateAvailablePreview() {
                     Spacer(modifier = Modifier.width(16.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text("Gamma Mobile", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Text("Versión instalada: 0.0.10", fontWeight = FontWeight.SemiBold)
+                        Text("Versión instalada: 0.0.11", fontWeight = FontWeight.SemiBold)
                     }
                 }
 
@@ -800,20 +800,20 @@ fun SistemaUpdateAvailablePreview() {
                                 tint = MaterialTheme.colorScheme.primary
                             )
                             Text(
-                                "¡Nueva versión v0.0.11 disponible!",
+                                "¡Nueva versión v0.0.12 disponible!",
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Bold
                             )
                         }
                         Text(
-                            "Paquete: gamma-mobile-v0.0.11-release.apk (24.5 MB)",
+                            "Paquete: gamma-mobile-v0.0.12-release.apk (24.5 MB)",
                             style = MaterialTheme.typography.bodySmall
                         )
                         Button(
                             onClick = {},
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("Descargar actualización (v0.0.11)")
+                            Text("Descargar actualización (v0.0.12)")
                         }
                     }
                 }
@@ -853,7 +853,7 @@ fun SistemaUpToDatePreview() {
                     Spacer(modifier = Modifier.width(16.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text("Gamma Mobile", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Text("Versión instalada: 0.0.10", fontWeight = FontWeight.SemiBold)
+                        Text("Versión instalada: 0.0.11", fontWeight = FontWeight.SemiBold)
                     }
                 }
 

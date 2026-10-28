@@ -95,6 +95,7 @@ fun MarcacionesTabContent(viewModel: AsistenciaViewModel) {
     val modo by viewModel.modo.collectAsState()
     val materia by viewModel.materia.collectAsState()
     val scrollState = rememberScrollState()
+    val context = LocalContext.current
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -162,9 +163,9 @@ fun MarcacionesTabContent(viewModel: AsistenciaViewModel) {
                     }
 
                     Button(
-                        onClick = { viewModel.marcarAsistencia() },
+                        onClick = { viewModel.marcarAsistencia(context = context) },
                         modifier = Modifier.fillMaxWidth(),
-                        enabled = uiState !is AsistenciaUiState.Loading
+                        enabled = uiState !is AsistenciaUiState.Loading && uiState !is AsistenciaUiState.Enviando
                     ) {
                         Icon(Icons.Default.CheckCircle, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
@@ -202,7 +203,7 @@ fun MarcacionesTabContent(viewModel: AsistenciaViewModel) {
 
                     ExposedDropdownMenuBox(
                         expanded = expandedMateria,
-                        onExpandedChange = { if (uiState !is AsistenciaUiState.Loading) expandedMateria = !expandedMateria },
+                        onExpandedChange = { if (uiState !is AsistenciaUiState.Loading && uiState !is AsistenciaUiState.Enviando) expandedMateria = !expandedMateria },
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         OutlinedTextField(
@@ -215,7 +216,7 @@ fun MarcacionesTabContent(viewModel: AsistenciaViewModel) {
                             modifier = Modifier
                                 .menuAnchor()
                                 .fillMaxWidth(),
-                            enabled = uiState !is AsistenciaUiState.Loading
+                            enabled = uiState !is AsistenciaUiState.Loading && uiState !is AsistenciaUiState.Enviando
                         )
 
                         ExposedDropdownMenu(
@@ -237,7 +238,7 @@ fun MarcacionesTabContent(viewModel: AsistenciaViewModel) {
                     Button(
                         onClick = { viewModel.marcarMateria() },
                         modifier = Modifier.fillMaxWidth(),
-                        enabled = uiState !is AsistenciaUiState.Loading && materia.isNotBlank()
+                        enabled = uiState !is AsistenciaUiState.Loading && uiState !is AsistenciaUiState.Enviando && materia.isNotBlank()
                     ) {
                         Icon(Icons.Default.CheckCircle, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
@@ -247,17 +248,34 @@ fun MarcacionesTabContent(viewModel: AsistenciaViewModel) {
             }
 
             // Progreso
-            if (uiState is AsistenciaUiState.Loading) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    contentAlignment = Alignment.Center
+            if (uiState is AsistenciaUiState.Loading || uiState is AsistenciaUiState.Enviando) {
+                val textoProgreso = when (val s = uiState) {
+                    is AsistenciaUiState.Enviando -> "⏳ Marcación enviada al servidor a las ${s.horaEnvio}..."
+                    else -> "Comunicando con el servidor..."
+                }
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.tertiaryContainer
+                    )
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            color = MaterialTheme.colorScheme.onTertiaryContainer
+                        )
                         Spacer(modifier = Modifier.width(12.dp))
-                        Text("Comunicando con el servidor...", style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            textoProgreso,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer
+                        )
                     }
                 }
             }
@@ -276,7 +294,12 @@ fun MarcacionesTabContent(viewModel: AsistenciaViewModel) {
                             modifier = Modifier.size(36.dp)
                         )
                     },
-                    title = { Text("Marcación Registrada") },
+                    title = {
+                        Text(
+                            if (state.confirmadoEnPlanilla) "Marcación Registrada en Planilla"
+                            else "Marcación Procesada"
+                        )
+                    },
                     text = {
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(state.mensaje, fontWeight = FontWeight.Bold)

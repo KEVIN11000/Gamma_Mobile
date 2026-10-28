@@ -12,12 +12,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -178,6 +180,39 @@ class DashboardViewModelTest {
     }
 
     @Test
+    fun `marcarAsistencia sets dispatching message with clock time before completion`() = runTest {
+        val summary = DashboardSummary(100, 200, 50, false)
+        fakeDashboardRepo.result = NetworkResult.Success(summary)
+        fakeAvisoRepo.result = NetworkResult.Success(emptyList())
+        fakeAsistenciaRepo.delayMs = 200L
+        fakeAsistenciaRepo.marcaResult = NetworkResult.Success(
+            AsistenciaMarcaResponse(tipo = "entrada", hora = "10:15", mensaje = "Entrada registrada", planilla = "Octubre 2026", confirmadoEnPlanilla = true)
+        )
+
+        val clock = java.time.Clock.fixed(java.time.Instant.parse("2026-10-06T10:15:00Z"), java.time.ZoneId.of("UTC"))
+        viewModel = DashboardViewModel(fakeDashboardRepo, fakeAvisoRepo, clock, fakeAsistenciaRepo)
+        advanceUntilIdle()
+
+        viewModel.marcarAsistencia()
+        runCurrent()
+        // Stage 1: Enqueued / Sending
+        val sendingMsg = viewModel.asistenciaMessage.value
+        assertNotNull(sendingMsg)
+        assertTrue(sendingMsg!!.contains("Marcación enviada al servidor"))
+        assertTrue(sendingMsg.contains("10:15"))
+        assertFalse(viewModel.asistenciaIsError.value)
+
+        // Stage 2: Confirmed in spreadsheet
+        advanceUntilIdle()
+        val finalMsg = viewModel.asistenciaMessage.value
+        assertNotNull(finalMsg)
+        assertTrue(finalMsg!!.startsWith("✅"))
+        assertTrue(finalMsg.contains("10:15"))
+        assertTrue(finalMsg.contains("Octubre 2026"))
+        assertFalse(viewModel.asistenciaIsError.value)
+    }
+
+    @Test
     fun `marcarAsistencia with error keywords sets error flag true`() = runTest {
         val summary = DashboardSummary(100, 200, 50, false)
         fakeDashboardRepo.result = NetworkResult.Success(summary)
@@ -299,8 +334,12 @@ class FakeAsistenciaRepository : AsistenciaRepository {
     var materiaResult: NetworkResult<AsistenciaMateriaResponse> =
         NetworkResult.Success(AsistenciaMateriaResponse(materia = "Test", hora = "08:00", mensaje = "OK"))
     var materiasListResult: NetworkResult<List<String>> = NetworkResult.Success(emptyList())
+    var delayMs: Long = 0L
 
-    override suspend fun marcarAsistencia(modo: String): NetworkResult<AsistenciaMarcaResponse> = marcaResult
+    override suspend fun marcarAsistencia(modo: String): NetworkResult<AsistenciaMarcaResponse> {
+        if (delayMs > 0) kotlinx.coroutines.delay(delayMs)
+        return marcaResult
+    }
     override suspend fun marcarMateria(materia: String): NetworkResult<AsistenciaMateriaResponse> = materiaResult
     override suspend fun getMaterias(): NetworkResult<List<String>> = materiasListResult
 }

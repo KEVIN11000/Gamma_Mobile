@@ -109,23 +109,36 @@ class DashboardViewModel @Inject constructor(
         }
     }
 
-    fun marcarAsistencia(modo: String = _modoMarcacion.value) {
+    fun marcarAsistencia(modo: String = _modoMarcacion.value, context: android.content.Context? = null) {
         if (asistenciaRepository == null) return
         if (_isMarkingAsistencia.value) return
         viewModelScope.launch {
             _isMarkingAsistencia.value = true
+            val ahora = java.time.LocalTime.now(clock)
+            val horaEnvio = String.format(java.util.Locale.US, "%02d:%02d", ahora.hour, ahora.minute)
+            _asistenciaMessage.value = "⏳ Marcación enviada al servidor a las $horaEnvio..."
+            _asistenciaIsError.value = false
+
             when (val res = asistenciaRepository.marcarAsistencia(modo)) {
                 is NetworkResult.Success -> {
                     val resultado = evaluarMarcacion(res.data)
                     _asistenciaMessage.value = resultado.mensaje
                     _asistenciaIsError.value = resultado.esError
+                    if (!resultado.esError && resultado.registradoEnPlanilla && context != null) {
+                        com.gamma.mobile.utils.MarcacionNotificationHelper.mostrarNotificacionMarcacion(
+                            context = context,
+                            hora = resultado.hora,
+                            tipo = resultado.tipo,
+                            planilla = resultado.planilla
+                        )
+                    }
                 }
                 is NetworkResult.Error -> {
-                    _asistenciaMessage.value = "❌ ${res.message.ifEmpty { "Error al marcar" }}"
+                    _asistenciaMessage.value = "❌ ${res.message.ifEmpty { "Error al registrar en planilla" }}"
                     _asistenciaIsError.value = true
                 }
                 is NetworkResult.Exception -> {
-                    _asistenciaMessage.value = "❌ Error de conexión al marcar asistencia"
+                    _asistenciaMessage.value = "❌ Error de conexión al asentar marcación"
                     _asistenciaIsError.value = true
                 }
             }

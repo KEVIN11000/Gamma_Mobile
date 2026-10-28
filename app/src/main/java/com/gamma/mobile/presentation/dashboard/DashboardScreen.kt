@@ -44,6 +44,7 @@ fun DashboardScreen(
     onNavigateToAvisos: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val context = androidx.compose.ui.platform.LocalContext.current
     val asistenciaMessage by viewModel.asistenciaMessage.collectAsState()
     val asistenciaIsError by viewModel.asistenciaIsError.collectAsState()
     val isMarkingAsistencia by viewModel.isMarkingAsistencia.collectAsState()
@@ -109,7 +110,7 @@ fun DashboardScreen(
                         summary = DashboardSummary(0L, 0L, 0L, false),
                         avisos = emptyList(),
                         onNavigateToAvisos = onNavigateToAvisos,
-                        onMarcarAsistencia = { viewModel.marcarAsistencia() },
+                        onMarcarAsistencia = { viewModel.marcarAsistencia(context = context) },
                         isMarkingAsistencia = isMarkingAsistencia,
                         asistenciaMessage = asistenciaMessage,
                         asistenciaIsError = asistenciaIsError,
@@ -123,7 +124,7 @@ fun DashboardScreen(
                         summary = state.summary, 
                         avisos = state.avisos,
                         onNavigateToAvisos = onNavigateToAvisos,
-                        onMarcarAsistencia = { viewModel.marcarAsistencia() },
+                        onMarcarAsistencia = { viewModel.marcarAsistencia(context = context) },
                         isMarkingAsistencia = isMarkingAsistencia,
                         asistenciaMessage = asistenciaMessage,
                         asistenciaIsError = asistenciaIsError,
@@ -252,15 +253,17 @@ fun DashboardContent(
 
                     if (!asistenciaMessage.isNullOrBlank()) {
                         Spacer(modifier = Modifier.height(10.dp))
-                        val bannerColor = if (asistenciaIsError) {
-                            MaterialTheme.colorScheme.errorContainer
-                        } else {
-                            MaterialTheme.colorScheme.surface
+                        val bannerColor = when {
+                            asistenciaIsError -> MaterialTheme.colorScheme.errorContainer
+                            asistenciaMessage.startsWith("⏳") -> MaterialTheme.colorScheme.tertiaryContainer
+                            asistenciaMessage.startsWith("✅") -> MaterialTheme.colorScheme.primaryContainer
+                            else -> MaterialTheme.colorScheme.surface
                         }
-                        val textColor = if (asistenciaIsError) {
-                            MaterialTheme.colorScheme.onErrorContainer
-                        } else {
-                            MaterialTheme.colorScheme.onSurface
+                        val textColor = when {
+                            asistenciaIsError -> MaterialTheme.colorScheme.onErrorContainer
+                            asistenciaMessage.startsWith("⏳") -> MaterialTheme.colorScheme.onTertiaryContainer
+                            asistenciaMessage.startsWith("✅") -> MaterialTheme.colorScheme.onPrimaryContainer
+                            else -> MaterialTheme.colorScheme.onSurface
                         }
 
                         Surface(
@@ -451,6 +454,34 @@ fun DashboardContentPreview() {
                 )
             ),
             onNavigateToAvisos = {}
+        )
+    }
+}
+
+@Preview(name = "Marcación Enviando (Etapa 1)", showBackground = true)
+@Composable
+fun DashboardContentPreview_MarcacionEnviando() {
+    GammaTheme {
+        DashboardContent(
+            summary = DashboardSummary(15000000L, 4250000L, 350000L, true),
+            avisos = emptyList(),
+            onNavigateToAvisos = {},
+            isMarkingAsistencia = true,
+            asistenciaMessage = "⏳ Marcación enviada al servidor a las 08:30..."
+        )
+    }
+}
+
+@Preview(name = "Marcación Confirmada Planilla (Etapa 2)", showBackground = true)
+@Composable
+fun DashboardContentPreview_MarcacionConfirmada() {
+    GammaTheme {
+        DashboardContent(
+            summary = DashboardSummary(15000000L, 4250000L, 350000L, true),
+            avisos = emptyList(),
+            onNavigateToAvisos = {},
+            isMarkingAsistencia = false,
+            asistenciaMessage = "✅ Entrada registrada en la planilla de horas a las 08:30 (Octubre 2026)"
         )
     }
 }

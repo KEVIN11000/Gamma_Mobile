@@ -13,7 +13,13 @@ data class AsistenciaMarcaResponse(
     @SerializedName("hora")
     val hora: String = "",
     @SerializedName("mensaje")
-    val mensaje: String = ""
+    val mensaje: String = "",
+    @SerializedName("planilla")
+    val planilla: String? = null,
+    @SerializedName("fila")
+    val fila: Int? = null,
+    @SerializedName("confirmado_en_planilla")
+    val confirmadoEnPlanilla: Boolean = false
 )
 
 data class AsistenciaMateriaRequest(

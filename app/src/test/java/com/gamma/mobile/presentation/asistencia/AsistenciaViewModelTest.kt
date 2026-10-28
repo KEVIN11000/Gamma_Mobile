@@ -9,15 +9,21 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import java.time.Clock
+import java.time.Instant
+import java.time.ZoneId
 
 class FakeAsistenciaRepository : AsistenciaRepository {
+    var delayMs: Long = 0L
     var asistenciaResult: NetworkResult<AsistenciaMarcaResponse> = NetworkResult.Success(
         AsistenciaMarcaResponse(tipo = "entrada", hora = "08:00", mensaje = "Entrada registrada")
     )
@@ -30,6 +36,9 @@ class FakeAsistenciaRepository : AsistenciaRepository {
 
     override suspend fun marcarAsistencia(modo: String): NetworkResult<AsistenciaMarcaResponse> {
         lastModoCalled = modo
+        if (delayMs > 0) {
+            kotlinx.coroutines.delay(delayMs)
+        }
         return asistenciaResult
     }
 
@@ -49,12 +58,15 @@ class AsistenciaViewModelTest {
     private lateinit var viewModel: AsistenciaViewModel
     private lateinit var fakeRepo: FakeAsistenciaRepository
     private val testDispatcher = StandardTestDispatcher()
+    private val fixedInstant = Instant.parse("2026-10-28T08:30:00Z")
+    private val fixedZone = ZoneId.of("UTC")
+    private val fixedClock = Clock.fixed(fixedInstant, fixedZone)
 
     @Before
     fun setup() {
         Dispatchers.setMain(testDispatcher)
         fakeRepo = FakeAsistenciaRepository()
-        viewModel = AsistenciaViewModel(fakeRepo)
+        viewModel = AsistenciaViewModel(fakeRepo, fixedClock)
     }
 
     @After
@@ -89,28 +101,50 @@ class AsistenciaViewModelTest {
     }
 
     @Test
-    fun `marcarAsistencia success normal updates state to Success`() = runTest {
+    fun `marcarAsistencia sets Enviando state with clock time before completion and Success confirmed in planilla`() = runTest {
+        fakeRepo.delayMs = 200L
         fakeRepo.asistenciaResult = NetworkResult.Success(
-            AsistenciaMarcaResponse(tipo = "entrada", hora = "08:30", mensaje = "Marcación OK")
+            AsistenciaMarcaResponse(
+                tipo = "entrada",
+                hora = "08:30",
+                mensaje = "Entrada registrada",
+                planilla = "Octubre 2026",
+                confirmadoEnPlanilla = true
+            )
         )
 
         viewModel.marcarAsistencia("normal")
-        advanceUntilIdle()
+        runCurrent()
 
+        // Stage 1: Enviando
+        val sendingState = viewModel.uiState.value
+        assertTrue(sendingState is AsistenciaUiState.Enviando)
+        assertEquals("08:30", (sendingState as AsistenciaUiState.Enviando).horaEnvio)
+
+        // Stage 2: Confirmed in spreadsheet
+        advanceUntilIdle()
         assertEquals("normal", fakeRepo.lastModoCalled)
-        val state = viewModel.uiState.value
-        assertTrue(state is AsistenciaUiState.Success)
-        val successState = state as AsistenciaUiState.Success
-        assertEquals("Marcación OK", successState.mensaje)
+        val finalState = viewModel.uiState.value
+        assertTrue(finalState is AsistenciaUiState.Success)
+        val successState = finalState as AsistenciaUiState.Success
+        assertTrue(successState.confirmadoEnPlanilla)
+        assertEquals("Octubre 2026", successState.planilla)
         assertEquals("08:30", successState.hora)
+        assertTrue(successState.mensaje.startsWith("✅"))
         assertTrue(successState.detalle.contains("Entrada"))
+        assertTrue(successState.detalle.contains("registrada en planilla"))
         assertTrue(successState.detalle.contains("Modo normal"))
     }
 
     @Test
-    fun `marcarAsistencia success directo updates state to Success`() = runTest {
+    fun `marcarAsistencia unconfirmed updates state to Success without spreadsheet confirmation`() = runTest {
         fakeRepo.asistenciaResult = NetworkResult.Success(
-            AsistenciaMarcaResponse(tipo = "salida", hora = "17:00", mensaje = "Salida OK")
+            AsistenciaMarcaResponse(
+                tipo = "salida",
+                hora = "17:00",
+                mensaje = "Salida OK",
+                confirmadoEnPlanilla = false
+            )
         )
 
         viewModel.setModo("directo")
@@ -119,10 +153,30 @@ class AsistenciaViewModelTest {
 
         assertEquals("directo", fakeRepo.lastModoCalled)
         val state = viewModel.uiState.value as AsistenciaUiState.Success
-        assertEquals("Salida OK", state.mensaje)
+        assertFalse(state.confirmadoEnPlanilla)
         assertEquals("17:00", state.hora)
+        assertTrue(state.mensaje.contains("procesada") || state.mensaje.contains("Salida"))
         assertTrue(state.detalle.contains("Salida"))
         assertTrue(state.detalle.contains("Modo directo"))
+    }
+
+    @Test
+    fun `marcarAsistencia informative message updates state to Success with info prefix`() = runTest {
+        fakeRepo.asistenciaResult = NetworkResult.Success(
+            AsistenciaMarcaResponse(
+                tipo = "salida",
+                hora = "17:00",
+                mensaje = "ya tiene salida registrada para hoy",
+                confirmadoEnPlanilla = false
+            )
+        )
+
+        viewModel.marcarAsistencia("normal")
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value as AsistenciaUiState.Success
+        assertFalse(state.confirmadoEnPlanilla)
+        assertTrue(state.mensaje.startsWith("ℹ️"))
     }
 
     @Test

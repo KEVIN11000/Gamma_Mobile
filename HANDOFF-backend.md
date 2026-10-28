@@ -1,54 +1,61 @@
-# Instrucciones de Implementación Backend (Gamma Mobile)
+# Traspaso Backend (Gamma Mobile -> Gamma_bot)
+## Saneamiento de Tickets, Período Dinámico de Horas y Metadatos de Planilla
 
-Este documento es el traspaso (handoff) para el agente que implementará la API del cliente móvil dentro de `Gamma_bot`.
+- **Fecha:** 28 de Octubre de 2026
+- **Origen:** Gamma Mobile (Flujo de Actualización In-App y Confirmación de Asistencia en Planilla)
+- **Destino:** Repositorio `Gamma_bot` (`E:\PG\vcp-s\Gamma_bot`) para desarrollo en sesión dedicada.
+- **Especificaciones Detalladas:**
+  - [requerimientos_gamma_bot_saneamiento_tickets.md](file:///e:/PG/vcp-s/GammaMobile/docs/specs/flujo-actualizacion-inapp/requerimientos_gamma_bot_saneamiento_tickets.md)
+  - [requerimientos_backend_asistencia.md](file:///e:/PG/vcp-s/GammaMobile/docs/specs/asistencia-confirmacion-planilla/requerimientos_backend_asistencia.md)
 
-## 1. Contexto del Proyecto
-Se está desarrollando **Gamma Mobile**, una app Android que consumirá una API REST desde `Gamma_bot`. El servidor corre en **PythonAnywhere**, que **solo soporta WSGI (1 worker, síncrono)** y tiene un límite de tiempo por petición. 
+---
 
-Por lo tanto, la API no se implementará en FastAPI. Se debe implementar como un **Blueprint de Flask** dentro de la aplicación existente (`flask_app.py`), usando `pydantic` para la validación de contratos (DTOs).
+### Resumen Ejecutivo para la Sesión Dedicada de `Gamma_bot`
 
-## 2. Requisitos Generales de Arquitectura
-*   **Blueprint:** Crear el blueprint `/api/v1` dentro de `flask_app.py` o importarlo desde una carpeta `api/`.
-*   **Autenticación:** Proteger todos los endpoints con el header `X-API-KEY`. El valor se lee de la variable de entorno `X_API_KEY`. Comparar usando `hmac.compare_digest` y `hashlib.sha256` para evitar timing attacks. Si es inválido, retornar HTTP 401.
-*   **Sincronía Estricta:** Todo el código debe ser compatible con un entorno WSGI sin hilos en background. Los cálculos pesados (OCR, IA, PDF) deben tener timeouts configurados (ej: en las llamadas a Gemini).
-*   **Zona Horaria:** Se debe cambiar la zona horaria en todo el código de `America/Buenos_Aires` a `America/Asuncion` usando `zoneinfo` o `pytz`.
-*   **Idempotencia:** En `POST /api/v1/movimientos`, soportar un `client_id` (UUID) opcional para evitar duplicados si la app reintenta la petición.
-*   **Salida de Errores:** Todos los errores HTTP y excepciones deben manejarse devolviendo un JSON estándar: `{"error": {"code": "HTTP_STATUS", "message": "Descripción amigable", "detail": "Opcional"}}`.
-*   **Multiusuario (Futuro):** Diseñar asumiendo un solo usuario (leer `SPREADSHEET_ID` del entorno, no hardcodeado), pero mantener las funciones desacopladas para que luego se pueda pasar el ID de la hoja según el usuario.
+Al iniciar la sesión en `Gamma_bot`, debes ejecutar las siguientes tareas atómicas:
 
-## 3. Endpoints a Implementar y Corregir
+#### Módulo 1: Saneamiento y Blindaje de Tickets
+1. **Saneamiento de Almacén de Tickets (`src/data/tickets.json`)**:
+   - Eliminar los 70 registros de prueba acumulados (`TCK-007` a `TCK-076`) generados por `pytest`.
+   - Conservar estrictamente los 6 tickets reales del historial (`TCK-001` a `TCK-006`), todos en estado `Cerrado`.
 
-A continuación, los cambios específicos sobre la lógica existente (`logic/financiero.py` y `logic/logic.py`):
+2. **Blindaje de Aislamiento en Pruebas Unitarias (`tests/test_mobile_api.py`)**:
+   - En la prueba `test_github_sync_resilience_and_circuit_breaker`, inyectar `monkeypatch` y `tmp_path` para apuntar `api.blueprint.TICKETS_FILE` a un archivo temporal `tmp_path / "tickets.json"`, evitando que `pytest` vuelva a escribir o mutar el archivo productivo `src/data/tickets.json`.
 
-### 3.1. Finanzas (`/api/v1/movimientos`, `/api/v1/dashboard/summary`)
-*   **Dashboard:** Modificar `obtener_balance()` (o crear uno nuevo) para que retorne no solo ingresos/gastos, sino también `margen_libre`, `saldo_acumulado` y `posicion_iva`. (Margen libre = ingresos fijos - gastos obligatorios del presupuesto - cuotas activas).
-*   **Movimientos (GET):** Retornar los campos de IVA reales (`monto_gravado`, `monto_iva`, `clasificacion_iva`, `tasa_iva`), que actualmente están hardcodeados o ignorados al leer de la hoja.
-*   **Movimientos (POST):** Recibir la `tasa_iva` ("10%", "5%", "Exento") y hacer el cálculo real del neto e IVA para guardarlo en la hoja. Asegurar que el `mes` guardado esté en español, independientemente del locale del servidor.
-*   **OCR (`POST /api/v1/movimientos/ocr`):** Endpoint que recibe un archivo de imagen, llama a `analizar_ticket_con_ia()` y devuelve la propuesta en JSON (sin persistir en Sheets).
+3. **Verificación de Telemetría Vigía y `/health` (`src/api/blueprint.py`)**:
+   - Confirmar que `reportar_incidente_vigia()` maneje fallos de red hacia GitHub sin romper el flujo de creación de tickets locales ni emitir errores HTTP 500.
+   - Confirmar que `download_url` en `/health` apunte al repositorio oficial `https://github.com/KEVIN11000/Gamma_Mobile/releases/latest` con versión móvil `0.0.10`.
 
-### 3.2. Obligaciones y Presupuesto
-Actualmente, los endpoints de obligaciones en el código viejo devuelven mocks (`[]`).
-*   **Hojas Nuevas:** Se debe crear (si no existen) las pestañas `Obligaciones_Maestro` y `Presupuesto_Base` en la hoja de cálculo.
-*   **GET/POST /obligaciones:** Leer y escribir proyectos y deudas en `Obligaciones_Maestro`.
-*   **POST /obligaciones/abonar:** Descuenta el `saldo_actual` de la obligación y además inserta un Gasto en el `Libro_Diario` por el monto abonado. Si el saldo llega a 0, cambiar el estado a `Saldado`.
-*   **POST /obligaciones/simular:** Proyectar la cuota mensual contra el margen libre e indicar si es Viable, Ajustado o Riesgo.
+#### Módulo 2: Corrección de Hoja Activa y Confirmación en Planilla (`AgenteAutonomoHoras`)
+1. **Sincronización Dinámica de `periodo_actual.txt` (`src/logic/logic.py`)**:
+   - Causa raíz de falta de escritura en planilla visible: Si `periodo_actual.txt` tenía un período desactualizado (ej. `"Mayo 2026"`), el bot escribía en esa hoja antigua dejando el mes actual (`"Octubre 2026"`) vacío a pesar de responder 200 OK.
+   - En la propiedad `ws` de `AgenteAutonomoHoras`, calcular el período calendario corriente (`f"{mes_espanol} {ano}"` con `get_now_py()`) y sincronizar automáticamente `periodo_actual.txt` si difiere, asegurando que `self.wb.worksheet(...)` apunte siempre a la hoja del mes en curso.
 
-### 3.3. Avisos
-*   La app seguirá consumiendo `GET/POST/DELETE /api/v1/avisos`.
-*   El backend debe usar **Google Calendar** como fuente de verdad (lo que ya hace el bot con `obtener_lista_avisos_calendar`), pero usar `avisos.json` como caché en disco para responder rápido a la app. Al hacer POST o DELETE, actualizar Calendar y refrescar el caché json.
+2. **Retorno Enriquecido de Metadatos (`src/api/blueprint.py` y `src/logic/logic.py`)**:
+   - En `POST /api/v1/asistencia/marcar`, retornar en el JSON:
+     ```json
+     {
+       "tipo": "entrada",
+       "hora": "08:30",
+       "mensaje": "✅ Entrada registrado a las 08:30.",
+       "planilla": "Octubre 2026",
+       "fila": 24,
+       "confirmado_en_planilla": true
+     }
+     ```
+   - Permitir que Gamma Mobile confirme al usuario con certeza si la marcación fue impactada en la hoja de cálculo y dispare la notificación nativa.
 
-### 3.4. Asistencia y Cierres (Módulos Nuevos en API)
-Exponer la funcionalidad existente de `logic.py` en la API:
-*   `POST /api/v1/asistencia/marcar`: Llama a `ejecutar_marcado_api(modo)`.
-*   `POST /api/v1/asistencia/materia`: Llama a `marcar_asistencia()`.
-*   `POST /api/v1/cierres/ejecutar`: Ejecuta `ejecutar_cierre_periodo_manual()` y luego `generar_reporte_pdf(descuento)`. Devuelve el resumen y la URL del PDF.
-*   `GET /api/v1/cierres/reportes/<filename>`: Servir estáticamente el archivo PDF generado en la carpeta `reportes/`.
+---
 
-### 3.5. Sistema y Soporte
-*   `GET/POST /api/v1/soporte/tickets`: Crear y listar incidencias. Guardarlas en una nueva pestaña `Soporte_Tickets`.
-*   `GET /api/v1/health`: Devolver estado ok, verificar si hay conexión a Sheets y Calendar, y retornar la versión.
+### Comandos de Validación en la Sesión de `Gamma_bot`
 
-## 4. Pruebas y Validación
-*   Escribir tests usando `pytest` probando los endpoints del blueprint.
-*   **Crucial:** Utilizar fixtures y mockear `gspread` (MagicMock) y `google.genai` para que los tests corran en CI sin tocar la hoja de producción y sin requerir la API de Gemini.
-*   No usar `git add .`. Añadir los archivos uno por uno y hacer commits atómicos.
+```bash
+# 1. Ejecutar tests con aislamiento de tickets y marcación
+pytest tests/test_mobile_api.py -v
+
+# 2. Confirmar que tickets.json se mantiene intacto
+git status src/data/tickets.json
+
+# 3. Linter
+flake8 src/api/blueprint.py tests/test_mobile_api.py
+```

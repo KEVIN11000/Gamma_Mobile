@@ -1,6 +1,8 @@
 package com.gamma.mobile.presentation.sistema
 
 import android.app.Activity
+import android.content.Intent
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -25,8 +27,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.gamma.mobile.domain.model.TicketItem
+import com.gamma.mobile.domain.model.UpdateStatus
 import com.gamma.mobile.utils.DeviceAuthHelper
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -140,7 +144,105 @@ fun SistemaScreen(
                             Spacer(modifier = Modifier.width(16.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text("Gamma Mobile", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                                Text("Versión instalada: ${uiState.appVersion.ifEmpty { "0.0.9" }}", fontWeight = FontWeight.SemiBold)
+                                Text("Versión instalada: ${uiState.appVersion.ifEmpty { "0.0.10" }}", fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+
+                        when (val status = uiState.updateStatus) {
+                            is UpdateStatus.UpdateAvailable -> {
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = MaterialTheme.colorScheme.surface,
+                                        contentColor = MaterialTheme.colorScheme.onSurface
+                                    )
+                                ) {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(12.dp),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Warning,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.primary
+                                            )
+                                            Text(
+                                                "¡Nueva versión ${status.version} disponible!",
+                                                style = MaterialTheme.typography.titleSmall,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                        Text(
+                                            "Paquete: ${status.assetName} (${status.sizeMb} MB)",
+                                            style = MaterialTheme.typography.bodySmall
+                                        )
+                                        Button(
+                                            onClick = {
+                                                try {
+                                                    val intent = Intent(
+                                                        Intent.ACTION_VIEW,
+                                                        Uri.parse(status.downloadUrl)
+                                                    ).apply {
+                                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                    }
+                                                    context.startActivity(intent)
+                                                } catch (e: Exception) {
+                                                    // Captura segura
+                                                }
+                                            },
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Text("Descargar actualización (${status.version})")
+                                        }
+                                    }
+                                }
+                            }
+                            is UpdateStatus.UpToDate -> {
+                                Spacer(modifier = Modifier.height(10.dp))
+                                SuggestionChip(
+                                    onClick = {},
+                                    label = { Text("Versión al día con GitHub Releases", fontWeight = FontWeight.Medium) },
+                                    icon = {
+                                        Icon(
+                                            Icons.Default.CheckCircle,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                            else -> {
+                                val fallbackUrl = uiState.health?.downloadUrl
+                                if (!fallbackUrl.isNullOrBlank()) {
+                                    Spacer(modifier = Modifier.height(10.dp))
+                                    FilledTonalButton(
+                                        onClick = {
+                                            try {
+                                                val intent = Intent(
+                                                    Intent.ACTION_VIEW,
+                                                    Uri.parse(fallbackUrl)
+                                                ).apply {
+                                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                }
+                                                context.startActivity(intent)
+                                            } catch (e: Exception) {
+                                                // Captura segura
+                                            }
+                                        },
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Text("Descargar actualización oficial (APK)")
+                                    }
+                                }
                             }
                         }
                     }
@@ -633,6 +735,141 @@ fun SistemaScreen(
                             Text("Cerrar")
                         }
                     }
+                )
+            }
+        }
+    }
+}
+
+@Preview(showBackground = true, name = "Sistema - Actualización Disponible")
+@Composable
+fun SistemaUpdateAvailablePreview() {
+    MaterialTheme {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Info,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(36.dp)
+                    )
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Gamma Mobile", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text("Versión instalada: 0.0.10", fontWeight = FontWeight.SemiBold)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        contentColor = MaterialTheme.colorScheme.onSurface
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Warning,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            Text(
+                                "¡Nueva versión v0.0.11 disponible!",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        Text(
+                            "Paquete: gamma-mobile-v0.0.11-release.apk (24.5 MB)",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        Button(
+                            onClick = {},
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Descargar actualización (v0.0.11)")
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Preview(showBackground = true, name = "Sistema - Versión Al Día")
+@Composable
+fun SistemaUpToDatePreview() {
+    MaterialTheme {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Info,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(36.dp)
+                    )
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Gamma Mobile", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text("Versión instalada: 0.0.10", fontWeight = FontWeight.SemiBold)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+                SuggestionChip(
+                    onClick = {},
+                    label = { Text("Versión al día con GitHub Releases", fontWeight = FontWeight.Medium) },
+                    icon = {
+                        Icon(
+                            Icons.Default.CheckCircle,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
         }

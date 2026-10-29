@@ -16,7 +16,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AcUnit
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.Delete
@@ -179,12 +181,26 @@ fun ObligacionesScreen(
                                     deudaFoco?.let { foco ->
                                         if (!foco.idDeuda.isNullOrBlank()) {
                                             item(key = "deuda_foco") {
+                                                val idBuscado = foco.idDeuda.trim()
+                                                val nombreBuscado = foco.nombre.trim()
+                                                val deudaAsociada = viewModel.todasLasObligaciones.find {
+                                                    it.id.trim().equals(idBuscado, ignoreCase = true) ||
+                                                    (nombreBuscado.isNotBlank() && it.nombre.trim().equals(nombreBuscado, ignoreCase = true))
+                                                }
                                                 DeudaFocoCard(
                                                     deudaFoco = foco,
+                                                    deudaReal = deudaAsociada,
                                                     criterioActual = criterioFoco,
                                                     onCriterioSelected = { viewModel.cambiarCriterioFoco(it) },
                                                     onAbonarClick = { idDeuda ->
-                                                        val deuda = state.obligaciones.find { it.id == idDeuda }
+                                                        val targetId = idDeuda.trim()
+                                                        val targetName = foco.nombre.trim()
+                                                        val deuda = viewModel.todasLasObligaciones.find {
+                                                            it.id.trim().equals(targetId, ignoreCase = true) ||
+                                                            (targetName.isNotBlank() && it.nombre.trim().equals(targetName, ignoreCase = true))
+                                                        } ?: state.obligaciones.find {
+                                                            it.id.trim().equals(targetId, ignoreCase = true)
+                                                        }
                                                         if (deuda != null) {
                                                             selectedObligacionToAbonar = deuda
                                                         }
@@ -338,7 +354,7 @@ fun ObligacionItem(
                             .background(badgeColor)
                             .padding(horizontal = 8.dp, vertical = 4.dp)
                     ) {
-                        Text(obligacion.estado, style = MaterialTheme.typography.labelSmall, color = textColor, fontWeight = FontWeight.Bold)
+                        Text(obligacion.estadoReal, style = MaterialTheme.typography.labelSmall, color = textColor, fontWeight = FontWeight.Bold)
                     }
 
                     // Botón Eliminar para deudas
@@ -365,7 +381,7 @@ fun ObligacionItem(
                 if (obligacion.cuotasTotales > 0) {
                     val pagadas = (obligacion.cuotasTotales - obligacion.cuotasRestantes).coerceAtLeast(0)
                     Text(
-                        "Cuotas: $pagadas / ${obligacion.cuotasTotales} (${formatGuaranies(obligacion.cuotaMensualEstimada)}/mes)",
+                        "Cuotas: $pagadas / ${obligacion.cuotasTotales} (${formatGuaranies(obligacion.cuotaReal)}/mes)",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -409,8 +425,8 @@ fun ObligacionItem(
             
             Spacer(modifier = Modifier.height(10.dp))
             
-            val abonado = obligacion.montoInicial - obligacion.saldoActual
-            val progress = if (obligacion.montoInicial > 0) abonado.toFloat() / obligacion.montoInicial else 0f
+            val abonado = (obligacion.montoInicialReal - obligacion.saldoReal).coerceAtLeast(0L)
+            val progress = if (obligacion.montoInicialReal > 0) abonado.toFloat() / obligacion.montoInicialReal else 0f
             
             LinearProgressIndicator(
                 progress = { progress },
@@ -420,9 +436,9 @@ fun ObligacionItem(
             Spacer(modifier = Modifier.height(8.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("Abonado: ${formatGuaranies(abonado)}")
-                Text("Total: ${formatGuaranies(obligacion.montoInicial)}")
+                Text("Total: ${formatGuaranies(obligacion.montoInicialReal)}")
             }
-            Text("Saldo: ${formatGuaranies(obligacion.saldoActual)}", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+            Text("Saldo: ${formatGuaranies(obligacion.saldoReal)}", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
 
             Spacer(modifier = Modifier.height(12.dp))
             
@@ -1083,6 +1099,7 @@ fun DeudaFocoCard(
     criterioActual: String,
     onCriterioSelected: (String) -> Unit,
     onAbonarClick: (String) -> Unit,
+    deudaReal: Obligacion? = null,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -1102,45 +1119,45 @@ fun DeudaFocoCard(
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Star,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Text(
-                        text = "Estrategia: Deuda Foco",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
+                Icon(
+                    imageVector = Icons.Default.Star,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(18.dp)
+                )
+                Text(
+                    text = "Estrategia: Deuda Foco",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
 
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    FilterChip(
-                        selected = criterioActual == "saldo",
-                        onClick = { onCriterioSelected("saldo") },
-                        label = { Text("Bola de Nieve", style = MaterialTheme.typography.labelSmall) },
-                        leadingIcon = if (criterioActual == "saldo") {
-                            { Text("â„ï¸", style = MaterialTheme.typography.labelSmall) }
-                        } else null
-                    )
-                    FilterChip(
-                        selected = criterioActual == "prioridad",
-                        onClick = { onCriterioSelected("prioridad") },
-                        label = { Text("Avalancha", style = MaterialTheme.typography.labelSmall) },
-                        leadingIcon = if (criterioActual == "prioridad") {
-                            { Text("âš¡", style = MaterialTheme.typography.labelSmall) }
-                        } else null
-                    )
-                }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                FilterChip(
+                    selected = criterioActual == "saldo",
+                    onClick = { onCriterioSelected("saldo") },
+                    label = { Text("Bola de Nieve", style = MaterialTheme.typography.labelSmall) },
+                    leadingIcon = if (criterioActual == "saldo") {
+                        { Icon(Icons.Default.AcUnit, contentDescription = null, modifier = Modifier.size(14.dp)) }
+                    } else null,
+                    modifier = Modifier.weight(1f)
+                )
+                FilterChip(
+                    selected = criterioActual == "prioridad",
+                    onClick = { onCriterioSelected("prioridad") },
+                    label = { Text("Avalancha", style = MaterialTheme.typography.labelSmall) },
+                    leadingIcon = if (criterioActual == "prioridad") {
+                        { Icon(Icons.Default.Bolt, contentDescription = null, modifier = Modifier.size(14.dp)) }
+                    } else null,
+                    modifier = Modifier.weight(1f)
+                )
             }
 
             Surface(
@@ -1152,6 +1169,11 @@ fun DeudaFocoCard(
                     modifier = Modifier.padding(12.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
+                    val nombreMostrar = deudaReal?.nombre?.ifBlank { deudaFoco.nombre } ?: deudaFoco.nombre.ifBlank { "Deuda sugerida" }
+                    val entidadMostrar = deudaReal?.entidadLimpia?.ifBlank { "" } ?: if (deudaFoco.entidad.all { it.isDigit() || it in "., " }) "" else deudaFoco.entidad
+                    val saldoMostrar = deudaReal?.saldoReal ?: if (deudaFoco.saldoActual > 0L) deudaFoco.saldoActual else deudaFoco.cuotaGs
+                    val cuotaMostrar = deudaReal?.cuotaReal ?: if (deudaFoco.cuotaGs > 0L && deudaFoco.cuotaGs != saldoMostrar) deudaFoco.cuotaGs else (deudaReal?.cuotaReal ?: 0L)
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -1159,14 +1181,14 @@ fun DeudaFocoCard(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = deudaFoco.nombre.ifBlank { "Deuda sugerida" },
+                                text = nombreMostrar,
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
-                            if (deudaFoco.entidad.isNotBlank()) {
+                            if (entidadMostrar.isNotBlank()) {
                                 Text(
-                                    text = deudaFoco.entidad,
+                                    text = entidadMostrar,
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -1189,13 +1211,13 @@ fun DeudaFocoCard(
                         horizontalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         Text(
-                            text = "Saldo: ${formatGuaranies(deudaFoco.saldoActual)}",
+                            text = "Saldo: ${formatGuaranies(saldoMostrar)}",
                             style = MaterialTheme.typography.bodySmall,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "Cuota: ${formatGuaranies(deudaFoco.cuotaGs)}",
+                            text = "Cuota: ${formatGuaranies(cuotaMostrar)}",
                             style = MaterialTheme.typography.bodySmall,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.primary

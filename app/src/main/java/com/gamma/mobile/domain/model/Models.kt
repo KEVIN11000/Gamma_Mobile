@@ -114,41 +114,92 @@ data class Obligacion(
             return e
         }
 
-    val cuotaMensualEstimada: Long
+    val cuotaDesdeEstado: Long?
         get() {
-            if (cuotasTotales > 1 && montoInicial > 0L && cuotaReferenciaGs >= montoInicial) {
-                return montoInicial / cuotasTotales
+            val clean = estado.trim().replace(".", "").replace(",", "").replace("₲", "").trim()
+            return clean.toLongOrNull()
+        }
+
+    val cuotaDesdeEntidad: Long?
+        get() {
+            val clean = entidad.trim().replace(".", "").replace(",", "").replace("₲", "").trim()
+            return clean.toLongOrNull()
+        }
+
+    val esDefinitivamenteSaldada: Boolean
+        get() = estado.trim().lowercase() in listOf("saldado", "saldada")
+
+    val saldoReal: Long
+        get() {
+            if (esDefinitivamenteSaldada) return 0L
+            if (saldoActual > 0L) return saldoActual
+            // Desplazamiento de columnas: si saldoActual vino 0 pero cuotaReferenciaGs contiene el saldo total
+            if (cuotaReferenciaGs > 0L) return cuotaReferenciaGs
+            return 0L
+        }
+
+    val montoInicialReal: Long
+        get() {
+            if (montoInicial > 0L) return montoInicial
+            if (saldoReal > 0L) return saldoReal
+            return 0L
+        }
+
+    val cuotaReal: Long
+        get() {
+            // Si estado tiene la cuota desplazada (ej: 400.000 para Kari):
+            val cEstado = cuotaDesdeEstado
+            if (cEstado != null && cEstado > 0L) return cEstado
+
+            // Si entidad tiene la cuota desplazada (ej: 250.000 para Monkinovia):
+            val cEntidad = cuotaDesdeEntidad
+            if (cEntidad != null && cEntidad > 0L && (saldoReal <= 0L || cEntidad < saldoReal)) return cEntidad
+
+            // Si cuotaReferenciaGs es igual o mayor a saldoReal / montoInicial y cuotasTotales > 1:
+            if (cuotasTotales > 1 && montoInicialReal > 0L && cuotaReferenciaGs >= montoInicialReal) {
+                return montoInicialReal / cuotasTotales
             }
-            if (cuotaReferenciaGs > 0L) {
+            if (cuotaReferenciaGs > 0L && cuotaReferenciaGs != saldoReal) {
                 return cuotaReferenciaGs
             }
-            if (cuotasTotales > 0 && montoInicial > 0L) {
-                return montoInicial / cuotasTotales
+            if (cuotasTotales > 1 && saldoReal > 0L) {
+                return saldoReal / cuotasTotales
             }
             return cuotaReferenciaGs
         }
 
+    val cuotaMensualEstimada: Long
+        get() = cuotaReal
+
+    val estadoReal: String
+        get() {
+            if (esDefinitivamenteSaldada) return "Saldada"
+            val raw = estado.trim().lowercase()
+            if (raw in listOf("pausado", "pausada")) return "Pausada"
+            if (raw in listOf("simulado", "simulada")) return "Simulado"
+            if (raw in listOf("activo", "activa")) return "Activo"
+            // Si el estado es numérico (cuota desplazada) o no está marcado como saldado y tiene saldo o cuota:
+            if (cuotaDesdeEstado != null && cuotaDesdeEstado!! > 0L) return "Activo"
+            if (saldoReal > 0L) return "Activo"
+            return "Saldada"
+        }
+
     val esSimulada: Boolean
-        get() = estado.trim().lowercase() in listOf("simulado", "simulada")
+        get() = estadoReal.lowercase() in listOf("simulado", "simulada")
 
     val esPausada: Boolean
-        get() = estado.trim().lowercase() in listOf("pausado", "pausada") && saldoActual > 0L
-
-    val esSaldada: Boolean
-        get() = when {
-            esSimulada || esPausada -> false
-            estado.trim().lowercase() in listOf("saldado", "saldada") -> true
-            estado.trim().lowercase() in listOf("activo", "activa") -> false
-            else -> saldoActual <= 0L
-        }
+        get() = estadoReal.lowercase() in listOf("pausado", "pausada") && saldoReal > 0L
 
     val esActiva: Boolean
         get() = when {
             esSimulada || esPausada -> false
-            estado.trim().lowercase() in listOf("saldado", "saldada") -> false
-            estado.trim().lowercase() in listOf("activo", "activa") -> true
-            else -> saldoActual > 0L
+            esDefinitivamenteSaldada -> false
+            estadoReal.lowercase() in listOf("activo", "activa") -> true
+            else -> saldoReal > 0L
         }
+
+    val esSaldada: Boolean
+        get() = !esSimulada && !esPausada && !esActiva
 }
 
 fun List<Obligacion>.calcularCompromisoMensual(): Long =
@@ -288,13 +339,13 @@ data class DeudaFocoResponse(
     val nombre: String = "",
     @SerializedName(value = "entidad", alternate = ["Entidad"])
     val entidad: String = "",
-    @SerializedName(value = "saldo_actual", alternate = ["saldoActual"])
+    @SerializedName(value = "saldo_actual", alternate = ["saldoActual", "saldo"])
     val saldoActual: Long = 0L,
-    @SerializedName(value = "cuota_gs", alternate = ["cuotaGs", "cuota_referencia_gs"])
+    @SerializedName(value = "cuota_gs", alternate = ["cuotaGs", "cuota_referencia_gs", "cuota", "pago_mensual_proyectado"])
     val cuotaGs: Long = 0L,
     @SerializedName("criterio")
     val criterio: String = "saldo", // "saldo" (bola de nieve) o "prioridad" (avalancha)
-    @SerializedName(value = "ahorro_estimado_meses", alternate = ["ahorroEstimadoMeses"])
+    @SerializedName(value = "ahorro_estimado_meses", alternate = ["ahorroEstimadoMeses", "meses_estimados"])
     val ahorroEstimadoMeses: Int = 0,
     @SerializedName(value = "explicacion", alternate = ["motivo", "motivoRecomendacion"])
     val explicacion: String = ""

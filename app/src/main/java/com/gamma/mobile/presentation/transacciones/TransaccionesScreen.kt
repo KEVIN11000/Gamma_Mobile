@@ -536,7 +536,10 @@ fun MovimientoItem(mov: Movimiento) {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Box(
                     modifier = Modifier
                         .size(40.dp)
@@ -551,8 +554,14 @@ fun MovimientoItem(mov: Movimiento) {
                     )
                 }
                 Spacer(modifier = Modifier.width(16.dp))
-                Column {
-                    Text(mov.categoria, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyLarge)
+                Column(modifier = Modifier.weight(1f, fill = false)) {
+                    Text(
+                        mov.categoria,
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.bodyLarge,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(mov.fecha, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(modifier = Modifier.height(4.dp))
@@ -570,11 +579,14 @@ fun MovimientoItem(mov: Movimiento) {
                     }
                 }
             }
+            Spacer(modifier = Modifier.width(12.dp))
             Text(
                 formatGuaranies(mov.total),
                 color = itemColor,
                 fontWeight = FontWeight.Bold,
-                style = MaterialTheme.typography.titleMedium
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 1,
+                softWrap = false
             )
         }
     }

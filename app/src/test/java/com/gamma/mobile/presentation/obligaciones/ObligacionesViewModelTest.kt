@@ -506,6 +506,47 @@ class ObligacionesViewModelTest {
         assertEquals(1, saldadasState.obligaciones.size)
         assertEquals("D2", saldadasState.obligaciones[0].nombre)
     }
+
+    @Test
+    fun `obligacion with numeric estado (shifted cuota) is treated as Activa and recovers real values`() {
+        // Simulación exacta del caso "TC de kari"
+        val tcKari = Obligacion(
+            id = "tc-kari",
+            nombre = "TC de kari",
+            estado = "400000",
+            cuotaReferenciaGs = 30092026L,
+            saldoActual = 0L,
+            montoInicial = 0L,
+            cuotasTotales = 1,
+            cuotasRestantes = 1
+        )
+
+        assertTrue("Debe clasificarse como activa", tcKari.esActiva)
+        assertFalse("No debe ser saldada", tcKari.esSaldada)
+        assertEquals("Activo", tcKari.estadoReal)
+        assertEquals(400000L, tcKari.cuotaReal)
+        assertEquals(30092026L, tcKari.saldoReal)
+        assertEquals(30092026L, tcKari.montoInicialReal)
+    }
+
+    @Test
+    fun `obligacion with numeric entidad (shifted cuota) recovers cuota and hides entidad`() {
+        // Simulación exacta del caso "TC Monkinovia"
+        val tcMonk = Obligacion(
+            id = "tc-monk",
+            nombre = "TC Monkinovia",
+            entidad = "250000",
+            cuotaReferenciaGs = 16102026L,
+            saldoActual = 0L,
+            montoInicial = 0L,
+            estado = "Activo"
+        )
+
+        assertTrue(tcMonk.esActiva)
+        assertEquals("", tcMonk.entidadLimpia)
+        assertEquals(250000L, tcMonk.cuotaReal)
+        assertEquals(16102026L, tcMonk.saldoReal)
+    }
 }
 
 class FakeDashboardRepository : com.gamma.mobile.domain.repository.DashboardRepository {

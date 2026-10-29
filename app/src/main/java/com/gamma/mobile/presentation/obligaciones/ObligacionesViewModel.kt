@@ -46,7 +46,8 @@ class ObligacionesViewModel @Inject constructor(
     private val _simulacionResult = MutableStateFlow<SimulacionResult?>(null)
     val simulacionResult: StateFlow<SimulacionResult?> = _simulacionResult.asStateFlow()
 
-    private var todasLasObligaciones: List<Obligacion> = emptyList()
+    var todasLasObligaciones: List<Obligacion> = emptyList()
+        private set
     private val _filtroActual = MutableStateFlow(FiltroObligacion.TODAS)
     val filtroActual: StateFlow<FiltroObligacion> = _filtroActual.asStateFlow()
 

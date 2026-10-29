@@ -218,7 +218,7 @@ fun CapacidadPagoContent(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = "Gastos Adicionales / Imprevistos",
                         style = MaterialTheme.typography.titleMedium,
@@ -230,6 +230,7 @@ fun CapacidadPagoContent(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+                Spacer(modifier = Modifier.width(8.dp))
                 FilledTonalButton(
                     onClick = onOpenAgregarGasto,
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)

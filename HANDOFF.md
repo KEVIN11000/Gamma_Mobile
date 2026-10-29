@@ -1,8 +1,8 @@
 # HANDOFF — Gamma Mobile
 
 **Fase cerrada:** v0.0.11 — Asistencia en Dos Etapas, Analíticas Laborales MTD y Exportación Dual de Planillas (Excel/PDF)
-**Fecha de cierre:** 2026-10-28
-**Estado del build/tests:** ✅ pasando — Compilación local y suite de pruebas unitarias completadas con éxito (`./gradlew testDebugUnitTest` y `./gradlew assembleDebug` en BUILD SUCCESSFUL).
+**Fecha de cierre:** 2026-10-29
+**Estado del build/tests:** ✅ pasando — Compilación local y suite de pruebas unitarias completadas con éxito (`./gradlew testDebugUnitTest`, `./gradlew assembleDebug` y `./gradlew assembleRelease` en BUILD SUCCESSFUL).
 
 ---
 
@@ -14,6 +14,7 @@
 - **Exportación dual de planillas de asistencia:** Descarga y visualización protegida de planilla oficial en formato Excel `.xlsx` (`GET /asistencia/reporte-excel`) vía `FileProvider` con MIME `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`, y comprobante PDF (`GET /asistencia/reporte-pdf`).
 - **Verificador de versiones in-app en `SistemaScreen`:** Consulta a releases de GitHub (`GET /repos/KEVIN11000/Gamma_Mobile/releases/latest`) y endpoint `/health` del backend; alerta visual de versión disponible y botón de descarga directa de APK con selector seguro de intenciones.
 - **Saneamiento y aislamiento de tickets de backend para soporte:** Definido protocolo de aislamiento para `Gamma_bot` documentado en `HANDOFF-backend.md`.
+- **Publicación Oficial de Release `v0.0.11` en GitHub Releases:** Tag `v0.0.11` publicado en `origin/main`. Binario firmado `gamma-mobile-v0.0.11-release.apk` (33,509,046 bytes) publicado en GitHub Releases (`https://github.com/KEVIN11000/Gamma_Mobile/releases/tag/v0.0.11`).
 
 ## 2. Decisiones tomadas en esta fase
 
@@ -43,6 +44,7 @@
 | `app/src/main/java/com/gamma/mobile/presentation/sistema/SistemaScreen.kt` | Verificador de actualizaciones in-app y fallback visual a `0.0.11`. |
 | `app/src/main/java/com/gamma/mobile/presentation/cierre/CierreViewModel.kt` | Manejo de intent seguro para apertura de Excel y PDF con fallback a navegador y manejo de errores. |
 | `app/src/main/java/com/gamma/mobile/util/MarcacionNotificationHelper.kt` | Notificaciones nativas para estado de marcaciones laborales en barra de estado. |
+| `app/build/outputs/apk/release/gamma-mobile-v0.0.11-release.apk` | Binario de producción compilado y firmado (33,509,046 bytes). |
 | `HANDOFF-backend.md` | Especificación técnica y directivas de saneamiento para backend `Gamma_bot`. |
 
 ## 4. Pendientes explícitos para la próxima fase

@@ -83,3 +83,29 @@
      * Crear un script de migración en `Gamma_bot` que lea las filas de datos de `Obligaciones_Maestro`, detecte si la columna 2 contiene el nombre en vez del tipo, e inserte el valor por defecto `"Deuda"` en la columna 2 desplazando los datos hacia la derecha para que coincidan 1:1 con `ENCABEZADOS_OBLIGACIONES_MAESTRO`.
      * En `_ensure_headers`, asegurar que nunca se modifiquen los encabezados sin verificar previamente que la longitud y estructura de las filas de datos coincide con el esquema proyectado.
 
+
+
+---
+
+### Módulo 6: Duplicación de `saldo_inicial` en Resumen de Dashboard
+
+1. **Doble Suma de `saldo_inicial` en `GET /api/v1/dashboard/summary` (`src/api/blueprint.py:105` vs `src/logic/financiero.py:407`)**:
+   - **Problema:** En `src/logic/financiero.py:407`:
+     ```python
+     flujo_neto = saldo_inicial + total_ingresos - total_gastos
+     ```
+     `flujo_neto` ya incluye acumulado el `saldo_inicial` de las filas tipo `Saldo Inicial / Traspaso` de `Libro_Diario`.
+     Luego, en `src/api/blueprint.py:105`:
+     ```python
+     saldo_acumulado = balance.get("saldo_inicial", 0) + flujo_neto
+     ```
+     El endpoint suma `saldo_inicial` por segunda vez:
+     `saldo_acumulado = saldo_inicial + (saldo_inicial + total_ingresos - total_gastos) = 2 * saldo_inicial + ingresos - gastos`.
+   - **Evidencia Empírica en Vivo:**
+     - En `Libro_Diario` existe un único asiento de `Saldo Inicial / Traspaso` de **`1.431.300 ₲`**.
+     - En la pantalla de la app móvil (`phone_screen_balance.png`), el Dashboard muestra **`2.862.600 ₲`** (exactamente `1.431.300 * 2`).
+   - **Solución Requerida:**
+     - Corregir la definición contable en `src/logic/financiero.py`:
+       `flujo_neto = total_ingresos - total_gastos` (flujo neto operativo del período).
+       `saldo_acumulado = saldo_inicial + flujo_neto` (saldo disponible al corte).
+     - O en `src/api/blueprint.py:105`, fijar `saldo_acumulado = flujo_neto` si `flujo_neto` ya integra el saldo inicial.

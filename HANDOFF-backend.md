@@ -68,3 +68,18 @@
 1. **Recepción de `clientId` o `id` en `POST /api/v1/movimientos` (`src/api/blueprint.py`)**:
    - **Problema:** Si ocurre un timeout de red tras escribir en Google Sheets, el Worker de Android reintenta y duplica el asiento contable en la planilla.
    - **Solución Requerida:** Verificar si el `client_id` recibido en el header `X-Client-Id` o en el cuerpo ya fue registrado en las últimas 24 horas antes de hacer `append_row()`.
+
+---
+
+### Módulo 5: Realineación de Columnas y Migración en `Obligaciones_Maestro`
+
+1. **Desfasaje Horizontal por Sobrescritura de Encabezados (`src/repositories/sheets_repository.py:94-113`)**:
+   - **Problema:** En `_ensure_headers`, al detectar que la fila 1 difiere de `ENCABEZADOS_OBLIGACIONES_MAESTRO` (que incluye la columna `Tipo` en la posición 2), el código ejecutó `ws.update_cell(1, col_idx, header)` sobrescribiendo los nombres de las columnas en la fila 1 pero **sin desplazar las celdas de las filas de datos preexistentes**.
+   - **Impacto Observado:**
+     * La cabecera `Entidad` quedó encima de `Monto_Inicial` (por eso en la app móvil y en la API la entidad devuelve números como `1500000`).
+     * La cabecera `Saldo_Actual` quedó encima de `Estado` (el texto `"Activo"` no puede convertirse a entero con `safe_int`, devolviendo `0`).
+     * La cabecera `Cuota_Referencia_Gs` quedó encima de saldos acumulados, inflando la cuota por mes.
+   - **Solución Requerida:**
+     * Crear un script de migración en `Gamma_bot` que lea las filas de datos de `Obligaciones_Maestro`, detecte si la columna 2 contiene el nombre en vez del tipo, e inserte el valor por defecto `"Deuda"` en la columna 2 desplazando los datos hacia la derecha para que coincidan 1:1 con `ENCABEZADOS_OBLIGACIONES_MAESTRO`.
+     * En `_ensure_headers`, asegurar que nunca se modifiquen los encabezados sin verificar previamente que la longitud y estructura de las filas de datos coincide con el esquema proyectado.
+

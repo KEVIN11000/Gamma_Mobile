@@ -127,12 +127,12 @@ class ObligacionesViewModel @Inject constructor(
             FiltroObligacion.SALDADAS -> todasLasObligaciones.filter { it.esSaldada }
             FiltroObligacion.SIMULADAS -> todasLasObligaciones.filter { it.esSimulada }
         }
-        _compromisoMensual.value = todasLasObligaciones.filter { it.esActiva && !it.esPausada }.sumOf { it.cuotaReferenciaGs }
+        _compromisoMensual.value = todasLasObligaciones.filter { it.esActiva && !it.esPausada }.sumOf { it.cuotaMensualEstimada }
         _uiState.value = ObligacionesUiState.Success(filtered)
     }
 
     fun calcularCompromisoMensual(obligaciones: List<Obligacion> = todasLasObligaciones): Long {
-        return obligaciones.filter { it.esActiva && !it.esPausada }.sumOf { it.cuotaReferenciaGs }
+        return obligaciones.filter { it.esActiva && !it.esPausada }.sumOf { it.cuotaMensualEstimada }
     }
 
     fun simularCuota(monto: Long, cuotas: Int, cuotaPersonalizada: Long? = null) {

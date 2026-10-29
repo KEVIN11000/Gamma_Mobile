@@ -247,7 +247,7 @@ class ObligacionesViewModelTest {
             Obligacion("1", "Deuda 1", 100000, 100000, "Activa"),
             Obligacion("2", "Deuda 2", 200000, 0, "Saldada"),
             Obligacion("3", "Deuda 3", 300000, 300000, "Simulada"),
-            Obligacion("4", "Deuda 4", 400000, 0, "Activo")
+            Obligacion("4", "Deuda 4", 400000, 0, "Saldado")
         )
         fakeRepo.data = list
         viewModel = ObligacionesViewModel(fakeRepo, fakeDashboardRepo)
@@ -431,6 +431,80 @@ class ObligacionesViewModelTest {
 
         assertEquals("prioridad", viewModel.criterioFoco.value)
         assertEquals("d_prioridad", viewModel.deudaFoco.value?.idDeuda)
+    }
+
+    @Test
+    fun `deuda with Activo estado and zero saldoActual is classified as Activa and not Saldada`() = runTest {
+        val o = Obligacion(
+            id = "d1",
+            nombre = "Préstamo",
+            montoInicial = 5000000,
+            saldoActual = 0,
+            estado = "Activo"
+        )
+        assertTrue(o.esActiva)
+        assertFalse(o.esSaldada)
+        assertFalse(o.esPausada)
+    }
+
+    @Test
+    fun `deuda with Saldada estado is classified as Saldada even if saldoActual is positive`() = runTest {
+        val o = Obligacion(
+            id = "d2",
+            nombre = "Préstamo Pagado",
+            montoInicial = 5000000,
+            saldoActual = 100000,
+            estado = "Saldada"
+        )
+        assertTrue(o.esSaldada)
+        assertFalse(o.esActiva)
+    }
+
+    @Test
+    fun `entidadLimpia recovers real name from observaciones when entidad is numeric`() {
+        val o = Obligacion(
+            id = "d3",
+            nombre = "Préstamo",
+            entidad = "1500000",
+            observaciones = "Entidad: Banco Atlas"
+        )
+        assertEquals("Banco Atlas", o.entidadLimpia)
+    }
+
+    @Test
+    fun `cuotaMensualEstimada calculates montoInicial over cuotasTotales when cuotaReferencia is inflated`() {
+        val o = Obligacion(
+            id = "d4",
+            nombre = "Préstamo 12m",
+            montoInicial = 12000000,
+            cuotasTotales = 12,
+            cuotaReferenciaGs = 12000000
+        )
+        assertEquals(1000000L, o.cuotaMensualEstimada)
+    }
+
+    @Test
+    fun `filter ACTIVAS in ViewModel includes active debts with zero saldoActual`() = runTest {
+        fakeRepo.data = listOf(
+            Obligacion(id = "1", nombre = "D1", estado = "Activo", saldoActual = 0L),
+            Obligacion(id = "2", nombre = "D2", estado = "Saldada", saldoActual = 0L),
+            Obligacion(id = "3", nombre = "D3", estado = "Pausada", saldoActual = 5000L)
+        )
+        viewModel = ObligacionesViewModel(fakeRepo, fakeDashboardRepo)
+        advanceUntilIdle()
+
+        viewModel.setFiltro(FiltroObligacion.ACTIVAS)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value as ObligacionesUiState.Success
+        assertEquals(1, state.obligaciones.size)
+        assertEquals("D1", state.obligaciones[0].nombre)
+
+        viewModel.setFiltro(FiltroObligacion.SALDADAS)
+        advanceUntilIdle()
+        val saldadasState = viewModel.uiState.value as ObligacionesUiState.Success
+        assertEquals(1, saldadasState.obligaciones.size)
+        assertEquals("D2", saldadasState.obligaciones[0].nombre)
     }
 }
 

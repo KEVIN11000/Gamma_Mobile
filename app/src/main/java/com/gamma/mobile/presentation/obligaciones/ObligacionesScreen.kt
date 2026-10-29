@@ -308,9 +308,9 @@ fun ObligacionItem(
                         fontWeight = FontWeight.Bold,
                         style = MaterialTheme.typography.titleMedium
                     )
-                    if (obligacion.entidad.isNotBlank()) {
+                    if (obligacion.entidadLimpia.isNotBlank()) {
                         Text(
-                            "Entidad: ${obligacion.entidad}",
+                            "Entidad: ${obligacion.entidadLimpia}",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -365,7 +365,7 @@ fun ObligacionItem(
                 if (obligacion.cuotasTotales > 0) {
                     val pagadas = (obligacion.cuotasTotales - obligacion.cuotasRestantes).coerceAtLeast(0)
                     Text(
-                        "Cuotas: $pagadas / ${obligacion.cuotasTotales} (${formatGuaranies(obligacion.cuotaReferenciaGs)}/mes)",
+                        "Cuotas: $pagadas / ${obligacion.cuotasTotales} (${formatGuaranies(obligacion.cuotaMensualEstimada)}/mes)",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -698,7 +698,7 @@ fun CrearObligacionModal(
 fun AbonarModal(obligacion: Obligacion, onDismiss: () -> Unit, onConfirm: (Long) -> Unit) {
     var monto by remember {
         mutableStateOf(
-            if (obligacion.cuotaReferenciaGs > 0L) obligacion.cuotaReferenciaGs.toString() else ""
+            if (obligacion.cuotaMensualEstimada > 0L) obligacion.cuotaMensualEstimada.toString() else ""
         )
     }
 
@@ -708,9 +708,9 @@ fun AbonarModal(obligacion: Obligacion, onDismiss: () -> Unit, onConfirm: (Long)
         text = {
             Column {
                 Text("Saldo Actual: ${formatGuaranies(obligacion.saldoActual)}")
-                if (obligacion.cuotaReferenciaGs > 0L) {
+                if (obligacion.cuotaMensualEstimada > 0L) {
                     Text(
-                        "Cuota sugerida: ${formatGuaranies(obligacion.cuotaReferenciaGs)}",
+                        "Cuota sugerida: ${formatGuaranies(obligacion.cuotaMensualEstimada)}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary
                     )

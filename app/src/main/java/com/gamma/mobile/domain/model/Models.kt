@@ -100,21 +100,59 @@ data class Obligacion(
     @SerializedName(value = "observaciones", alternate = ["Observaciones"])
     val observaciones: String = ""
 ) {
-    val esActiva: Boolean
-        get() = !esSimulada && !esPausada && saldoActual > 0L
+    val entidadLimpia: String
+        get() {
+            val e = entidad.trim()
+            if (e.isNotBlank() && e.all { it.isDigit() || it == '.' || it == ',' || it == ' ' }) {
+                // Desplazamiento de columnas en planilla: entidad contiene un monto numérico
+                val obs = observaciones.trim()
+                if (obs.startsWith("Entidad: ", ignoreCase = true)) {
+                    return obs.substringAfter("Entidad: ").trim()
+                }
+                return ""
+            }
+            return e
+        }
 
-    val esSaldada: Boolean
-        get() = !esSimulada && saldoActual <= 0L
+    val cuotaMensualEstimada: Long
+        get() {
+            if (cuotasTotales > 1 && montoInicial > 0L && cuotaReferenciaGs >= montoInicial) {
+                return montoInicial / cuotasTotales
+            }
+            if (cuotaReferenciaGs > 0L) {
+                return cuotaReferenciaGs
+            }
+            if (cuotasTotales > 0 && montoInicial > 0L) {
+                return montoInicial / cuotasTotales
+            }
+            return cuotaReferenciaGs
+        }
 
     val esSimulada: Boolean
         get() = estado.trim().lowercase() in listOf("simulado", "simulada")
 
     val esPausada: Boolean
         get() = estado.trim().lowercase() in listOf("pausado", "pausada") && saldoActual > 0L
+
+    val esSaldada: Boolean
+        get() = when {
+            esSimulada || esPausada -> false
+            estado.trim().lowercase() in listOf("saldado", "saldada") -> true
+            estado.trim().lowercase() in listOf("activo", "activa") -> false
+            else -> saldoActual <= 0L
+        }
+
+    val esActiva: Boolean
+        get() = when {
+            esSimulada || esPausada -> false
+            estado.trim().lowercase() in listOf("saldado", "saldada") -> false
+            estado.trim().lowercase() in listOf("activo", "activa") -> true
+            else -> saldoActual > 0L
+        }
 }
 
 fun List<Obligacion>.calcularCompromisoMensual(): Long =
-    filter { it.esActiva && !it.esPausada }.sumOf { it.cuotaReferenciaGs }
+    filter { it.esActiva && !it.esPausada }.sumOf { it.cuotaMensualEstimada }
 
 data class AbonoRequest(
     @SerializedName(value = "id_obligacion", alternate = ["idObligacion"])

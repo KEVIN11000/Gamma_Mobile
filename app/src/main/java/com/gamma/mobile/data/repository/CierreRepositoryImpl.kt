@@ -57,9 +57,10 @@ class CierreRepositoryImpl @Inject constructor(
     }
 
     override suspend fun descargarReporteCierre(filename: String): NetworkResult<ByteArray> {
+        val clean = if (filename.contains("/")) filename.substringAfterLast("/") else filename
         return withContext(dispatcher) {
             try {
-                val response = api.descargarReporteCierre(filename)
+                val response = api.descargarReporteCierre(clean)
                 if (response.isSuccessful) {
                     val bytes = response.body()?.bytes()
                     if (bytes != null && bytes.isNotEmpty()) {

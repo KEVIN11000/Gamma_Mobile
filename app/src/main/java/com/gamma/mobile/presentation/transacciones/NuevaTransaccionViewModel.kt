@@ -75,8 +75,9 @@ class NuevaTransaccionViewModel @Inject constructor(
     }
 
     fun updateTotal(total: String) {
-        if (total.all { it.isDigit() }) {
-            _uiState.update { it.copy(totalInput = total) }
+        val digits = total.replace(".", "").replace(",", "").replace(" ", "").trim()
+        if (digits.all { it.isDigit() }) {
+            _uiState.update { it.copy(totalInput = digits) }
         }
     }
 
@@ -92,7 +93,11 @@ class NuevaTransaccionViewModel @Inject constructor(
         _uiState.update { it.copy(errorMessage = null) }
     }
 
-        fun interpretarTextoIa(texto: String) {
+    fun resetState() {
+        _uiState.value = NuevaTransaccionUiState()
+    }
+
+    fun interpretarTextoIa(texto: String, onSuccess: () -> Unit = {}) {
         _uiState.update { it.copy(isLoading = true, errorMessage = null) }
         viewModelScope.launch {
             when (val result = repository.interpretarMovimientoIa(texto)) {
@@ -106,6 +111,7 @@ class NuevaTransaccionViewModel @Inject constructor(
                             isLoading = false
                         ) 
                     }
+                    onSuccess()
                 }
                 is NetworkResult.Error -> {
                     _uiState.update { it.copy(isLoading = false, errorMessage = result.message) }

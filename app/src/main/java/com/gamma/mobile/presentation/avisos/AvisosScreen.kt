@@ -240,7 +240,7 @@ fun AvisosScreen(
                 TextButton(onClick = {
                     if (textoIa.isNotBlank()) {
                         viewModel.interpretarAvisoIa(textoIa) { avisoPropuesto ->
-                            editingAviso = avisoPropuesto
+                            editingAviso = avisoPropuesto.copy(id = "")
                             showIaDialog = false
                             showFormDialog = true
                             textoIa = ""
@@ -438,6 +438,7 @@ fun AvisoFormDialog(
     )
     val initialHitos = remember { (initialAviso?.hitosMinutos ?: Aviso.DEFAULT_HITOS_MINUTOS).toSet() }
     val hitosSeleccionados = remember { mutableStateListOf<Int>().apply { addAll(initialHitos) } }
+    var showCustomHitoDialog by remember { mutableStateOf(false) }
 
     val calendar = remember { Calendar.getInstance() }
 
@@ -514,13 +515,14 @@ fun AvisoFormDialog(
                 }
 
                 Spacer(modifier = Modifier.height(14.dp))
-                Text("Alarmas previas (hasta 5 hitos):", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                Text("Alarmas previas (hasta 5 hitos personalizables):", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(4.dp))
-                Row(
+                androidx.compose.foundation.lazy.LazyRow(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    opcionesHitos.forEach { (minutos, label) ->
+                    items(opcionesHitos) { (minutos, label) ->
                         val isSelected = hitosSeleccionados.contains(minutos)
                         FilterChip(
                             selected = isSelected,
@@ -536,10 +538,58 @@ fun AvisoFormDialog(
                             label = { Text(label, style = MaterialTheme.typography.labelSmall) }
                         )
                     }
+                    if (hitosSeleccionados.size < Aviso.MAX_HITOS) {
+                        item {
+                            IconButton(
+                                onClick = { showCustomHitoDialog = true },
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Add,
+                                    contentDescription = "Añadir alarma previa",
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                    }
                 }
             }
         },
         confirmButton = {
+            if (showCustomHitoDialog) {
+                var customMinutosStr by remember { mutableStateOf("") }
+                AlertDialog(
+                    onDismissRequest = { showCustomHitoDialog = false },
+                    title = { Text("Alarma Previa Personalizada") },
+                    text = {
+                        OutlinedTextField(
+                            value = customMinutosStr,
+                            onValueChange = { if (it.all { c -> c.isDigit() }) customMinutosStr = it },
+                            label = { Text("Anticipación en minutos") },
+                            placeholder = { Text("Ej. 45 o 180") },
+                            singleLine = true
+                        )
+                    },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            val m = customMinutosStr.toIntOrNull()
+                            if (m != null && m > 0 && hitosSeleccionados.size < Aviso.MAX_HITOS) {
+                                if (!hitosSeleccionados.contains(m)) {
+                                    hitosSeleccionados.add(m)
+                                }
+                            }
+                            showCustomHitoDialog = false
+                        }) {
+                            Text("Añadir")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showCustomHitoDialog = false }) {
+                            Text("Cancelar")
+                        }
+                    }
+                )
+            }
             Button(
                 onClick = {
                     if (titulo.isNotBlank() && fechaStr.isNotBlank()) {

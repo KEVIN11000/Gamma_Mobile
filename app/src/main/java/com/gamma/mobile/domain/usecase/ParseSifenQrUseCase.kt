@@ -138,12 +138,17 @@ class ParseSifenQrUseCase @Inject constructor() {
     private fun parseMonto(raw: String?): Long? {
         if (raw.isNullOrBlank()) return null
         return try {
-            val cleaned = raw.replace(",", ".").trim()
-            if (cleaned.contains(".")) {
-                cleaned.toDouble().toLong()
-            } else {
-                cleaned.toLong()
+            val trimmed = raw.trim()
+            // En Paraguay el Guaraní (PYG) no utiliza centavos.
+            // Si el monto contiene .00 o ,00 al final (centavos flotantes), se descartan.
+            val withoutCents = when {
+                trimmed.endsWith(".00") || trimmed.endsWith(",00") -> trimmed.dropLast(3)
+                trimmed.endsWith(".0") || trimmed.endsWith(",0") -> trimmed.dropLast(2)
+                else -> trimmed
             }
+            // Eliminar separadores de miles (puntos, comas o espacios) para evitar truncamiento por factor 1.000x
+            val digitsOnly = withoutCents.replace(".", "").replace(",", "").replace(" ", "").trim()
+            digitsOnly.toLongOrNull()
         } catch (_: Exception) {
             null
         }

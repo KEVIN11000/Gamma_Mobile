@@ -47,7 +47,11 @@ class SyncMovimientosWorker @AssistedInject constructor(
         }
 
         if (hasFailures) {
-            Result.retry() // Esto gatilla el backoff exponencial de WorkManager
+            if (runAttemptCount >= 3) {
+                Result.failure()
+            } else {
+                Result.retry() // Reintento con backoff exponencial hasta máximo 3 intentos
+            }
         } else {
             Result.success()
         }

@@ -431,6 +431,8 @@ fun CierreTabContent(cierreViewModel: CierreViewModel) {
                 Toast.makeText(context, "No hay visor de PDF instalado", Toast.LENGTH_LONG).show()
             } catch (e: Exception) {
                 Toast.makeText(context, "Error al abrir el PDF: ${e.message}", Toast.LENGTH_LONG).show()
+            } finally {
+                cierreViewModel.resetState()
             }
         } else if (uiState is CierreUiState.ExcelDownloaded) {
             val excelState = uiState as CierreUiState.ExcelDownloaded
@@ -457,6 +459,8 @@ fun CierreTabContent(cierreViewModel: CierreViewModel) {
                 Toast.makeText(context, "Planilla Excel guardada. No hay visor de Excel instalado.", Toast.LENGTH_LONG).show()
             } catch (e: Exception) {
                 Toast.makeText(context, "Error al abrir el Excel: ${e.message}", Toast.LENGTH_LONG).show()
+            } finally {
+                cierreViewModel.resetState()
             }
         }
     }

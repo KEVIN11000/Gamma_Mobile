@@ -72,6 +72,7 @@ fun SifenScannerScreen(
 
     LaunchedEffect(uiState.isSaved) {
         if (uiState.isSaved) {
+            viewModel.resetState()
             onSavedSuccess()
         }
     }
@@ -87,6 +88,7 @@ fun SifenScannerScreen(
         if (uiState.scannedInvoice != null) {
             viewModel.dismissInvoice()
         } else {
+            viewModel.resetState()
             onBack()
         }
     }
@@ -203,6 +205,7 @@ private fun CameraPreviewView(
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
     val cameraExecutor = remember { Executors.newSingleThreadExecutor() }
+    var cameraProviderRef by remember { mutableStateOf<ProcessCameraProvider?>(null) }
 
     AndroidView(
         factory = { ctx ->
@@ -211,6 +214,7 @@ private fun CameraPreviewView(
 
             cameraProviderFuture.addListener({
                 val cameraProvider = cameraProviderFuture.get()
+                cameraProviderRef = cameraProvider
                 val preview = Preview.Builder().build().also {
                     it.setSurfaceProvider(previewView.surfaceProvider)
                 }
@@ -251,6 +255,11 @@ private fun CameraPreviewView(
 
     DisposableEffect(Unit) {
         onDispose {
+            try {
+                cameraProviderRef?.unbindAll()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
             cameraExecutor.shutdown()
         }
     }

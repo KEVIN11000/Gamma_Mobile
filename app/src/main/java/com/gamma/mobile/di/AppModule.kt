@@ -77,7 +77,8 @@ abstract class AppModule {
         @Provides
         @Singleton
         fun provideClock(): java.time.Clock {
-            return java.time.Clock.systemDefaultZone()
+            // Huso horario oficial de Paraguay para evitar desfases de fechas en cierres, avisos y marcaciones
+            return java.time.Clock.system(java.time.ZoneId.of("America/Asuncion"))
         }
 
         @Provides

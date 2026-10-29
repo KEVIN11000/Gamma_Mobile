@@ -40,6 +40,7 @@ fun NuevaTransaccionScreen(
 
     LaunchedEffect(uiState.isSuccess) {
         if (uiState.isSuccess) {
+            viewModel.resetState()
             onSave()
         }
     }
@@ -55,14 +56,19 @@ fun NuevaTransaccionScreen(
         )
     }
 
-    BackHandler(onBack = onBack)
+    val handleBack = {
+        viewModel.resetState()
+        onBack()
+    }
+
+    BackHandler(onBack = handleBack)
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Nueva Transacción") },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = handleBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Volver"
@@ -89,7 +95,14 @@ fun NuevaTransaccionScreen(
 
             Box(modifier = Modifier.fillMaxSize().padding(16.dp)) {
                 when (selectedTabIndex) {
-                    0 -> CargaAsistidaIA(onProcessIA)
+                    0 -> CargaAsistidaIA(
+                        isLoading = uiState.isLoading,
+                        onProcessIA = { frase ->
+                            viewModel.interpretarTextoIa(frase) {
+                                selectedTabIndex = 3 // Transición automática al formulario manual
+                            }
+                        }
+                    )
                     1 -> {
                         Column(
                             modifier = Modifier
@@ -146,7 +159,10 @@ fun NuevaTransaccionScreen(
 }
 
 @Composable
-fun CargaAsistidaIA(onProcessIA: (String) -> Unit) {
+fun CargaAsistidaIA(
+    isLoading: Boolean = false,
+    onProcessIA: (String) -> Unit
+) {
     var frase by remember { mutableStateOf("") }
 
     Column(modifier = Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -157,14 +173,26 @@ fun CargaAsistidaIA(onProcessIA: (String) -> Unit) {
             modifier = Modifier
                 .fillMaxWidth()
                 .height(150.dp),
-            maxLines = 5
+            maxLines = 5,
+            enabled = !isLoading
         )
         Spacer(modifier = Modifier.height(16.dp))
         Button(
             onClick = { onProcessIA(frase) },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !isLoading && frase.isNotBlank()
         ) {
-            Text("Interpretar con IA")
+            if (isLoading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(20.dp),
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    strokeWidth = 2.dp
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Interpretando con IA...")
+            } else {
+                Text("Interpretar con IA")
+            }
         }
         Spacer(modifier = Modifier.height(16.dp))
         Text(
@@ -338,7 +366,7 @@ fun CargaOcrUI(onImageSelected: (Uri) -> Unit) {
         
         Button(onClick = { 
             val tempFile = File.createTempFile("photo_", ".jpg", context.cacheDir).apply { createNewFile() }
-            photoUri = FileProvider.getUriForFile(context, "com.gamma.mobile.fileprovider", tempFile)
+            photoUri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", tempFile)
             cameraLauncher.launch(photoUri!!)
         }, modifier = Modifier.fillMaxWidth()) {
             Text("Tomar Foto con Cámara")

@@ -22,7 +22,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import com.gamma.mobile.domain.model.Aviso
 import com.gamma.mobile.domain.model.DashboardSummary
 import com.gamma.mobile.utils.formatGuaranies
@@ -156,6 +158,28 @@ fun DashboardContent(
         dayOfWeek != DayOfWeek.SATURDAY && dayOfWeek != DayOfWeek.SUNDAY
     }
 
+    var infoDialogTitle by remember { mutableStateOf<String?>(null) }
+    var infoDialogText by remember { mutableStateOf<String?>(null) }
+
+    if (infoDialogTitle != null && infoDialogText != null) {
+        AlertDialog(
+            onDismissRequest = {
+                infoDialogTitle = null
+                infoDialogText = null
+            },
+            title = { Text(infoDialogTitle!!, fontWeight = FontWeight.Bold) },
+            text = { Text(infoDialogText!!) },
+            confirmButton = {
+                TextButton(onClick = {
+                    infoDialogTitle = null
+                    infoDialogText = null
+                }) {
+                    Text("Entendido")
+                }
+            }
+        )
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -179,7 +203,10 @@ fun DashboardContent(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(
+                            modifier = Modifier.weight(1f, fill = false).padding(end = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             Icon(
                                 imageVector = Icons.Default.Work,
                                 contentDescription = null,
@@ -191,11 +218,13 @@ fun DashboardContent(
                                 Text(
                                     "Marcación Laboral de Hoy",
                                     style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.Bold
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1
                                 )
                                 Text(
                                     "Turno Lunes a Viernes",
-                                    style = MaterialTheme.typography.bodySmall
+                                    style = MaterialTheme.typography.bodySmall,
+                                    maxLines = 1
                                 )
                             }
                         }
@@ -203,7 +232,7 @@ fun DashboardContent(
                         Button(
                             onClick = onMarcarAsistencia,
                             enabled = !isMarkingAsistencia,
-                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                         ) {
                             if (isMarkingAsistencia) {
                                 CircularProgressIndicator(
@@ -211,16 +240,16 @@ fun DashboardContent(
                                     strokeWidth = 2.dp,
                                     color = MaterialTheme.colorScheme.onPrimary
                                 )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Marcando...")
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Marcando...", maxLines = 1, softWrap = false)
                             } else {
                                 Icon(
                                     imageVector = Icons.Default.AccessTime,
                                     contentDescription = null,
                                     modifier = Modifier.size(16.dp)
                                 )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("Marcar")
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Marcar", maxLines = 1, softWrap = false)
                             }
                         }
                     }
@@ -308,13 +337,21 @@ fun DashboardContent(
             Column(modifier = Modifier.padding(20.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Balance Actual (Saldo Acumulado)", style = MaterialTheme.typography.labelLarge)
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Icon(
-                        imageVector = Icons.Default.Info,
-                        contentDescription = "Saldo total acumulado en caja y cuentas",
-                        modifier = Modifier.size(16.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    IconButton(
+                        onClick = {
+                            infoDialogTitle = "Balance Actual (Saldo Acumulado)"
+                            infoDialogText = "Total consolidado de fondos y saldo acumulado registrado en el Libro Diario del backend."
+                        },
+                        modifier = Modifier.size(24.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Info,
+                            contentDescription = "Información sobre Balance Actual",
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                        )
+                    }
                 }
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
@@ -340,13 +377,21 @@ fun DashboardContent(
             Column(modifier = Modifier.padding(20.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Margen Libre (mes en curso)", style = MaterialTheme.typography.labelLarge)
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Icon(
-                        imageVector = Icons.Default.Info,
-                        contentDescription = "Dinero disponible tras descontar el presupuesto base y las deudas",
-                        modifier = Modifier.size(16.dp),
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f)
-                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    IconButton(
+                        onClick = {
+                            infoDialogTitle = "Margen Libre (Mes en Curso)"
+                            infoDialogText = "Dinero disponible para gastar en el mes corriente, deduciendo gastos fijos y obligaciones proyectadas del Presupuesto Base."
+                        },
+                        modifier = Modifier.size(24.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Info,
+                            contentDescription = "Información sobre Margen Libre",
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                        )
+                    }
                 }
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
@@ -428,8 +473,8 @@ fun DashboardContent(
             }
         }
 
-        // Espacio para evitar solapamiento con el ExtendedFloatingActionButton ("Transacción")
-        Spacer(modifier = Modifier.height(96.dp))
+        // Espacio suficiente para evitar solapamiento con el ExtendedFloatingActionButton ("Transacción")
+        Spacer(modifier = Modifier.height(120.dp))
     }
 }
 

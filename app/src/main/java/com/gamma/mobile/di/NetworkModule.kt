@@ -34,9 +34,9 @@ object NetworkModule {
         return OkHttpClient.Builder()
             .addInterceptor(dynamicBaseUrlInterceptor)
             .addInterceptor(apiKeyInterceptor)
-            .connectTimeout(15, TimeUnit.SECONDS)
-            .readTimeout(15, TimeUnit.SECONDS)
-            .writeTimeout(15, TimeUnit.SECONDS)
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(45, TimeUnit.SECONDS)
+            .writeTimeout(30, TimeUnit.SECONDS)
             .build()
     }
 
@@ -83,7 +83,7 @@ object NetworkModule {
     @Singleton
     @Named("NetworkDispatcher")
     fun provideNetworkDispatcher(): CoroutineDispatcher {
-        // PythonAnywhere solo soporta 1 worker WSGI concurrente
-        return Dispatchers.IO.limitedParallelism(1)
+        // Permitir ejecución en Dispatchers.IO para evitar bloqueos en cola secuencial
+        return Dispatchers.IO
     }
 }

@@ -45,7 +45,7 @@ class CierresViewModel @Inject constructor(
     private var todosLosCierres: List<CierreHistorialItem> = emptyList()
 
     init {
-        loadCierres()
+        loadCierres(forceRefresh = true)
     }
 
     fun loadCierres(forceRefresh: Boolean = false) {
@@ -96,14 +96,15 @@ class CierresViewModel @Inject constructor(
         _downloadState.value = DownloadPdfState.Downloading(cierre.id)
 
         viewModelScope.launch {
+            val cleanFileName = if (url.isNotBlank()) url.substringAfterLast("/") else fileName
             val result = if (url.startsWith("http://") || url.startsWith("https://")) {
                 if (repository is com.gamma.mobile.domain.repository.CierreRepository) {
                     repository.descargarPdf(url)
                 } else {
-                    repository.descargarReporteCierre(url.substringAfterLast("/"))
+                    repository.descargarReporteCierre(cleanFileName)
                 }
             } else {
-                repository.descargarReporteCierre(if (url.isNotBlank()) url else fileName)
+                repository.descargarReporteCierre(cleanFileName)
             }
 
             when (result) {

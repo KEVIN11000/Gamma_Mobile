@@ -47,7 +47,8 @@ class AvisosViewModel @Inject constructor(
                     if (result.data.isEmpty()) {
                         _uiState.value = AvisosUiState.Empty
                     } else {
-                        _uiState.value = AvisosUiState.Success(result.data.sortedBy { it.fechaEvento })
+                        // Ordenar cronológicamente por fecha real del evento (más próximos primero)
+                        _uiState.value = AvisosUiState.Success(result.data.sortedBy { parseFechaEpoch(it.fechaEvento) })
                     }
                 }
                 is NetworkResult.Error -> {
@@ -58,6 +59,32 @@ class AvisosViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    private fun parseFechaEpoch(fechaStr: String): Long {
+        val patterns = listOf(
+            "dd/MM/yyyy HH:mm",
+            "yyyy-MM-dd HH:mm",
+            "dd/MM/yyyy",
+            "yyyy-MM-dd"
+        )
+        for (pattern in patterns) {
+            try {
+                val formatter = java.time.format.DateTimeFormatter.ofPattern(pattern)
+                return if (pattern.contains("HH:mm")) {
+                    java.time.LocalDateTime.parse(fechaStr.trim(), formatter)
+                        .atZone(java.time.ZoneId.of("America/Asuncion"))
+                        .toInstant()
+                        .toEpochMilli()
+                } else {
+                    java.time.LocalDate.parse(fechaStr.trim(), formatter)
+                        .atStartOfDay(java.time.ZoneId.of("America/Asuncion"))
+                        .toInstant()
+                        .toEpochMilli()
+                }
+            } catch (_: Exception) {}
+        }
+        return Long.MAX_VALUE
     }
 
     fun createAviso(aviso: Aviso, context: Context? = null) {

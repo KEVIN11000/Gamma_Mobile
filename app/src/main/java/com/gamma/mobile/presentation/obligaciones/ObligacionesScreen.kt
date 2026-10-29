@@ -87,7 +87,7 @@ fun ObligacionesScreen(
                         showCrearModal = true
                     },
                     icon = { Icon(Icons.Default.Add, contentDescription = null) },
-                    text = { Text("Nueva ObligaciÃ³n") },
+                    text = { Text("Nueva Obligación") },
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary
                 )
@@ -158,7 +158,7 @@ fun ObligacionesScreen(
                     is ObligacionesUiState.Success -> {
                         if (state.obligaciones.isEmpty()) {
                             Text(
-                                "No hay obligaciones en esta categorÃ­a.",
+                                "No hay obligaciones en esta categoría.",
                                 modifier = Modifier.align(Alignment.Center)
                             )
                         } else {
@@ -244,8 +244,8 @@ fun ObligacionesScreen(
         AlertDialog(
             onDismissRequest = { obligacionToDelete = null },
             icon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
-            title = { Text("Â¿Eliminar registro de deuda?") },
-            text = { Text("Se eliminarÃ¡ definitivamente '${obligacion.nombre}' del sistema.") },
+            title = { Text("¿Eliminar registro de deuda?") },
+            text = { Text("Se eliminará definitivamente '${obligacion.nombre}' del sistema.") },
             confirmButton = {
                 Button(
                     onClick = {
@@ -341,7 +341,7 @@ fun ObligacionItem(
                         Text(obligacion.estado, style = MaterialTheme.typography.labelSmall, color = textColor, fontWeight = FontWeight.Bold)
                     }
 
-                    // BotÃ³n Eliminar para deudas
+                    // Botón Eliminar para deudas
                     IconButton(onClick = onDeleteClick, modifier = Modifier.size(36.dp)) {
                         Icon(
                             imageVector = Icons.Default.Delete,
@@ -470,8 +470,8 @@ fun ObligacionItem(
     if (showConfirmCancelar) {
         AlertDialog(
             onDismissRequest = { showConfirmCancelar = false },
-            title = { Text("Â¿Cancelar simulaciÃ³n?") },
-            text = { Text("Se descartarÃ¡ la simulaciÃ³n de '${obligacion.nombre}'.") },
+            title = { Text("¿Cancelar simulación?") },
+            text = { Text("Se descartará la simulación de '${obligacion.nombre}'.") },
             confirmButton = {
                 Button(
                     onClick = {
@@ -480,7 +480,7 @@ fun ObligacionItem(
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Text("Cancelar SimulaciÃ³n")
+                    Text("Cancelar Simulación")
                 }
             },
             dismissButton = {
@@ -511,7 +511,7 @@ fun CrearObligacionModal(
     var observaciones by remember { mutableStateOf(initialData?.observaciones ?: "") }
     var estadoInicial by remember { mutableStateOf(initialData?.estado?.takeIf { it.isNotBlank() } ?: "Activo") }
 
-    val tiposDisponibles = listOf("Deuda", "PrÃ©stamo", "Tarjeta", "Gasto Fijo")
+    val tiposDisponibles = listOf("Deuda", "Préstamo", "Tarjeta", "Gasto Fijo")
     val calendar = remember { Calendar.getInstance() }
 
     val showDatePicker = {
@@ -526,7 +526,7 @@ fun CrearObligacionModal(
         ).show()
     }
 
-    // Auto-cÃ¡lculo de cuota si cambia monto o cantidad de cuotas y cuotaRef no fue editada manualmente
+    // Auto-cálculo de cuota si cambia monto o cantidad de cuotas y cuotaRef no fue editada manualmente
     LaunchedEffect(montoTotal, cuotasTotales) {
         val m = montoTotal.toLongOrNull() ?: 0L
         val c = cuotasTotales.toIntOrNull() ?: 0
@@ -537,7 +537,7 @@ fun CrearObligacionModal(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Nueva ObligaciÃ³n / Deuda") },
+        title = { Text("Nueva Obligación / Deuda") },
         text = {
             Column(
                 modifier = Modifier
@@ -547,7 +547,7 @@ fun CrearObligacionModal(
                 OutlinedTextField(
                     value = entidad,
                     onValueChange = { entidad = it },
-                    label = { Text("Entidad / Acreedor (ej. Banco ItaÃº)") },
+                    label = { Text("Entidad / Acreedor (ej. Banco Itaú)") },
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(8.dp))
@@ -555,12 +555,12 @@ fun CrearObligacionModal(
                 OutlinedTextField(
                     value = nombre,
                     onValueChange = { nombre = it },
-                    label = { Text("Concepto (ej. PrÃ©stamo Personal)*") },
+                    label = { Text("Concepto (ej. Préstamo Personal)*") },
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(8.dp))
 
-                Text("Tipo de ObligaciÃ³n:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                Text("Tipo de Obligación:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -606,14 +606,14 @@ fun CrearObligacionModal(
                     OutlinedTextField(
                         value = diaVencimiento,
                         onValueChange = { if (it.all { c -> c.isDigit() } && it.length <= 2) diaVencimiento = it },
-                        label = { Text("DÃ­a Venc. (1-31)") },
+                        label = { Text("Día Venc. (1-31)") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier.weight(1f)
                     )
                     OutlinedTextField(
                         value = fechaInicio,
                         onValueChange = { fechaInicio = it },
-                        label = { Text("1Â° Vencimiento") },
+                        label = { Text("1° Vencimiento") },
                         trailingIcon = {
                             IconButton(onClick = showDatePicker) {
                                 Icon(Icons.Default.CalendarToday, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -684,7 +684,7 @@ fun CrearObligacionModal(
                 },
                 enabled = nombre.isNotBlank() && (montoTotal.toLongOrNull() ?: 0L) > 0L
             ) {
-                Text("Guardar ObligaciÃ³n")
+                Text("Guardar Obligación")
             }
         },
         dismissButton = {
@@ -753,7 +753,7 @@ fun SimuladorCuotasModal(
     var cuotas by remember { mutableStateOf("") }
     var cuotaPersonalizada by remember { mutableStateOf("") }
 
-    // Auto-cÃ¡lculo de cuota sugerida al cambiar monto o cuotas
+    // Auto-cálculo de cuota sugerida al cambiar monto o cuotas
     LaunchedEffect(monto, cuotas) {
         val m = monto.toLongOrNull() ?: 0L
         val c = cuotas.toIntOrNull() ?: 0
@@ -774,7 +774,7 @@ fun SimuladorCuotasModal(
                 OutlinedTextField(
                     value = concepto,
                     onValueChange = { concepto = it },
-                    label = { Text("Concepto (ej. PrÃ©stamo Auto)") },
+                    label = { Text("Concepto (ej. Préstamo Auto)") },
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(8.dp))
@@ -790,7 +790,7 @@ fun SimuladorCuotasModal(
                 OutlinedTextField(
                     value = monto,
                     onValueChange = { if (it.all { char -> char.isDigit() }) monto = it },
-                    label = { Text("Monto del prÃ©stamo (Gs.)*") },
+                    label = { Text("Monto del préstamo (Gs.)*") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -860,7 +860,7 @@ fun SimuladorCuotasModal(
                             val c = cuotas.toIntOrNull() ?: 0
                             val cp = cuotaPersonalizada.toLongOrNull() ?: (if (c > 0) m / c else 0L)
                             val prep = Obligacion(
-                                nombre = if (concepto.isNotBlank()) concepto else "PrÃ©stamo Simulado",
+                                nombre = if (concepto.isNotBlank()) concepto else "Préstamo Simulado",
                                 entidad = entidad,
                                 montoInicial = m,
                                 saldoActual = m,
@@ -873,7 +873,7 @@ fun SimuladorCuotasModal(
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("Crear como Nueva ObligaciÃ³n")
+                        Text("Crear como Nueva Obligación")
                     }
                 }
             }
@@ -998,9 +998,9 @@ fun VencimientoItemChip(
     }
 
     val statusText = when {
-        item.vencido -> "VenciÃ³"
+        item.vencido -> "Venció"
         item.diasRestantes == 0 -> "Hoy"
-        item.diasRestantes == 1 -> "MaÃ±ana"
+        item.diasRestantes == 1 -> "Mañana"
         else -> "En ${item.diasRestantes}d"
     }
 
@@ -1028,7 +1028,7 @@ fun VencimientoItemChip(
                     color = MaterialTheme.colorScheme.primaryContainer
                 ) {
                     Text(
-                        text = "DÃ­a ${item.diaVencimiento}",
+                        text = "Día ${item.diaVencimiento}",
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -1238,8 +1238,8 @@ fun CronogramaVencimientosPreview() {
                     ),
                     VencimientoCronogramaItem(
                         id = "2",
-                        nombre = "PrÃ©stamo Personal",
-                        entidad = "ItaÃº",
+                        nombre = "Préstamo Personal",
+                        entidad = "Itaú",
                         diaVencimiento = 18,
                         cuotaGs = 850000L,
                         saldoActual = 8500000L,
@@ -1291,7 +1291,7 @@ fun ObligacionItemPreview() {
             ObligacionItem(
                 obligacion = Obligacion(
                     id = "preview-1",
-                    nombre = "PrÃ©stamo Bancario",
+                    nombre = "Préstamo Bancario",
                     montoInicial = 10000000L,
                     saldoActual = 6500000L,
                     estado = "Activo",
@@ -1311,11 +1311,11 @@ fun ObligacionItemPreview() {
             ObligacionItem(
                 obligacion = Obligacion(
                     id = "preview-2",
-                    nombre = "PrÃ©stamo Cooperativa (Vencido)",
+                    nombre = "Préstamo Cooperativa (Vencido)",
                     montoInicial = 4000000L,
                     saldoActual = 2500000L,
                     estado = "Activo",
-                    entidad = "Coop. San CristÃ³bal",
+                    entidad = "Coop. San Cristóbal",
                     cuotaReferenciaGs = 450000L,
                     cuotasTotales = 10,
                     cuotasRestantes = 6,

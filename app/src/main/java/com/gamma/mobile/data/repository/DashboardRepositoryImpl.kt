@@ -26,10 +26,8 @@ class DashboardRepositoryImpl @Inject constructor(
     private val gson = Gson()
 
     override suspend fun getSummary(forceRefresh: Boolean): NetworkResult<DashboardSummary> {
-        return when (val base = getRemoteOrCachedSummary(forceRefresh)) {
-            is NetworkResult.Success -> NetworkResult.Success(aplicarMovimientosPendientes(base.data))
-            else -> base
-        }
+        // Priorizar siempre la verdad contable registrada en el backend
+        return getRemoteOrCachedSummary(forceRefresh)
     }
 
     /** Suma al resumen los movimientos locales aún no sincronizados (ver [DashboardSummaryCalculator]). */

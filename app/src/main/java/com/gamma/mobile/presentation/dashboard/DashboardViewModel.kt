@@ -78,11 +78,13 @@ class DashboardViewModel @Inject constructor(
             val avisosResult = avisoRepository.getAvisos(forceRefresh)
 
             if (summaryResult is NetworkResult.Success && avisosResult is NetworkResult.Success) {
-                // Determine if it's considered Empty
-                if (summaryResult.data.saldoAcumulado == 0L && summaryResult.data.margenLibreDisponible == 0L) {
+                val avisosUi = avisosResult.data.filterAndSortForDashboard(clock)
+                if (summaryResult.data.saldoAcumulado == 0L && 
+                    summaryResult.data.margenLibreDisponible == 0L && 
+                    avisosUi.isEmpty()
+                ) {
                     _uiState.value = DashboardUiState.Empty
                 } else {
-                    val avisosUi = avisosResult.data.filterAndSortForDashboard(clock)
                     _uiState.value = DashboardUiState.Success(summaryResult.data, avisosUi)
                 }
             } else if (!silent) {

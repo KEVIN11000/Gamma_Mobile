@@ -112,31 +112,34 @@ fun GammaApp() {
 
     Scaffold(
         bottomBar = {
-            if (currentScreen != Screen.NuevaTransaccion && currentScreen != Screen.SifenScanner) {
+            if (!currentScreen.isSecondary()) {
                 NavigationBar {
                     NavigationBarItem(
                         selected = currentScreen == Screen.Dashboard,
                         onClick = { navigateTo(Screen.Dashboard) },
                         icon = { Icon(Icons.Default.Home, contentDescription = "Dashboard") },
-                        label = { Text("Dashboard") }
+                        label = { Text("Dashboard", maxLines = 1, softWrap = false) }
                     )
                     NavigationBarItem(
                         selected = currentScreen == Screen.Transacciones,
                         onClick = { navigateTo(Screen.Transacciones) },
                         icon = { Icon(Icons.AutoMirrored.Filled.List, contentDescription = "Transacciones") },
-                        label = { Text("Diario") }
+                        label = { Text("Diario", maxLines = 1, softWrap = false) }
                     )
                     NavigationBarItem(
                         selected = currentScreen == Screen.Compromisos,
-                        onClick = { navigateTo(Screen.Compromisos) },
+                        onClick = { 
+                            compromisosTab = 0
+                            navigateTo(Screen.Compromisos) 
+                        },
                         icon = { Icon(Icons.Default.DateRange, contentDescription = "Compromisos") },
-                        label = { Text("Compromisos") }
+                        label = { Text("Compromisos", maxLines = 1, softWrap = false, style = MaterialTheme.typography.labelSmall) }
                     )
                     NavigationBarItem(
                         selected = currentScreen == Screen.Sistema,
                         onClick = { navigateTo(Screen.Sistema) },
                         icon = { Icon(Icons.Default.Settings, contentDescription = "Sistema") },
-                        label = { Text("Sistema") }
+                        label = { Text("Sistema", maxLines = 1, softWrap = false) }
                     )
                 }
             }

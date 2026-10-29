@@ -1,61 +1,70 @@
 # Traspaso Backend (Gamma Mobile -> Gamma_bot)
-## Saneamiento de Tickets, Período Dinámico de Horas y Metadatos de Planilla
+## Requerimientos de Backend para Estabilidad y Paridad con Gamma Mobile
 
-- **Fecha:** 28 de Octubre de 2026
-- **Origen:** Gamma Mobile (Flujo de Actualización In-App y Confirmación de Asistencia en Planilla)
-- **Destino:** Repositorio `Gamma_bot` (`E:\PG\vcp-s\Gamma_bot`) para desarrollo en sesión dedicada.
-- **Especificaciones Detalladas:**
-  - [requerimientos_gamma_bot_saneamiento_tickets.md](file:///e:/PG/vcp-s/GammaMobile/docs/specs/flujo-actualizacion-inapp/requerimientos_gamma_bot_saneamiento_tickets.md)
-  - [requerimientos_backend_asistencia.md](file:///e:/PG/vcp-s/GammaMobile/docs/specs/asistencia-confirmacion-planilla/requerimientos_backend_asistencia.md)
+- **Fecha:** 29 de Octubre de 2026
+- **Origen:** Gamma Mobile (Sesión de Remediación y Estabilidad `v0.0.12` / `remediacion-estabilidad-v012`)
+- **Destino:** Repositorio `Gamma_bot` (`E:\PG\vcp-s\Gamma_bot`) para desarrollo en su sesión dedicada.
+- **Principio:** Cero modificaciones en el backend durante la sesión de la app móvil; todos los requerimientos del servidor quedan formalizados en este documento.
 
 ---
 
-### Resumen Ejecutivo para la Sesión Dedicada de `Gamma_bot`
+### Módulo 1: Alineación de Contratos y Esquemas (Pydantic vs Mobile)
 
-Al iniciar la sesión en `Gamma_bot`, debes ejecutar las siguientes tareas atómicas:
+1. **Soporte de Alias `"tipo"` en `POST /api/v1/movimientos` (`src/api/schemas.py`)**:
+   - **Problema:** Android envía `"tipo": "Ingreso"`. `MovimientoCreate` solo reconoce `"movimiento"`, descartando `"tipo"` y asignando `TipoMovimiento.GASTO` por defecto. En consecuencia, todos los ingresos móviles se registran como gastos en Google Sheets.
+   - **Solución Requerida:** En `src/api/schemas.py`, configurar en `MovimientoCreate`:
+     ```python
+     movimiento: TipoMovimiento = Field(default=TipoMovimiento.GASTO, alias="tipo")
+     ```
+     O permitir tanto `tipo` como `movimiento` en el validador antes de crear la fila.
 
-#### Módulo 1: Saneamiento y Blindaje de Tickets
-1. **Saneamiento de Almacén de Tickets (`src/data/tickets.json`)**:
-   - Eliminar los 70 registros de prueba acumulados (`TCK-007` a `TCK-076`) generados por `pytest`.
-   - Conservar estrictamente los 6 tickets reales del historial (`TCK-001` a `TCK-006`), todos en estado `Cerrado`.
+2. **Desempaquetado de `deuda_foco` en `GET /api/v1/obligaciones/foco` (`src/api/blueprint.py`)**:
+   - **Problema:** El endpoint devuelve `{"criterio": "...", "deuda_foco": {...}}`, mientras que la app móvil consumía el DTO plano esperando los campos en la raíz.
+   - **Solución Requerida:** Mantener el objeto `deuda_foco` o exponer los campos planos en la raíz para garantizar compatibilidad con versiones previas.
 
-2. **Blindaje de Aislamiento en Pruebas Unitarias (`tests/test_mobile_api.py`)**:
-   - En la prueba `test_github_sync_resilience_and_circuit_breaker`, inyectar `monkeypatch` y `tmp_path` para apuntar `api.blueprint.TICKETS_FILE` a un archivo temporal `tmp_path / "tickets.json"`, evitando que `pytest` vuelva a escribir o mutar el archivo productivo `src/data/tickets.json`.
+3. **Paridad de Clave en IA y OCR (`src/logic/ai_service.py`)**:
+   - **Problema:** El servicio de IA retorna `"tipo_movimiento"`, mientras que la app móvil consume `"tipo"`.
+   - **Solución Requerida:** Retornar ambas claves (`datos["tipo"] = tipo` y `datos["tipo_movimiento"] = tipo`) en la respuesta JSON.
 
-3. **Verificación de Telemetría Vigía y `/health` (`src/api/blueprint.py`)**:
-   - Confirmar que `reportar_incidente_vigia()` maneje fallos de red hacia GitHub sin romper el flujo de creación de tickets locales ni emitir errores HTTP 500.
-   - Confirmar que `download_url` en `/health` apunte al repositorio oficial `https://github.com/KEVIN11000/Gamma_Mobile/releases/latest` con versión móvil `0.0.10`.
+---
 
-#### Módulo 2: Corrección de Hoja Activa y Confirmación en Planilla (`AgenteAutonomoHoras`)
-1. **Sincronización Dinámica de `periodo_actual.txt` (`src/logic/logic.py`)**:
-   - Causa raíz de falta de escritura en planilla visible: Si `periodo_actual.txt` tenía un período desactualizado (ej. `"Mayo 2026"`), el bot escribía en esa hoja antigua dejando el mes actual (`"Octubre 2026"`) vacío a pesar de responder 200 OK.
-   - En la propiedad `ws` de `AgenteAutonomoHoras`, calcular el período calendario corriente (`f"{mes_espanol} {ano}"` con `get_now_py()`) y sincronizar automáticamente `periodo_actual.txt` si difiere, asegurando que `self.wb.worksheet(...)` apunte siempre a la hoja del mes en curso.
+### Módulo 2: Respuestas Informativas y Códigos HTTP
 
-2. **Retorno Enriquecido de Metadatos (`src/api/blueprint.py` y `src/logic/logic.py`)**:
-   - En `POST /api/v1/asistencia/marcar`, retornar en el JSON:
+1. **Marcación Laboral Informativa en `POST /api/v1/asistencia/marcar` (`src/api/blueprint.py`)**:
+   - **Problema:** Cuando `AgenteAutonomoHoras` retorna `"ℹ️ Ya registraste tu entrada hoy"`, el endpoint devuelve `HTTP 400 Bad Request`, provocando que la app móvil muestre una alerta de error crítico.
+   - **Solución Requerida:** Responder con `HTTP 200 OK` y payload estructurado:
      ```json
      {
-       "tipo": "entrada",
-       "hora": "08:30",
-       "mensaje": "✅ Entrada registrado a las 08:30.",
-       "planilla": "Octubre 2026",
-       "fila": 24,
+       "tipo": "info",
+       "mensaje": "ℹ️ Ya registraste tu entrada hoy a las HH:mm",
        "confirmado_en_planilla": true
      }
      ```
-   - Permitir que Gamma Mobile confirme al usuario con certeza si la marcación fue impactada en la hoja de cálculo y dispare la notificación nativa.
+
+2. **Invalidación Reactiva de Caché (`src/repositories/sheets_repository.py`)**:
+   - **Problema:** `_sheets_cache` tiene un TTL de 180 segundos. Tras registrar transacciones desde la app, `GET /dashboard/summary` sigue retornando el balance antiguo durante 3 minutos.
+   - **Solución Requerida:** Llamar a `_sheets_cache.clear()` al insertar movimientos en `POST /api/v1/movimientos`.
+
+3. **Cálculo de Analíticas MTD y Devengado Laboral (`src/logic/logic.py`)**:
+   - **Problema:** El devengado de horas y salario computa días con sólo marcación de entrada como si fueran jornadas completas.
+   - **Solución Requerida:** En `AgenteAutonomoHoras.obtener_analiticas_horas()`, condicionar el cálculo de horas trabajadas y salario devengado acumulado a que el día tenga registrada su salida efectiva.
 
 ---
 
-### Comandos de Validación en la Sesión de `Gamma_bot`
+### Módulo 3: Ejecución Real de Cierres Contables
 
-```bash
-# 1. Ejecutar tests con aislamiento de tickets y marcación
-pytest tests/test_mobile_api.py -v
+1. **Reemplazo de Stub en `POST /api/v1/cierres/ejecutar` (`src/api/blueprint.py`)**:
+   - **Problema:** El endpoint genera un PDF sintético con ReportLab hardcodeando 160h y 4.5M Gs sin interactuar con Google Sheets ni ejecutar `execute_monthly_closing()`.
+   - **Solución Requerida:** Integrar la llamada real a `agente_excel.ejecutar_cierre_periodo_manual()` o `execute_monthly_closing()`.
 
-# 2. Confirmar que tickets.json se mantiene intacto
-git status src/data/tickets.json
+2. **Sincronización de Cierres Laborales en Historial (`src/api/blueprint.py`)**:
+   - **Problema:** No existe un endpoint que liste los cierres laborales archivados en Google Sheets para que la app móvil los consulte.
+   - **Solución Requerida:** Implementar `GET /api/v1/asistencia/cierres` retornando la lista de períodos laborales cerrados y sus PDFs.
 
-# 3. Linter
-flake8 src/api/blueprint.py tests/test_mobile_api.py
-```
+---
+
+### Módulo 4: Deduplicación e Idempotencia
+
+1. **Recepción de `clientId` o `id` en `POST /api/v1/movimientos` (`src/api/blueprint.py`)**:
+   - **Problema:** Si ocurre un timeout de red tras escribir en Google Sheets, el Worker de Android reintenta y duplica el asiento contable en la planilla.
+   - **Solución Requerida:** Verificar si el `client_id` recibido en el header `X-Client-Id` o en el cuerpo ya fue registrado en las últimas 24 horas antes de hacer `append_row()`.

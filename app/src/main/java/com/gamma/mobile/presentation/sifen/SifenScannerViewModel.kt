@@ -131,4 +131,9 @@ class SifenScannerViewModel @Inject constructor(
     fun clearError() {
         _uiState.update { it.copy(errorMessage = null) }
     }
+
+    fun resetState() {
+        lastScannedCode = null
+        _uiState.value = SifenScannerUiState()
+    }
 }

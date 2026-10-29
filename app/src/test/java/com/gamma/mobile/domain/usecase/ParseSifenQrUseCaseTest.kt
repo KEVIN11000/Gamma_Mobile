@@ -89,4 +89,18 @@ class ParseSifenQrUseCaseTest {
         val resultShortCdc = useCase("1234567890")
         assertTrue(resultShortCdc.isFailure)
     }
+
+    @Test
+    fun parseUrlWithThousandsSeparator_preservesFullGuaraniesAmount() {
+        val cdc = "01080012345001001000123412026101411234567895"
+        val url = "https://ekuatia.set.gov.py/consultas/qr?Id=$cdc&dTotGralOpe=150.000&dTotIVA=13.636"
+
+        val result = useCase(url)
+
+        assertTrue(result.isSuccess)
+        val data = result.getOrNull()
+        // No debe dividirse por 1.000: 150.000 Gs debe ser 150000L, no 150L
+        assertEquals(150000L, data?.total)
+        assertEquals(13636L, data?.iva10)
+    }
 }

@@ -101,10 +101,10 @@ data class Obligacion(
     val observaciones: String = ""
 ) {
     val esActiva: Boolean
-        get() = estado.trim().lowercase() in listOf("activo", "activa") && saldoActual > 0L
+        get() = !esSimulada && !esPausada && saldoActual > 0L
 
     val esSaldada: Boolean
-        get() = estado.trim().lowercase() in listOf("saldado", "saldada", "pagado", "pagada") || saldoActual <= 0L
+        get() = !esSimulada && saldoActual <= 0L
 
     val esSimulada: Boolean
         get() = estado.trim().lowercase() in listOf("simulado", "simulada")

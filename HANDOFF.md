@@ -45,10 +45,10 @@
 
 ## 4. Pendientes explícitos para la próxima fase
 
-- [ ] Presentar Gate de Autorización de Despliegue al usuario.
-- [ ] Con autorización explícita del usuario, ejecutar staging individual con `git add <archivos>` y commit de versión `0.0.13`.
-- [ ] Realizar `git push origin main` previa instrucción textual del usuario para disparar el pipeline de release oficial en GitHub Actions.
-- [ ] Validar en dispositivo físico la sincronización de clima y flujo de caja con el backend de producción.
+- [ ] Descargar e instalar el APK Release `v0.0.13` en el dispositivo físico de producción (HONOR Magic6 Lite).
+- [ ] Validar en vivo la sincronización con el backend v2 (`kevin11000.pythonanywhere.com`): hidratación bootstrap, clima y proyección de flujo de caja 30D.
+- [ ] Probar en dispositivo el botón "⚡ Rápido (NLP)" en `NuevaTransaccionScreen` con transacciones reales en guaraníes.
+- [ ] Verificar el autocompletado de Razón Social por RUC en el escáner KuDE SIFEN contra la base unificada.
 
 ## 5. Riesgos / deuda técnica conocida
 

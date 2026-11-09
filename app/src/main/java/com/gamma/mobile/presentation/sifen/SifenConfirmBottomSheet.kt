@@ -17,6 +17,7 @@ import com.gamma.mobile.utils.formatGuaranies
 fun SifenConfirmBottomSheet(
     invoice: SifenInvoiceData,
     isSaving: Boolean,
+    razonSocial: String? = null,
     onConfirm: (categoria: String) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -50,6 +51,9 @@ fun SifenConfirmBottomSheet(
                     modifier = Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    if (!razonSocial.isNullOrBlank()) {
+                        DetailRow(label = "Razón Social", value = razonSocial, isHighlight = true)
+                    }
                     DetailRow(label = "RUC Emisor", value = invoice.rucEmisor)
                     DetailRow(label = "Nro. Factura", value = invoice.nroFactura)
                     DetailRow(label = "Fecha", value = invoice.fechaEmision)

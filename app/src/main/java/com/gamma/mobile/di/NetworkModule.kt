@@ -27,17 +27,60 @@ object NetworkModule {
 
     @Provides
     @Singleton
+    fun provideIdempotencyInterceptor(): com.gamma.mobile.data.remote.IdempotencyInterceptor {
+        return com.gamma.mobile.data.remote.IdempotencyInterceptor()
+    }
+
+    @Provides
+    @Singleton
+    fun provideRateLimitInterceptor(): com.gamma.mobile.data.remote.RateLimitInterceptor {
+        return com.gamma.mobile.data.remote.RateLimitInterceptor()
+    }
+
+    @Provides
+    @Singleton
+    fun providePayloadSizeGuardInterceptor(): com.gamma.mobile.data.remote.PayloadSizeGuardInterceptor {
+        return com.gamma.mobile.data.remote.PayloadSizeGuardInterceptor()
+    }
+
+    @Provides
+    @Singleton
     fun provideOkHttpClient(
         apiKeyInterceptor: ApiKeyInterceptor,
-        dynamicBaseUrlInterceptor: com.gamma.mobile.data.remote.DynamicBaseUrlInterceptor
+        dynamicBaseUrlInterceptor: com.gamma.mobile.data.remote.DynamicBaseUrlInterceptor,
+        idempotencyInterceptor: com.gamma.mobile.data.remote.IdempotencyInterceptor,
+        rateLimitInterceptor: com.gamma.mobile.data.remote.RateLimitInterceptor,
+        payloadSizeGuardInterceptor: com.gamma.mobile.data.remote.PayloadSizeGuardInterceptor
     ): OkHttpClient {
-        return OkHttpClient.Builder()
+        val builder = OkHttpClient.Builder()
             .addInterceptor(dynamicBaseUrlInterceptor)
             .addInterceptor(apiKeyInterceptor)
+            .addInterceptor(idempotencyInterceptor)
+            .addInterceptor(payloadSizeGuardInterceptor)
+            .addInterceptor(rateLimitInterceptor)
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(45, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
-            .build()
+
+        if (com.gamma.mobile.BuildConfig.DEBUG) {
+            builder.addInterceptor { chain ->
+                val request = chain.request()
+                val url = request.url().toString()
+                android.util.Log.d("GammaNetwork", "--> ${request.method()} $url")
+                val startNs = System.nanoTime()
+                try {
+                    val response = chain.proceed(request)
+                    val tookMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNs)
+                    android.util.Log.d("GammaNetwork", "<-- ${response.code()} (${tookMs}ms) $url")
+                    response
+                } catch (e: Exception) {
+                    android.util.Log.e("GammaNetwork", "<-- FAILED: $url - ${e.message}")
+                    throw e
+                }
+            }
+        }
+
+        return builder.build()
     }
 
     @Provides

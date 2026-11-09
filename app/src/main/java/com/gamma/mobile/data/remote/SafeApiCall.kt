@@ -1,5 +1,6 @@
 package com.gamma.mobile.data.remote
 
+import com.gamma.mobile.utils.AppLogBuffer
 import com.google.gson.JsonParser
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
@@ -49,12 +50,15 @@ suspend fun <T> safeApiCall(
                 } catch (e: Exception) {
                     response.message()
                 }
+                val finalError = if (errorMsg.isNullOrBlank()) response.message() else errorMsg
+                AppLogBuffer.warn("HTTP ${response.code()}: $finalError")
                 NetworkResult.Error(
                     response.code(),
-                    if (errorMsg.isNullOrBlank()) response.message() else errorMsg
+                    finalError
                 )
             }
         } catch (e: Exception) {
+            AppLogBuffer.error("Fallo de red (${e.javaClass.simpleName}): ${e.message ?: e.localizedMessage}")
             NetworkResult.Exception(e)
         }
     }

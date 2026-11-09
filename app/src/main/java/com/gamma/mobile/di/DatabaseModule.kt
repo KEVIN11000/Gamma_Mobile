@@ -5,7 +5,9 @@ import androidx.room.Room
 import com.gamma.mobile.data.local.GammaDatabase
 import com.gamma.mobile.data.local.dao.AvisoDao
 import com.gamma.mobile.data.local.dao.CierreDao
+import com.gamma.mobile.data.local.dao.ClimaDao
 import com.gamma.mobile.data.local.dao.EscenarioCapacidadDao
+import com.gamma.mobile.data.local.dao.FlujoCajaDao
 import com.gamma.mobile.data.local.dao.MovimientoDao
 import com.gamma.mobile.data.local.dao.ObligacionDao
 import com.gamma.mobile.data.local.dao.SyncStateDao
@@ -28,7 +30,7 @@ object DatabaseModule {
             GammaDatabase::class.java,
             "gamma_database"
         )
-        .addMigrations(GammaDatabase.MIGRATION_3_4, GammaDatabase.MIGRATION_4_5)
+        .addMigrations(GammaDatabase.MIGRATION_3_4, GammaDatabase.MIGRATION_4_5, GammaDatabase.MIGRATION_5_6)
         .fallbackToDestructiveMigration()
         .build()
     }
@@ -50,4 +52,10 @@ object DatabaseModule {
 
     @Provides
     fun provideEscenarioCapacidadDao(db: GammaDatabase): EscenarioCapacidadDao = db.escenarioCapacidadDao()
+
+    @Provides
+    fun provideFlujoCajaDao(db: GammaDatabase): FlujoCajaDao = db.flujoCajaDao()
+
+    @Provides
+    fun provideClimaDao(db: GammaDatabase): ClimaDao = db.climaDao()
 }

@@ -6,6 +6,7 @@ import com.gamma.mobile.data.remote.NetworkResult
 import com.gamma.mobile.domain.model.Movimiento
 import com.gamma.mobile.domain.model.SifenInvoiceData
 import com.gamma.mobile.domain.repository.MovimientoRepository
+import com.gamma.mobile.domain.usecase.ConsultarRucSifenUseCase
 import com.gamma.mobile.domain.usecase.ParseSifenQrUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,6 +19,7 @@ import javax.inject.Inject
 
 data class SifenScannerUiState(
     val scannedInvoice: SifenInvoiceData? = null,
+    val razonSocial: String? = null,
     val isScanning: Boolean = true,
     val isSaving: Boolean = false,
     val isSaved: Boolean = false,
@@ -27,8 +29,15 @@ data class SifenScannerUiState(
 @HiltViewModel
 class SifenScannerViewModel @Inject constructor(
     private val parseSifenQrUseCase: ParseSifenQrUseCase,
-    private val movimientoRepository: MovimientoRepository
+    private val movimientoRepository: MovimientoRepository,
+    private val consultarRucSifenUseCase: ConsultarRucSifenUseCase? = null
 ) : ViewModel() {
+
+    // Constructor secundario para compatibilidad
+    constructor(
+        parseSifenQrUseCase: ParseSifenQrUseCase,
+        movimientoRepository: MovimientoRepository
+    ) : this(parseSifenQrUseCase, movimientoRepository, null)
 
     private val _uiState = MutableStateFlow(SifenScannerUiState())
     val uiState: StateFlow<SifenScannerUiState> = _uiState.asStateFlow()
@@ -48,6 +57,19 @@ class SifenScannerViewModel @Inject constructor(
                     isScanning = false,
                     errorMessage = null
                 )
+            }
+            val useCase = consultarRucSifenUseCase
+            if (useCase != null && invoice.rucEmisor.isNotBlank()) {
+                viewModelScope.launch {
+                    when (val rucResult = useCase(invoice.rucEmisor)) {
+                        is NetworkResult.Success -> {
+                            if (rucResult.data.razonSocial.isNotBlank()) {
+                                _uiState.update { it.copy(razonSocial = rucResult.data.razonSocial) }
+                            }
+                        }
+                        else -> { /* Preservar RUC como fallback */ }
+                    }
+                }
             }
         }.onFailure { error ->
             _uiState.update {
@@ -70,7 +92,7 @@ class SifenScannerViewModel @Inject constructor(
                 categoria
             }
 
-            val proveedor = invoice.rucEmisor.ifBlank { "DNIT SIFEN" }
+            val proveedor = _uiState.value.razonSocial?.ifBlank { invoice.rucEmisor } ?: invoice.rucEmisor.ifBlank { "DNIT SIFEN" }
             val nroFac = invoice.nroFactura.ifBlank { "S/N" }
             val tasaIvaFinal = if (invoice.iva5 > 0 && invoice.iva10 == 0L) "5%" else if (invoice.iva10 > 0) "10%" else "Exento"
 
@@ -122,6 +144,7 @@ class SifenScannerViewModel @Inject constructor(
         _uiState.update {
             it.copy(
                 scannedInvoice = null,
+                razonSocial = null,
                 isScanning = true,
                 errorMessage = null
             )

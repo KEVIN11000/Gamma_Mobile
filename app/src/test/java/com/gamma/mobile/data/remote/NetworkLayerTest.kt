@@ -129,4 +129,98 @@ class NetworkLayerTest {
         assertTrue(result is NetworkResult.Exception)
         assertTrue((result as NetworkResult.Exception).e is SocketTimeoutException)
     }
+
+    @Test
+    fun `test getBootstrap endpoint maps correctly via Retrofit`() = runTest {
+        mockWebServer.enqueue(
+            MockResponse()
+                .setResponseCode(200)
+                .setBody("""
+                    {
+                        "status": "ok",
+                        "summary": {
+                            "margen_libre": 2000000,
+                            "saldo_acumulado": 1500000,
+                            "posicion_iva": 0,
+                            "es_debito_fiscal": false
+                        },
+                        "periodo_actual": "Noviembre 2026"
+                    }
+                """.trimIndent())
+        )
+
+        val result = safeApiCall(testDispatcher) { api.getBootstrap() }
+        assertTrue(result is NetworkResult.Success)
+        val data = (result as NetworkResult.Success).data
+        assertEquals("ok", data.status)
+        assertEquals(2000000L, data.summary?.margenLibreDisponible)
+        assertEquals("Noviembre 2026", data.periodoActual)
+
+        val request = mockWebServer.takeRequest()
+        assertEquals("/bootstrap", request.path)
+        assertEquals("GET", request.method)
+    }
+
+    @Test
+    fun `test parseMovimientoNlp endpoint posts body and maps response`() = runTest {
+        mockWebServer.enqueue(
+            MockResponse()
+                .setResponseCode(200)
+                .setBody("""
+                    {
+                        "valido": true,
+                        "monto": 85000,
+                        "tipo_movimiento": "Gasto",
+                        "categoria": "Supermercado",
+                        "proveedor_cliente": "Stock"
+                    }
+                """.trimIndent())
+        )
+
+        val req = com.gamma.mobile.data.remote.dto.ParseMovementRequestDto("Gasto 85000 en Stock")
+        val result = safeApiCall(testDispatcher) { api.parseMovimientoNlp(req) }
+        assertTrue(result is NetworkResult.Success)
+        val data = (result as NetworkResult.Success).data
+        assertEquals(85000L, data.monto)
+        assertEquals("Stock", data.proveedorCliente)
+
+        val request = mockWebServer.takeRequest()
+        assertEquals("/movimientos/parse", request.path)
+        assertEquals("POST", request.method)
+        assertTrue(request.body.readUtf8().contains("Gasto 85000 en Stock"))
+    }
+
+    @Test
+    fun `test getClima and consultarRucSifen endpoints`() = runTest {
+        mockWebServer.enqueue(
+            MockResponse()
+                .setResponseCode(200)
+                .setBody("""
+                    {
+                        "temperatura_actual": 29.0,
+                        "condicion": "Soleado",
+                        "alerta_paraguas": { "activar": false, "probabilidad_lluvia": 10, "motivo": "Sin lluvia" }
+                    }
+                """.trimIndent())
+        )
+        val climaRes = safeApiCall(testDispatcher) { api.getClima() }
+        assertTrue(climaRes is NetworkResult.Success)
+        assertEquals(29.0, (climaRes as NetworkResult.Success).data.temperaturaActual, 0.1)
+
+        mockWebServer.enqueue(
+            MockResponse()
+                .setResponseCode(200)
+                .setBody("""
+                    {
+                        "ruc": "80001111-2",
+                        "razon_social": "Petrobras Paraguay"
+                    }
+                """.trimIndent())
+        )
+        val sifenRes = safeApiCall(testDispatcher) { 
+            api.consultarRucSifen(com.gamma.mobile.data.remote.dto.SifenRucRequestDto("80001111-2")) 
+        }
+        assertTrue(sifenRes is NetworkResult.Success)
+        assertEquals("Petrobras Paraguay", (sifenRes as NetworkResult.Success).data.razonSocial)
+    }
 }

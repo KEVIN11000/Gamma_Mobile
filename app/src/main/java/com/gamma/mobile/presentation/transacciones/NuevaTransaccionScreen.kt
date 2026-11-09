@@ -15,6 +15,8 @@ import androidx.compose.ui.platform.LocalContext
 import android.net.Uri
 import androidx.core.content.FileProvider
 import java.io.File
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -101,6 +103,11 @@ fun NuevaTransaccionScreen(
                             viewModel.interpretarTextoIa(frase) {
                                 selectedTabIndex = 3 // Transición automática al formulario manual
                             }
+                        },
+                        onProcessNlp = { frase ->
+                            viewModel.interpretarTextoNlp(frase) {
+                                selectedTabIndex = 3 // Transición automática al formulario manual
+                            }
                         }
                     )
                     1 -> {
@@ -161,7 +168,8 @@ fun NuevaTransaccionScreen(
 @Composable
 fun CargaAsistidaIA(
     isLoading: Boolean = false,
-    onProcessIA: (String) -> Unit
+    onProcessIA: (String) -> Unit,
+    onProcessNlp: (String) -> Unit = {}
 ) {
     var frase by remember { mutableStateOf("") }
 
@@ -172,31 +180,64 @@ fun CargaAsistidaIA(
             label = { Text("Describe el gasto o ingreso...") },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(150.dp),
+                .height(140.dp),
             maxLines = 5,
             enabled = !isLoading
         )
         Spacer(modifier = Modifier.height(16.dp))
-        Button(
-            onClick = { onProcessIA(frase) },
+
+        Row(
             modifier = Modifier.fillMaxWidth(),
-            enabled = !isLoading && frase.isNotBlank()
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            if (isLoading) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(20.dp),
-                    color = MaterialTheme.colorScheme.onPrimary,
-                    strokeWidth = 2.dp
+            Button(
+                onClick = { onProcessNlp(frase) },
+                modifier = Modifier.weight(1f),
+                enabled = !isLoading && frase.isNotBlank(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.secondary,
+                    contentColor = MaterialTheme.colorScheme.onSecondary
                 )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Interpretando con IA...")
-            } else {
-                Text("Interpretar con IA")
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        color = MaterialTheme.colorScheme.onSecondary,
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Parseando...", maxLines = 1)
+                } else {
+                    Icon(Icons.Default.Bolt, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Rápido (NLP)", maxLines = 1)
+                }
+            }
+
+            Button(
+                onClick = { onProcessIA(frase) },
+                modifier = Modifier.weight(1f),
+                enabled = !isLoading && frase.isNotBlank()
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Analizando...", maxLines = 1)
+                } else {
+                    Icon(Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Gemini IA", maxLines = 1)
+                }
             }
         }
+
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            text = "Ejemplo: Compré repuestos por 250000 con factura crédito fiscal",
+            text = "⚡ Rápido (NLP): Parser determinista local (< 50 ms).\n✨ Gemini IA: Análisis semántico exhaustivo con LLM.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -263,6 +304,15 @@ fun CargaManual(viewModel: NuevaTransaccionViewModel, uiState: NuevaTransaccionU
             onValueChange = { viewModel.updateTotal(it) },
             label = { Text("Monto Total (IVA Incluido, ₲)") },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        // Proveedor o Razón Social (precargado automáticamente por NLP o SIFEN)
+        OutlinedTextField(
+            value = uiState.proveedorCliente,
+            onValueChange = { viewModel.updateProveedorCliente(it) },
+            label = { Text("Proveedor o Razón Social") },
+            placeholder = { Text("Ej. Shell, Petropar, Superseis") },
             modifier = Modifier.fillMaxWidth()
         )
 

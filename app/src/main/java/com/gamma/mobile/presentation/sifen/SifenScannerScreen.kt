@@ -189,6 +189,7 @@ fun SifenScannerScreen(
                 SifenConfirmBottomSheet(
                     invoice = uiState.scannedInvoice!!,
                     isSaving = uiState.isSaving,
+                    razonSocial = uiState.razonSocial,
                     onConfirm = { categoria -> viewModel.confirmInvoice(categoria) },
                     onDismiss = { viewModel.dismissInvoice() }
                 )

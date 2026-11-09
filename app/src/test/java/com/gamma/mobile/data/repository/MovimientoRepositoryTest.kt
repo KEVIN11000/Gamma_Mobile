@@ -156,6 +156,13 @@ class FakeApiForRepo : GammaApi {
     override suspend fun getAnaliticas(hoja: String?): Response<com.gamma.mobile.domain.model.AnaliticasHorasResponse> = throw NotImplementedError()
     override suspend fun descargarReporteExcel(hoja: String?, descuento: Double, saldoAnterior: Double, incluirIva: Boolean): Response<okhttp3.ResponseBody> = throw NotImplementedError()
     override suspend fun descargarReportePdfAsistencia(hoja: String?, descuento: Double, saldoAnterior: Double, incluirIva: Boolean): Response<okhttp3.ResponseBody> = throw NotImplementedError()
+    override suspend fun getBootstrap(): Response<com.gamma.mobile.data.remote.dto.BootstrapResponseDto> = throw NotImplementedError()
+    override suspend fun getFlujoCaja(saldoInicial: Long?, gastoDiario: Long?, umbralReserva: Long?): Response<com.gamma.mobile.data.remote.dto.FlujoCajaResponseDto> = throw NotImplementedError()
+    override suspend fun parseMovimientoNlp(request: com.gamma.mobile.data.remote.dto.ParseMovementRequestDto): Response<com.gamma.mobile.data.remote.dto.ParsedMovementDto> = throw NotImplementedError()
+    override suspend fun getClima(): Response<com.gamma.mobile.data.remote.dto.ClimaResponseDto> = throw NotImplementedError()
+    override suspend fun registrarDispositivo(request: com.gamma.mobile.data.remote.dto.DispositivoCreateDto): Response<com.gamma.mobile.data.remote.dto.DispositivoResponseDto> = throw NotImplementedError()
+    override suspend fun consultarRucSifen(request: com.gamma.mobile.data.remote.dto.SifenRucRequestDto): Response<com.gamma.mobile.data.remote.dto.SifenRucResponseDto> = throw NotImplementedError()
+    override suspend fun getMovimientosDelta(since: String): Response<List<Movimiento>> = throw NotImplementedError()
 }
 
 class FakeMovimientoDao : MovimientoDao {

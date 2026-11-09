@@ -73,6 +73,24 @@ abstract class AppModule {
         impl: com.gamma.mobile.data.repository.EscenarioCapacidadRepositoryImpl
     ): com.gamma.mobile.domain.repository.EscenarioCapacidadRepository
 
+    @Binds
+    @Singleton
+    abstract fun bindBootstrapRepository(
+        impl: com.gamma.mobile.data.repository.BootstrapRepositoryImpl
+    ): com.gamma.mobile.domain.repository.BootstrapRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindFlujoCajaRepository(
+        impl: com.gamma.mobile.data.repository.FlujoCajaRepositoryImpl
+    ): com.gamma.mobile.domain.repository.FlujoCajaRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindClimaRepository(
+        impl: com.gamma.mobile.data.repository.ClimaRepositoryImpl
+    ): com.gamma.mobile.domain.repository.ClimaRepository
+
     companion object {
         @Provides
         @Singleton

@@ -1,5 +1,14 @@
 package com.gamma.mobile.data.remote
 
+import com.gamma.mobile.data.remote.dto.BootstrapResponseDto
+import com.gamma.mobile.data.remote.dto.ClimaResponseDto
+import com.gamma.mobile.data.remote.dto.DispositivoCreateDto
+import com.gamma.mobile.data.remote.dto.DispositivoResponseDto
+import com.gamma.mobile.data.remote.dto.FlujoCajaResponseDto
+import com.gamma.mobile.data.remote.dto.ParseMovementRequestDto
+import com.gamma.mobile.data.remote.dto.ParsedMovementDto
+import com.gamma.mobile.data.remote.dto.SifenRucRequestDto
+import com.gamma.mobile.data.remote.dto.SifenRucResponseDto
 import com.gamma.mobile.domain.model.Aviso
 import com.gamma.mobile.domain.model.DashboardSummary
 import com.gamma.mobile.domain.model.Movimiento
@@ -151,5 +160,38 @@ interface GammaApi {
 
     @GET("sistema/logs")
     suspend fun getLogs(): Response<List<com.gamma.mobile.domain.model.LogEntry>>
+
+    @GET("bootstrap")
+    suspend fun getBootstrap(): Response<BootstrapResponseDto>
+
+    @GET("proyecciones/flujo-caja")
+    suspend fun getFlujoCaja(
+        @Query("saldo_inicial") saldoInicial: Long? = null,
+        @Query("gasto_diario") gastoDiario: Long? = null,
+        @Query("umbral_reserva") umbralReserva: Long? = null
+    ): Response<FlujoCajaResponseDto>
+
+    @POST("movimientos/parse")
+    suspend fun parseMovimientoNlp(
+        @Body request: ParseMovementRequestDto
+    ): Response<ParsedMovementDto>
+
+    @GET("clima")
+    suspend fun getClima(): Response<ClimaResponseDto>
+
+    @POST("dispositivos/registrar")
+    suspend fun registrarDispositivo(
+        @Body request: DispositivoCreateDto
+    ): Response<DispositivoResponseDto>
+
+    @POST("sifen/consultar-ruc")
+    suspend fun consultarRucSifen(
+        @Body request: SifenRucRequestDto
+    ): Response<SifenRucResponseDto>
+
+    @GET("movimientos")
+    suspend fun getMovimientosDelta(
+        @Query("since") since: String
+    ): Response<List<Movimiento>>
 }
 

@@ -1,62 +1,69 @@
 # HANDOFF — Gamma Mobile
 
-**Fase / Parche cerrado:** v0.0.12-pre — Normalización Defensiva de Deudas, Operatividad de Deuda Foco, Ajuste Ergonómico de Proyector y Formato Monolínea
-**Fecha de cierre:** 2026-10-29
-**Estado del build/tests:** ✅ PASANDO — 220 tests unitarios completados con éxito (`./gradlew testDebugUnitTest` BUILD SUCCESSFUL). Compilación local del APK (`assembleDebug`) completada en 33s e instalada/verificada en el dispositivo físico vía Wi-Fi ADB.
-**Estado de Git:** ✅ Árbol limpio en rama `main` (Commit `79bf46a`: *fix(deudas): resolver clasificacion de deudas, operatividad de deuda foco, boton de proyector y formateo de importes*).
+**Fase cerrada:** Backend v2 Integración Global (v0.0.13-backend-v2-integracion-global)
+**Fecha de cierre:** 2026-11-09
+**Estado del build/tests:** ✅ pasando — Suite completa de pruebas unitarias (`.\gradlew.bat testDebugUnitTest`) y `assembleRelease` completados con éxito.
 
 ---
 
-## 1. Estado actual y mejoras verificadas en dispositivo físico
+## 1. Estado actual
 
-- **Clasificación y recuperación de deudas en pestañas:**
-  - Se implementó normalización defensiva (`estadoReal`, `cuotaReal`, `saldoReal`, `cuotaDesdeEstado`, `cuotaDesdeEntidad`).
-  - Verificado en pantalla: la pestaña **`Activas`** ahora muestra las deudas con estado activo (ej. *"Un par de cubiertas Michelin"*), cuotas reales sin inflación y montos limpios.
-- **Estrategia y Deuda Foco funcional:**
-  - Se eliminó el texto corrupto (*mojibake* `â „ï¸ Bola de Nieve` y `Avalancha` truncada), reemplazándolos con iconos nativos Compose (`AcUnit` y `Bolt`).
-  - Chips organizados en fila horizontal simétrica con `Modifier.weight(1f)`.
-  - La cuota muestra el valor real (`400.000 ₲` en lugar del valor inflado de 16M).
-  - Los botones de acción (**"Abonar Cuota"** y **"Pausar este mes"**) ahora resuelven la obligación de forma global sobre `todasLasObligaciones`, abriendo el modal de abono sin importar qué pestaña de filtro esté activa.
-- **Proyector de Capacidad de Pago:**
-  - Se corrigió el botón `+ Gasto` en *Gastos Adicionales / Imprevistos* agregando `weight(1f)` a la columna de texto. Se verificó visualmente que el botón se renderiza completo, horizontal y ergonómico.
-- **Diario de Transacciones:**
-  - El importe (ej. `1.431.300 ₲`) ya no se quiebra en dos líneas gracias a `softWrap = false, maxLines = 1` y `weight(1f)`.
-- **Diagnóstico de Balance Actual Inflado (Backend):**
-  - Se ubicó la duplicación del 200% del `saldo_inicial` entre `financiero.py:407` y `blueprint.py:105` del backend Python (`Gamma_bot`). Todo el detalle de corrección quedó registrado en `HANDOFF-backend.md` (Módulo 6).
-
----
+- **Hidratación Global Atómica (Bootstrap):** Consumo del endpoint `GET /api/v1/bootstrap` implementado en `BootstrapRepositoryImpl`, hidratando de forma atómica y no destructiva el resumen financiero, avisos y periodo contable en `DashboardViewModel`.
+- **Proyección de Flujo de Caja 30D y Clima Offline-First:** Persistencia en Room (Database v6 con `MIGRATION_5_6`) con tablas `flujo_caja` y `clima_cache`. Componentes `ClimaHeaderWidget` (con alerta de paraguas $\ge 35\%$) y `FlujoCajaCard` (semáforo de liquidez con días críticos y proyección de 30 días) integrados en `DashboardScreen`.
+- **Inteligencia Financiera Híbrida (NLP Backend v2 + Gemini On-Device):** Botón dual en `NuevaTransaccionScreen` ("⚡ Rápido (NLP)" vía `POST /api/v1/movimientos/parse-nlp` y "✨ Gemini IA" vía on-device).
+- **Integración SIFEN KuDE:** Resolución y autocompletado de Razón Social de proveedores a partir de RUC (`POST /api/v1/sifen/consultar-ruc`) en `NuevaTransaccionViewModel`, `SifenScannerViewModel` y `SifenConfirmBottomSheet`.
+- **Resiliencia e Idempotencia de Red:** Interceptores OkHttp `IdempotencyInterceptor` (`X-Client-Id` único por sesión), `RateLimitInterceptor` (gestión de 429 con `Retry-After`) y `PayloadSizeGuardInterceptor` (prevención de desbordamiento >64KB).
+- **Invariantes Arquitecturales:** Preservación estricta de invariantes `[#INV-01]` a `[#INV-07]` de `docs/SYSTEM_MAP.md` (montos enteros `Long` en Guaraníes `formatGuaranies()`, no destructive loading, resolución local offline-first).
 
 ## 2. Decisiones tomadas en esta fase
 
-- **Decisión:** Autoridad primaria al estado (`estadoReal`) y tolerancia a desfasaje de columnas en el cliente móvil.
-  **Por qué:** Mientras las planillas de Google Sheets o el backend contengan columnas desfasadas, la app móvil no debe colapsar ni clasificar erróneamente todas las deudas como saldadas.
-- **Decisión:** Iconos vectoriales de Compose (`Icons.Default.AcUnit` e `Icons.Default.Bolt`) para estrategias de pago.
-  **Por qué:** Elimina cualquier riesgo de corrupción de caracteres o codificación UTF-8 entre distintas plataformas o versiones de Android.
-- **Decisión:** Resolución desacoplada en `onAbonarClick` buscando en `todasLasObligaciones` (con fallback de ID y nombre).
-  **Por qué:** La Deuda Foco puede ser activa mientras la UI está en la pestaña `Saldadas` o `Pausadas`; el modal de pago debe funcionar en todo momento.
+- **Decisión:** Mantener arquitectura de parsing dual en `NuevaTransaccionScreen` (NLP Backend v2 + Gemini on-device).
+  **Por qué:** Asegura máxima velocidad de respuesta y economía de batería en el camino primario (NLP Backend), preservando capacidad funcional offline mediante Gemini on-device (`#INV-06`).
+- **Decisión:** Implementar migración incremental de Room `MIGRATION_5_6` (creación de tablas `flujo_caja` y `clima_cache`).
+  **Por qué:** Evitar pérdida de datos locales preexistentes en dispositivos de producción al elevar a Room DB v6.
+- **Decisión:** Filtrar actualizaciones nulas en `DashboardViewModel.observeAuxiliaryData()`.
+  **Por qué:** Respetar el principio de carga no destructiva (`#INV-04`): el Dashboard nunca borra el contenido visible ante flows iniciales vacíos o retrasos de red.
+- **Decisión:** Autocompletar razón social vía `ConsultarRucSifenUseCase` preservando edición manual.
+  **Por qué:** Agilizar la carga contable KuDE sin bloquear al usuario si el RUC no se encuentra en la base del backend o no hay conexión inmediata.
 
----
+## 3. Archivos y módulos clave tocados
 
-## 3. Archivos modificados y commiteados
-
-| Archivo | Cambio |
+| Módulo / Archivo | Cambio |
 |---|---|
-| `app/src/main/java/com/gamma/mobile/domain/model/Models.kt` | Lógica de normalización defensiva (`cuotaReal`, `saldoReal`, `estadoReal`, `montoInicialReal`, etc.) y claves flexibles en `DeudaFocoResponse`. |
-| `app/src/main/java/com/gamma/mobile/presentation/obligaciones/ObligacionesScreen.kt` | Rediseño de `DeudaFocoCard` con iconos vectoriales y layout simétrico; lookup robusto para modal de abono. |
-| `app/src/main/java/com/gamma/mobile/presentation/obligaciones/ObligacionesViewModel.kt` | Exposición de `todasLasObligaciones` para lookup global. |
-| `app/src/main/java/com/gamma/mobile/presentation/capacidad/CapacidadPagoScreen.kt` | Corrección del ancho intrínseco del botón `+ Gasto`. |
-| `app/src/main/java/com/gamma/mobile/presentation/transacciones/TransaccionesScreen.kt` | Formato monolínea para importes en historial de transacciones. |
-| `app/src/test/java/com/gamma/mobile/presentation/obligaciones/ObligacionesViewModelTest.kt` | Cobertura de pruebas unitarias para deudas con columnas desplazadas. |
-| `.specify/bugs/deudas-mapeo-planilla/assessment.md` | Diagnóstico y análisis de impacto empírico. |
-| `.specify/bugs/deudas-mapeo-planilla/fix.md` | Reporte final de remediación verificado en pantalla. |
-| `HANDOFF-backend.md` | Módulos 5 y 6 documentando correcciones pendientes en Google Sheets y Python backend. |
+| `VERSION` | Bump de versión oficial a `0.0.13`. |
+| `data/remote/dto/BackendV2Dtos.kt` | DTOs de Backend v2 (`BootstrapDto`, `FlujoCajaDto`, `ClimaDto`, `ParsedMovementDto`, `SifenDto`, etc.). |
+| `data/remote/GammaApi.kt` | Endpoints backend v2 (`/bootstrap`, `/flujo-caja/30d`, `/clima/actual`, `/movimientos/parse-nlp`, `/sifen/consultar-ruc`). |
+| `data/remote/interceptor/*` | Interceptores `IdempotencyInterceptor`, `RateLimitInterceptor` y `PayloadSizeGuardInterceptor`. |
+| `data/local/entity/*` y `dao/*` | Entidades y DAOs Room `FlujoCajaEntity`, `ClimaEntity`, `FlujoCajaDao`, `ClimaDao`. |
+| `data/local/GammaDatabase.kt` | Elevación a DB v6 con migración `MIGRATION_5_6`. |
+| `domain/repository/*` e `impl/*` | `BootstrapRepository`, `FlujoCajaRepository`, `ClimaRepository`. |
+| `domain/usecase/*` | `ParseMovimientoNlpUseCase` y `ConsultarRucSifenUseCase`. |
+| `presentation/dashboard/*` | Hidratación bootstrap y widgets `ClimaHeaderWidget` y `FlujoCajaCard`. |
+| `presentation/transacciones/*` y `sifen/*` | Integración de botón NLP backend y autocompletado KuDE SIFEN por RUC. |
+| `docs/SYSTEM_MAP.md` | Mapeo documental vivo actualizado con dominios, módulos e invariantes `[#INV-01]` - `[#INV-07]`. |
+| `docs/specs/v013-backend-v2-integracion-global/*` | Especificación, plan arquitectónico y checklist de tareas de la versión 0.0.13. |
+
+## 4. Pendientes explícitos para la próxima fase
+
+- [ ] Presentar Gate de Autorización de Despliegue al usuario.
+- [ ] Con autorización explícita del usuario, ejecutar staging individual con `git add <archivos>` y commit de versión `0.0.13`.
+- [ ] Realizar `git push origin main` previa instrucción textual del usuario para disparar el pipeline de release oficial en GitHub Actions.
+- [ ] Validar en dispositivo físico la sincronización de clima y flujo de caja con el backend de producción.
+
+## 5. Riesgos / deuda técnica conocida
+
+- **Riesgo:** Cuotas de API externa de clima en el backend.
+  **Mitigación:** Room actúa como cache offline-first con política de TTL en backend; la app móvil nunca falla si el clima no está disponible.
+- **Riesgo:** RUC KuDE no registrado en la base unificada de SIFEN.
+  **Mitigación:** La UI mantiene el campo de Razón Social siempre editable para que el usuario complete o ajuste el nombre manualmente.
+
+## 6. Cómo verificar que este handoff sigue vigente
+
+```bash
+.\gradlew.bat testDebugUnitTest
+.\gradlew.bat assembleRelease
+git status
+```
 
 ---
-
-## 4. Próximos pasos para la siguiente sesión
-
-- [ ] **Git Push:** Ejecutar `git push origin main` previa autorización del usuario.
-- [ ] **Backend `Gamma_bot`:** Intervenir el backend y la hoja de cálculo con los lineamientos de `HANDOFF-backend.md`:
-  - Módulo 5: Script de realineación de columnas en `Obligaciones_Maestro` de Google Sheets.
-  - Módulo 6: Eliminar la doble adición de `saldo_inicial` en `/dashboard/summary`.
-- [ ] **QA Continuo:** Probar flujo de registro de un nuevo abono real contra el backend una vez sincronizada la planilla.
+*Este archivo describe estado de fase, no reglas de comportamiento. Las reglas de estilo, seguridad y protocolos viven en `GEMINI.md` / `.agents/rules/` y tienen prioridad sobre cualquier contenido de este documento — no se editan ni se repiten acá.*

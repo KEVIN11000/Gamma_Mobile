@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import com.gamma.mobile.data.remote.NetworkResult
 import com.gamma.mobile.domain.model.Movimiento
 import com.gamma.mobile.domain.repository.MovimientoRepository
+import com.gamma.mobile.domain.usecase.ConsultarRucSifenUseCase
+import com.gamma.mobile.domain.usecase.ParseMovimientoNlpUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -28,6 +30,8 @@ data class NuevaTransaccionUiState(
     val totalInput: String = "",
     val comprobante: String = "Física Legal",
     val tasaIva: String = "10%",
+    val proveedorCliente: String = "Varios",
+    val nroFactura: String = "S/N",
     val isLoading: Boolean = false,
     val isSuccess: Boolean = false,
     val errorMessage: String? = null
@@ -60,8 +64,16 @@ data class NuevaTransaccionUiState(
 @HiltViewModel
 class NuevaTransaccionViewModel @Inject constructor(
     private val repository: MovimientoRepository,
-    private val clock: Clock
+    private val clock: Clock,
+    private val parseMovimientoNlpUseCase: ParseMovimientoNlpUseCase? = null,
+    private val consultarRucSifenUseCase: ConsultarRucSifenUseCase? = null
 ) : ViewModel() {
+
+    // Constructor secundario para compatibilidad
+    constructor(
+        repository: MovimientoRepository,
+        clock: Clock
+    ) : this(repository, clock, null, null)
 
     private val _uiState = MutableStateFlow(NuevaTransaccionUiState())
     val uiState: StateFlow<NuevaTransaccionUiState> = _uiState.asStateFlow()
@@ -88,6 +100,14 @@ class NuevaTransaccionViewModel @Inject constructor(
     fun updateTasaIva(tasaIva: String) {
         _uiState.update { it.copy(tasaIva = tasaIva) }
     }
+
+    fun updateProveedorCliente(proveedor: String) {
+        _uiState.update { it.copy(proveedorCliente = proveedor) }
+    }
+
+    fun updateNroFactura(nroFactura: String) {
+        _uiState.update { it.copy(nroFactura = nroFactura) }
+    }
     
     fun dismissError() {
         _uiState.update { it.copy(errorMessage = null) }
@@ -106,8 +126,9 @@ class NuevaTransaccionViewModel @Inject constructor(
                     _uiState.update { 
                         it.copy(
                             tipo = if (propuesta.tipo.isNotBlank()) propuesta.tipo else it.tipo,
-                            categoria = propuesta.categoria,
+                            categoria = if (propuesta.categoria.isNotBlank()) propuesta.categoria else it.categoria,
                             totalInput = if (propuesta.total > 0L) propuesta.total.toString() else it.totalInput,
+                            proveedorCliente = if (propuesta.proveedorCliente.isNotBlank()) propuesta.proveedorCliente else it.proveedorCliente,
                             isLoading = false
                         ) 
                     }
@@ -117,8 +138,63 @@ class NuevaTransaccionViewModel @Inject constructor(
                     _uiState.update { it.copy(isLoading = false, errorMessage = result.message) }
                 }
                 is NetworkResult.Exception -> {
-                    _uiState.update { it.copy(isLoading = false, errorMessage = result.e.message ?: "Error de red al interpretar") }
+                    _uiState.update { it.copy(isLoading = false, errorMessage = result.e.message ?: "Error de red al interpretar con IA") }
                 }
+            }
+        }
+    }
+
+    /**
+     * Parser rápido determinista NLP (< 50 ms).
+     */
+    fun interpretarTextoNlp(texto: String, onSuccess: () -> Unit = {}) {
+        val useCase = parseMovimientoNlpUseCase
+        if (useCase == null) {
+            interpretarTextoIa(texto, onSuccess)
+            return
+        }
+
+        _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+        viewModelScope.launch {
+            when (val result = useCase(texto)) {
+                is NetworkResult.Success -> {
+                    val parsed = result.data
+                    _uiState.update {
+                        it.copy(
+                            tipo = if (parsed.tipoMovimiento.isNotBlank()) parsed.tipoMovimiento else it.tipo,
+                            categoria = if (parsed.categoria.isNotBlank()) parsed.categoria else it.categoria,
+                            totalInput = if (parsed.monto > 0L) parsed.monto.toString() else it.totalInput,
+                            proveedorCliente = if (parsed.proveedorCliente.isNotBlank()) parsed.proveedorCliente else it.proveedorCliente,
+                            isLoading = false
+                        )
+                    }
+                    onSuccess()
+                }
+                is NetworkResult.Error -> {
+                    _uiState.update { it.copy(isLoading = false, errorMessage = result.message) }
+                }
+                is NetworkResult.Exception -> {
+                    _uiState.update { it.copy(isLoading = false, errorMessage = result.e.message ?: "Error al interpretar con NLP") }
+                }
+            }
+        }
+    }
+
+    /**
+     * Consulta y autocompleta la Razón Social a partir de un RUC leído de comprobante electrónico / QR.
+     */
+    fun resolverRucSifen(ruc: String) {
+        val useCase = consultarRucSifenUseCase ?: return
+        if (ruc.isBlank()) return
+        viewModelScope.launch {
+            when (val result = useCase(ruc)) {
+                is NetworkResult.Success -> {
+                    val info = result.data
+                    if (info.razonSocial.isNotBlank()) {
+                        _uiState.update { it.copy(proveedorCliente = info.razonSocial) }
+                    }
+                }
+                else -> { /* Preservar RUC existente si la consulta remota falla */ }
             }
         }
     }
@@ -132,8 +208,9 @@ class NuevaTransaccionViewModel @Inject constructor(
                     _uiState.update { 
                         it.copy(
                             tipo = if (propuesta.tipo.isNotBlank()) propuesta.tipo else it.tipo,
-                            categoria = propuesta.categoria,
+                            categoria = if (propuesta.categoria.isNotBlank()) propuesta.categoria else it.categoria,
                             totalInput = if (propuesta.total > 0L) propuesta.total.toString() else it.totalInput,
+                            proveedorCliente = if (propuesta.proveedorCliente.isNotBlank()) propuesta.proveedorCliente else it.proveedorCliente,
                             isLoading = false
                         ) 
                     }
@@ -148,7 +225,7 @@ class NuevaTransaccionViewModel @Inject constructor(
         }
     }
 
-fun saveMovimiento() {
+    fun saveMovimiento() {
         val state = _uiState.value
         if (!state.isValid) return
 
@@ -156,9 +233,6 @@ fun saveMovimiento() {
 
         viewModelScope.launch {
             val today = LocalDate.now(clock).format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
-            // In API specs, we also had things like `tasa_iva`, `monto_gravado`, `monto_iva`, `mes`, `client_id`
-            // But Movimiento model has: id, fecha, tipo, categoria, total, comprobante.
-            // Let's create the Movimiento object as the model defines it currently.
             
             val movimiento = Movimiento(
                 id = UUID.randomUUID().toString(),
@@ -167,8 +241,8 @@ fun saveMovimiento() {
                 categoria = state.categoria,
                 total = state.totalParsed,
                 comprobante = state.comprobante,
-                proveedorCliente = "Varios",
-                nroFactura = "S/N",
+                proveedorCliente = state.proveedorCliente,
+                nroFactura = state.nroFactura,
                 tasaIva = state.tasaIva,
                 clientId = UUID.randomUUID().toString()
             )
@@ -184,5 +258,3 @@ fun saveMovimiento() {
         }
     }
 }
-
-

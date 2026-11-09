@@ -1,8 +1,15 @@
 package com.gamma.mobile.presentation.transacciones
 
+import com.gamma.mobile.data.remote.BaseFakeGammaApi
 import com.gamma.mobile.data.remote.NetworkResult
+import com.gamma.mobile.data.remote.dto.ParseMovementRequestDto
+import com.gamma.mobile.data.remote.dto.ParsedMovementDto
+import com.gamma.mobile.data.remote.dto.SifenRucRequestDto
+import com.gamma.mobile.data.remote.dto.SifenRucResponseDto
 import com.gamma.mobile.domain.model.Movimiento
 import com.gamma.mobile.domain.repository.MovimientoRepository
+import com.gamma.mobile.domain.usecase.ConsultarRucSifenUseCase
+import com.gamma.mobile.domain.usecase.ParseMovimientoNlpUseCase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -12,12 +19,15 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import retrofit2.Response
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneId
@@ -27,6 +37,9 @@ class NuevaTransaccionViewModelTest {
 
     private lateinit var viewModel: NuevaTransaccionViewModel
     private lateinit var fakeRepo: FakeNuevaMovimientoRepository
+    private lateinit var fakeApi: FakeNlpSifenApi
+    private lateinit var parseUseCase: ParseMovimientoNlpUseCase
+    private lateinit var sifenUseCase: ConsultarRucSifenUseCase
     private val testDispatcher = StandardTestDispatcher()
     private val fixedClock = Clock.fixed(Instant.parse("2026-10-06T10:00:00Z"), ZoneId.of("UTC"))
 
@@ -34,7 +47,15 @@ class NuevaTransaccionViewModelTest {
     fun setup() {
         Dispatchers.setMain(testDispatcher)
         fakeRepo = FakeNuevaMovimientoRepository()
-        viewModel = NuevaTransaccionViewModel(fakeRepo, fixedClock)
+        fakeApi = FakeNlpSifenApi()
+        parseUseCase = ParseMovimientoNlpUseCase(fakeApi, testDispatcher)
+        sifenUseCase = ConsultarRucSifenUseCase(fakeApi, testDispatcher)
+        viewModel = NuevaTransaccionViewModel(
+            repository = fakeRepo,
+            clock = fixedClock,
+            parseMovimientoNlpUseCase = parseUseCase,
+            consultarRucSifenUseCase = sifenUseCase
+        )
     }
 
     @After
@@ -157,6 +178,108 @@ class NuevaTransaccionViewModelTest {
         assertEquals("OCR", state.categoria)
         assertEquals("120000", state.totalInput)
         assertEquals(0, fakeRepo.addedMovimientos.size) 
+    }
+
+    @Test
+    fun `interpretarTextoNlp success preloads monto, categoria, tipo and proveedor and triggers onSuccess`() = runTest {
+        fakeApi.parseResponse = Response.success(
+            ParsedMovementDto(
+                valido = true,
+                monto = 45000L,
+                moneda = "PYG",
+                tipoMovimiento = "Gasto",
+                categoria = "Combustible",
+                proveedorCliente = "Shell",
+                descripcion = "Carga nafta",
+                confianza = 0.99
+            )
+        )
+
+        var onSuccessCalled = false
+        viewModel.interpretarTextoNlp("Gasto 45000 nafta shell") {
+            onSuccessCalled = true
+        }
+        advanceUntilIdle()
+
+        assertTrue(onSuccessCalled)
+        val state = viewModel.uiState.value
+        assertFalse(state.isLoading)
+        assertEquals("45000", state.totalInput)
+        assertEquals(45000L, state.totalParsed)
+        assertEquals("Combustible", state.categoria)
+        assertEquals("Shell", state.proveedorCliente)
+        assertEquals("Gasto", state.tipo)
+    }
+
+    @Test
+    fun `interpretarTextoNlp error sets errorMessage in uiState`() = runTest {
+        fakeApi.parseResponse = Response.error(500, "Error del servidor".toResponseBody(null))
+
+        var onSuccessCalled = false
+        viewModel.interpretarTextoNlp("Algo que falla") {
+            onSuccessCalled = true
+        }
+        advanceUntilIdle()
+
+        assertFalse(onSuccessCalled)
+        val state = viewModel.uiState.value
+        assertFalse(state.isLoading)
+        assertNotNull(state.errorMessage)
+    }
+
+    @Test
+    fun `resolverRucSifen success updates proveedorCliente with legal business name`() = runTest {
+        fakeApi.sifenResponse = Response.success(
+            SifenRucResponseDto(
+                ruc = "80012345-6",
+                razonSocial = "PETROPAR S.A.",
+                estado = "ACTIVO"
+            )
+        )
+
+        viewModel.resolverRucSifen("80012345-6")
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals("PETROPAR S.A.", state.proveedorCliente)
+    }
+
+    @Test
+    fun `saveMovimiento saves Movimiento with parsed proveedorCliente`() = runTest {
+        fakeApi.parseResponse = Response.success(
+            ParsedMovementDto(
+                valido = true,
+                monto = 75000L,
+                tipoMovimiento = "Gasto",
+                categoria = "Supermercado",
+                proveedorCliente = "Superseis"
+            )
+        )
+        viewModel.interpretarTextoNlp("Supermercado 75000 superseis")
+        advanceUntilIdle()
+
+        viewModel.saveMovimiento()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.isSuccess)
+        assertNotNull(fakeRepo.addedMovimientos.lastOrNull())
+        val last = fakeRepo.addedMovimientos.last()
+        assertEquals(75000L, last.total)
+        assertEquals("Superseis", last.proveedorCliente)
+        assertEquals("Supermercado", last.categoria)
+    }
+}
+
+class FakeNlpSifenApi : BaseFakeGammaApi() {
+    var parseResponse: Response<ParsedMovementDto>? = null
+    var sifenResponse: Response<SifenRucResponseDto>? = null
+
+    override suspend fun parseMovimientoNlp(request: ParseMovementRequestDto): Response<ParsedMovementDto> {
+        return parseResponse ?: throw IllegalStateException("parseResponse not configured")
+    }
+
+    override suspend fun consultarRucSifen(request: SifenRucRequestDto): Response<SifenRucResponseDto> {
+        return sifenResponse ?: throw IllegalStateException("sifenResponse not configured")
     }
 }
 

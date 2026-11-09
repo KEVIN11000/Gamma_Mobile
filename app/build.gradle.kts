@@ -58,7 +58,8 @@ android {
     signingConfigs {
         create("release") {
             val userHome = System.getProperty("user.home")
-            val keystoreFile = file("$userHome/.android/gamma_release.jks")
+            val keystoreEnv = System.getenv("KEYSTORE_FILE")
+            val keystoreFile = if (!keystoreEnv.isNullOrBlank()) file(keystoreEnv) else file("$userHome/.android/gamma_release.jks")
             if (keystoreFile.exists()) {
                 storeFile = keystoreFile
                 storePassword = System.getenv("KEYSTORE_PASSWORD") ?: "gamma2026release"

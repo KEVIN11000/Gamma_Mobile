@@ -1,15 +1,23 @@
 package com.gamma.mobile.presentation.dashboard
 
 import com.gamma.mobile.data.remote.NetworkResult
+import com.gamma.mobile.data.remote.dto.BootstrapResponseDto
 import com.gamma.mobile.domain.model.Aviso
 import com.gamma.mobile.domain.model.AsistenciaMarcaResponse
 import com.gamma.mobile.domain.model.AsistenciaMateriaResponse
+import com.gamma.mobile.domain.model.ClimaInfo
 import com.gamma.mobile.domain.model.DashboardSummary
+import com.gamma.mobile.domain.model.FlujoCaja
 import com.gamma.mobile.domain.repository.AsistenciaRepository
 import com.gamma.mobile.domain.repository.AvisoRepository
+import com.gamma.mobile.domain.repository.BootstrapRepository
+import com.gamma.mobile.domain.repository.ClimaRepository
 import com.gamma.mobile.domain.repository.DashboardRepository
+import com.gamma.mobile.domain.repository.FlujoCajaRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
@@ -31,6 +39,9 @@ class DashboardViewModelTest {
     private lateinit var fakeDashboardRepo: FakeDashboardRepository
     private lateinit var fakeAvisoRepo: FakeAvisoRepository
     private lateinit var fakeAsistenciaRepo: FakeAsistenciaRepository
+    private lateinit var fakeBootstrapRepo: FakeBootstrapRepository
+    private lateinit var fakeFlujoCajaRepo: FakeFlujoCajaRepository
+    private lateinit var fakeClimaRepo: FakeClimaRepository
     private val testDispatcher = StandardTestDispatcher()
 
     @Before
@@ -39,6 +50,9 @@ class DashboardViewModelTest {
         fakeDashboardRepo = FakeDashboardRepository()
         fakeAvisoRepo = FakeAvisoRepository()
         fakeAsistenciaRepo = FakeAsistenciaRepository()
+        fakeBootstrapRepo = FakeBootstrapRepository()
+        fakeFlujoCajaRepo = FakeFlujoCajaRepository()
+        fakeClimaRepo = FakeClimaRepository()
         // No instanciamos el viewModel aún para poder configurar los fakes antes del init block
     }
 
@@ -301,6 +315,134 @@ class DashboardViewModelTest {
         assertEquals(false, fakeDashboardRepo.lastForceRefresh)
         assertEquals(false, fakeAvisoRepo.lastForceRefresh)
     }
+
+    @Test
+    fun `loadDashboard with BootstrapRepository success hydrates atomically`() = runTest {
+        val summary = DashboardSummary(margenLibreDisponible = 3000000L, saldoAcumulado = 1500000L)
+        val avisos = listOf(Aviso("b1", "Vencimiento Tarjeta", "06/10/2026 18:00"))
+        val bootstrapDto = BootstrapResponseDto(
+            status = "ok",
+            summary = summary,
+            proximosAvisos = avisos,
+            periodoActual = "Octubre 2026"
+        )
+        fakeBootstrapRepo.syncResult = NetworkResult.Success(bootstrapDto)
+        fakeFlujoCajaRepo.cached = FlujoCaja(saldoActual = 1500000L, saldoProyectado30d = 1200000L)
+        fakeClimaRepo.cached = ClimaInfo(temperaturaActual = 26.0, condicion = "Soleado")
+
+        val clock = java.time.Clock.fixed(java.time.Instant.parse("2026-10-06T10:00:00Z"), java.time.ZoneId.of("UTC"))
+        viewModel = DashboardViewModel(
+            dashboardRepository = fakeDashboardRepo,
+            avisoRepository = fakeAvisoRepo,
+            clock = clock,
+            asistenciaRepository = fakeAsistenciaRepo,
+            bootstrapRepository = fakeBootstrapRepo,
+            flujoCajaRepository = fakeFlujoCajaRepo,
+            climaRepository = fakeClimaRepo
+        )
+        advanceUntilIdle()
+
+        assertTrue(fakeBootstrapRepo.syncCalled)
+        val state = viewModel.uiState.value
+        assertTrue(state is DashboardUiState.Success)
+        val success = state as DashboardUiState.Success
+        assertEquals(3000000L, success.summary.margenLibreDisponible)
+        assertEquals(1, success.avisos.size)
+        assertEquals("Vencimiento Tarjeta", success.avisos[0].titulo)
+        assertEquals("Octubre 2026", success.periodoActual)
+        assertNotNull(success.flujoCaja)
+        assertEquals(1500000L, success.flujoCaja!!.saldoActual)
+        assertNotNull(success.clima)
+        assertEquals(26.0, success.clima!!.temperaturaActual, 0.01)
+    }
+
+    @Test
+    fun `loadDashboard with BootstrapRepository failure falls back to cached data without destructive error`() = runTest {
+        fakeBootstrapRepo.syncResult = NetworkResult.Exception(java.net.SocketTimeoutException())
+        // Room/Cache tiene datos locales
+        val cachedSummary = DashboardSummary(margenLibreDisponible = 900000L, saldoAcumulado = 450000L)
+        val cachedAvisos = listOf(Aviso("c1", "Aviso Cacheado", "06/10/2026 12:00"))
+        fakeDashboardRepo.result = NetworkResult.Success(cachedSummary)
+        fakeAvisoRepo.result = NetworkResult.Success(cachedAvisos)
+
+        val clock = java.time.Clock.fixed(java.time.Instant.parse("2026-10-06T10:00:00Z"), java.time.ZoneId.of("UTC"))
+        viewModel = DashboardViewModel(
+            dashboardRepository = fakeDashboardRepo,
+            avisoRepository = fakeAvisoRepo,
+            clock = clock,
+            asistenciaRepository = fakeAsistenciaRepo,
+            bootstrapRepository = fakeBootstrapRepo,
+            flujoCajaRepository = fakeFlujoCajaRepo,
+            climaRepository = fakeClimaRepo
+        )
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertTrue(state is DashboardUiState.Success)
+        val success = state as DashboardUiState.Success
+        assertEquals(900000L, success.summary.margenLibreDisponible)
+        assertEquals("Aviso Cacheado", success.avisos[0].titulo)
+    }
+
+    @Test
+    fun `loadDashboard with BootstrapRepository failure and no cache emits Error state`() = runTest {
+        fakeBootstrapRepo.syncResult = NetworkResult.Error(500, "Backend error")
+        fakeDashboardRepo.result = NetworkResult.Error(500, "No cache")
+        fakeAvisoRepo.result = NetworkResult.Error(500, "No cache")
+
+        val clock = java.time.Clock.fixed(java.time.Instant.parse("2026-10-06T10:00:00Z"), java.time.ZoneId.of("UTC"))
+        viewModel = DashboardViewModel(
+            dashboardRepository = fakeDashboardRepo,
+            avisoRepository = fakeAvisoRepo,
+            clock = clock,
+            asistenciaRepository = fakeAsistenciaRepo,
+            bootstrapRepository = fakeBootstrapRepo,
+            flujoCajaRepository = fakeFlujoCajaRepo,
+            climaRepository = fakeClimaRepo
+        )
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertTrue(state is DashboardUiState.Error)
+    }
+
+    @Test
+    fun `flujoCaja and clima flows update DashboardUiState Success reactively`() = runTest {
+        val summary = DashboardSummary(100, 200, 50, false)
+        val bootstrapDto = BootstrapResponseDto(
+            status = "ok",
+            summary = summary,
+            proximosAvisos = emptyList()
+        )
+        fakeBootstrapRepo.syncResult = NetworkResult.Success(bootstrapDto)
+
+        val clock = java.time.Clock.fixed(java.time.Instant.parse("2026-10-06T10:00:00Z"), java.time.ZoneId.of("UTC"))
+        viewModel = DashboardViewModel(
+            dashboardRepository = fakeDashboardRepo,
+            avisoRepository = fakeAvisoRepo,
+            clock = clock,
+            asistenciaRepository = fakeAsistenciaRepo,
+            bootstrapRepository = fakeBootstrapRepo,
+            flujoCajaRepository = fakeFlujoCajaRepo,
+            climaRepository = fakeClimaRepo
+        )
+        advanceUntilIdle()
+
+        val stateInitial = viewModel.uiState.value
+        assertTrue(stateInitial is DashboardUiState.Success)
+        assertEquals(null, (stateInitial as DashboardUiState.Success).flujoCaja)
+
+        // Emisión reactiva desde Room
+        fakeFlujoCajaRepo.flow.value = FlujoCaja(saldoActual = 500000L, saldoProyectado30d = 300000L)
+        fakeClimaRepo.flow.value = ClimaInfo(temperaturaActual = 31.0, condicion = "Caluroso")
+        advanceUntilIdle()
+
+        val stateUpdated = viewModel.uiState.value
+        assertTrue(stateUpdated is DashboardUiState.Success)
+        val success = stateUpdated as DashboardUiState.Success
+        assertEquals(500000L, success.flujoCaja?.saldoActual)
+        assertEquals(31.0, success.clima?.temperaturaActual ?: 0.0, 0.01)
+    }
 }
 
 class FakeDashboardRepository : DashboardRepository {
@@ -358,5 +500,39 @@ class FakeAsistenciaRepository : AsistenciaRepository {
         saldoAnterior: Double,
         incluirIva: Boolean
     ): NetworkResult<ByteArray> = NetworkResult.Success(byteArrayOf(4, 5, 6))
+}
+
+class FakeBootstrapRepository : BootstrapRepository {
+    var syncResult: NetworkResult<BootstrapResponseDto> = NetworkResult.Error(500, "Uninitialized")
+    var syncCalled = false
+
+    override suspend fun syncBootstrap(): NetworkResult<BootstrapResponseDto> {
+        syncCalled = true
+        return syncResult
+    }
+}
+
+class FakeFlujoCajaRepository : FlujoCajaRepository {
+    val flow = MutableStateFlow<FlujoCaja?>(null)
+    var cached: FlujoCaja? = null
+    var refreshResult: NetworkResult<FlujoCaja> = NetworkResult.Error(500, "Uninitialized")
+
+    override fun getFlujoCajaFlow(): Flow<FlujoCaja?> = flow
+    override suspend fun getFlujoCajaCached(): FlujoCaja? = cached
+    override suspend fun refreshFlujoCaja(
+        saldoInicial: Long?,
+        gastoDiario: Long?,
+        umbralReserva: Long?
+    ): NetworkResult<FlujoCaja> = refreshResult
+}
+
+class FakeClimaRepository : ClimaRepository {
+    val flow = MutableStateFlow<ClimaInfo?>(null)
+    var cached: ClimaInfo? = null
+    var refreshResult: NetworkResult<ClimaInfo> = NetworkResult.Error(500, "Uninitialized")
+
+    override fun getClimaFlow(): Flow<ClimaInfo?> = flow
+    override suspend fun getClimaCached(): ClimaInfo? = cached
+    override suspend fun refreshClima(): NetworkResult<ClimaInfo> = refreshResult
 }
 

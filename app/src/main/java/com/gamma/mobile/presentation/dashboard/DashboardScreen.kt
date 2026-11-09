@@ -31,11 +31,21 @@ import com.gamma.mobile.utils.formatGuaranies
 import java.text.NumberFormat
 import java.util.Locale
 
+import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Umbrella
+import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material.icons.filled.Work
 import java.time.DayOfWeek
 import java.time.LocalDate
+import com.gamma.mobile.domain.model.ClimaAlertaParaguas
+import com.gamma.mobile.domain.model.ClimaInfo
+import com.gamma.mobile.domain.model.DiaCritico
+import com.gamma.mobile.domain.model.FlujoCaja
+import com.gamma.mobile.domain.model.FlujoCajaItemDiario
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -132,7 +142,10 @@ fun DashboardScreen(
                         asistenciaIsError = asistenciaIsError,
                         modoMarcacion = modoMarcacion,
                         onModoMarcacionChange = { viewModel.setModoMarcacion(it) },
-                        onDismissAsistenciaMessage = { viewModel.dismissAsistenciaMessage() }
+                        onDismissAsistenciaMessage = { viewModel.dismissAsistenciaMessage() },
+                        flujoCaja = state.flujoCaja,
+                        clima = state.clima,
+                        periodoActual = state.periodoActual
                     )
                 }
             }
@@ -151,7 +164,10 @@ fun DashboardContent(
     asistenciaIsError: Boolean = false,
     modoMarcacion: String = DashboardViewModel.MODO_NORMAL,
     onModoMarcacionChange: (String) -> Unit = {},
-    onDismissAsistenciaMessage: () -> Unit = {}
+    onDismissAsistenciaMessage: () -> Unit = {},
+    flujoCaja: FlujoCaja? = null,
+    clima: ClimaInfo? = null,
+    periodoActual: String? = null
 ) {
     val dayOfWeek = remember { LocalDate.now().dayOfWeek }
     val esDiaLaboral = remember(dayOfWeek) {
@@ -186,6 +202,20 @@ fun DashboardContent(
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp)
     ) {
+        // Clima y Alerta de Paraguas (si está disponible)
+        if (clima != null) {
+            ClimaHeaderWidget(clima = clima)
+        }
+
+        if (!periodoActual.isNullOrBlank()) {
+            Text(
+                text = "Periodo: $periodoActual",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)
+            )
+        }
+
         // Atajo de Marcación Laboral (Visible de Lunes a Viernes)
         if (esDiaLaboral) {
             Card(
@@ -419,6 +449,17 @@ fun DashboardContent(
             }
         }
 
+        // Tarjeta de Flujo de Caja Proyectado a 30 Días
+        if (flujoCaja != null) {
+            FlujoCajaCard(
+                flujoCaja = flujoCaja,
+                onInfoClick = { title, desc ->
+                    infoDialogTitle = title
+                    infoDialogText = desc
+                }
+            )
+        }
+
         // Tarjeta Eventos de la semana
         Text(
             "Eventos de la semana", 
@@ -530,5 +571,354 @@ fun DashboardContentPreview_MarcacionConfirmada() {
         )
     }
 }
+
+@Composable
+fun ClimaHeaderWidget(clima: ClimaInfo) {
+    Surface(
+        shape = MaterialTheme.shapes.small,
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 12.dp, bottom = 4.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f, fill = false).padding(end = 6.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.WbSunny,
+                    contentDescription = "Clima",
+                    modifier = Modifier.size(18.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "${clima.temperaturaActual.toInt()}°C • ${clima.condicion} (Asunción)",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1
+                )
+            }
+
+            if (clima.alertaParaguas.activar || clima.alertaParaguas.probabilidadLluvia >= 35) {
+                Surface(
+                    shape = MaterialTheme.shapes.extraSmall,
+                    color = MaterialTheme.colorScheme.tertiaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Umbrella,
+                            contentDescription = "Alerta Paraguas",
+                            modifier = Modifier.size(14.dp),
+                            tint = MaterialTheme.colorScheme.onTertiaryContainer
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "Llevar paraguas: ${clima.alertaParaguas.probabilidadLluvia}%",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun FlujoCajaCard(
+    flujoCaja: FlujoCaja,
+    onInfoClick: (String, String) -> Unit
+) {
+    var expandido by remember { mutableStateOf(false) }
+    val tieneDiasCriticos = flujoCaja.diasCriticos.isNotEmpty()
+
+    val cardBorder = if (tieneDiasCriticos) {
+        androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f))
+    } else {
+        null
+    }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp)
+            .clickable { expandido = !expandido },
+        shape = MaterialTheme.shapes.medium,
+        colors = CardDefaults.cardColors(
+            containerColor = if (tieneDiasCriticos) {
+                MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f)
+            } else {
+                MaterialTheme.colorScheme.surfaceVariant
+            },
+            contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+        ),
+        border = cardBorder
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            // Cabecera
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f, fill = false).padding(end = 8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.TrendingUp,
+                        contentDescription = "Flujo de Caja",
+                        tint = if (tieneDiasCriticos) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        "Flujo de Caja Proyectado (30D)",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1
+                    )
+                    IconButton(
+                        onClick = {
+                            onInfoClick(
+                                "Flujo de Caja Proyectado (30 Días)",
+                                "Proyección a 30 días calculada en el backend integrando vencimientos de deudas, gastos fijos y promedio de gastos diarios. Resalta en advertencia si se prevén saldos negativos."
+                            )
+                        },
+                        modifier = Modifier.size(24.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Info,
+                            contentDescription = "Información Flujo de Caja",
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                        )
+                    }
+                }
+
+                Icon(
+                    imageVector = if (expandido) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                    contentDescription = if (expandido) "Colapsar" else "Expandir",
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Comparativa Saldo Actual vs Proyectado a 30D
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text("Saldo Actual", style = MaterialTheme.typography.labelSmall)
+                    Text(
+                        formatGuaranies(flujoCaja.saldoActual),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Text("➔", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.outline)
+
+                Column(horizontalAlignment = Alignment.End) {
+                    Text("Proyectado a 30d", style = MaterialTheme.typography.labelSmall)
+                    val colorProyectado = when {
+                        flujoCaja.saldoProyectado30d < 0L -> MaterialTheme.colorScheme.error
+                        tieneDiasCriticos -> MaterialTheme.colorScheme.tertiary
+                        else -> MaterialTheme.colorScheme.primary
+                    }
+                    Text(
+                        formatGuaranies(flujoCaja.saldoProyectado30d),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = colorProyectado
+                    )
+                }
+            }
+
+            // Alerta de Días Críticos (Semáforo Ámbar / Rojo)
+            if (tieneDiasCriticos) {
+                Spacer(modifier = Modifier.height(10.dp))
+                Surface(
+                    shape = MaterialTheme.shapes.small,
+                    color = MaterialTheme.colorScheme.errorContainer,
+                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(10.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Warning,
+                                contentDescription = "Día Crítico",
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                "Atención: ${flujoCaja.diasCriticos.size} día(s) con saldo crítico",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        flujoCaja.diasCriticos.take(3).forEach { dia ->
+                            Text(
+                                "• ${dia.fecha}: saldo ${formatGuaranies(dia.saldo)} (${dia.motivo})",
+                                style = MaterialTheme.typography.bodySmall,
+                                maxLines = 1
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Desglose expandido
+            if (expandido) {
+                Spacer(modifier = Modifier.height(12.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Ingresos Proyectados:", style = MaterialTheme.typography.bodySmall)
+                    Text(formatGuaranies(flujoCaja.totalIngresosProyectados), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Gastos Fijos Previstos:", style = MaterialTheme.typography.bodySmall)
+                    Text(formatGuaranies(flujoCaja.totalGastosFijos), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Gastos Variables Estimados:", style = MaterialTheme.typography.bodySmall)
+                    Text(formatGuaranies(flujoCaja.totalGastosVariablesEstimados), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
+                }
+
+                if (flujoCaja.dias.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Primeras proyecciones diarias:", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    flujoCaja.dias.take(5).forEach { item ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(item.fecha, style = MaterialTheme.typography.labelSmall)
+                            Text(
+                                formatGuaranies(item.saldoFinal),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (item.saldoFinal >= 0L) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Preview(name = "Dashboard con Flujo de Caja y Alerta Paraguas", showBackground = true)
+@Composable
+fun DashboardContentPreview_FlujoCajaCritico() {
+    GammaTheme {
+        DashboardContent(
+            summary = DashboardSummary(
+                saldoAcumulado = 3500000L,
+                margenLibreDisponible = 1200000L,
+                posicionIva = 180000L,
+                esDebitoFiscal = false
+            ),
+            avisos = listOf(
+                AvisoUiModel(
+                    id = "1",
+                    titulo = "Pago Préstamo BNF",
+                    diasRestantes = 3,
+                    textoTiempo = "En 3 días",
+                    esCritico = true
+                )
+            ),
+            onNavigateToAvisos = {},
+            clima = ClimaInfo(
+                temperaturaActual = 29.0,
+                condicion = "Lluvia dispersa",
+                alertaParaguas = ClimaAlertaParaguas(
+                    activar = true,
+                    probabilidadLluvia = 65,
+                    motivo = "Lluvia prevista en Asunción"
+                )
+            ),
+            flujoCaja = FlujoCaja(
+                saldoActual = 3500000L,
+                saldoProyectado30d = 850000L,
+                totalIngresosProyectados = 7000000L,
+                totalGastosFijos = 4200000L,
+                totalGastosVariablesEstimados = 5450000L,
+                diasCriticos = listOf(
+                    DiaCritico(fecha = "2026-11-20", saldo = -150000L, motivo = "Cuota Préstamo"),
+                    DiaCritico(fecha = "2026-11-25", saldo = -50000L, motivo = "Tarjeta Itaú")
+                )
+            )
+        )
+    }
+}
+
+@Preview(name = "Dashboard Flujo de Caja Normal", showBackground = true)
+@Composable
+fun DashboardContentPreview_FlujoCajaNormal() {
+    GammaTheme {
+        DashboardContent(
+            summary = DashboardSummary(
+                saldoAcumulado = 8500000L,
+                margenLibreDisponible = 3500000L,
+                posicionIva = 250000L,
+                esDebitoFiscal = true
+            ),
+            avisos = emptyList(),
+            onNavigateToAvisos = {},
+            clima = ClimaInfo(
+                temperaturaActual = 24.0,
+                condicion = "Soleado",
+                alertaParaguas = ClimaAlertaParaguas(
+                    activar = false,
+                    probabilidadLluvia = 10,
+                    motivo = ""
+                )
+            ),
+            flujoCaja = FlujoCaja(
+                saldoActual = 8500000L,
+                saldoProyectado30d = 6200000L,
+                totalIngresosProyectados = 12000000L,
+                totalGastosFijos = 5000000L,
+                totalGastosVariablesEstimados = 9300000L,
+                diasCriticos = emptyList()
+            )
+        )
+    }
+}
+
 
 

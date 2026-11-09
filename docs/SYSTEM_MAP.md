@@ -1,0 +1,91 @@
+# SYSTEM_MAP — Gamma Mobile
+
+**Versión:** 1.0.0  
+**Última Actualización:** 2026-11-09  
+**Estado:** Activo / Producción v0.0.12  
+**Repositorio:** `Gamma_Mobile` (Android Nativo / Jetpack Compose)
+
+---
+
+## 1. Dominios y Módulos Arquitecturales
+
+Gamma Mobile implementa **Clean Architecture** estructurada en capas desacopladas:
+
+```
+app/src/main/java/com/gamma/mobile/
+├── data/
+│   ├── local/            # Room Database (GammaDatabase v4), DAOs y Entidades
+│   ├── remote/           # Retrofit (GammaApi), Interceptors, SafeApiCall, DTOs
+│   └── repository/       # Implementaciones de repositorio (SSOT, Room + Remote)
+├── di/                   # Inyección de dependencias (Hilt Modules)
+├── domain/
+│   ├── model/            # Modelos puros de dominio y contratos de negocio
+│   └── repository/       # Interfaces de repositorio desacopladas
+├── presentation/         # Jetpack Compose UI, ViewModels, States, Navigation
+├── worker/               # Background Jobs con WorkManager (Avisos, Sync)
+└── utils/ / logging/     # AppLogBuffer, formateadores de moneda, extensiones
+```
+
+---
+
+## 2. Catálogo de Capacidades Activas por Módulo
+
+| Módulo | Pantalla / Componente | Capacidad Funcional Activa | Archivos Ancla |
+|---|---|---|---|
+| **Dashboard** | `DashboardScreen` / `DashboardViewModel` | Resumen financiero mensual: Margen Libre, Saldo Acumulado, Posición IVA (Débito/Crédito Fiscal), carrusel de avisos inminentes y accesos rápidos. | `DashboardScreen.kt`, `DashboardViewModel.kt`, `DashboardSummary.kt` |
+| **Transacciones** | `TransaccionesScreen` / `TransaccionesViewModel` | Libro diario de movimientos continuos: lista infinita agrupada por fecha, chips de filtro (Todos, Gastos, Ingresos), badges por tipo de comprobante (10%, 5%, Exento, No Legal) y Swipe-to-Refresh. | `TransaccionesScreen.kt`, `TransaccionesViewModel.kt`, `MovimientoDao.kt` |
+| **Carga Inteligente** | `NuevaTransaccionScreen` | Registro de movimientos manual, asistido por IA (`/api/v1/ia/interpretar` con Gemini) y escaneo OCR de facturas electrónicas KuDE con cálculo fiscal automático. | `NuevaTransaccionScreen.kt`, `OcrScanner.kt` |
+| **Obligaciones** | `ObligacionesScreen` / `ObligacionesViewModel` | Gestión de pasivos y deudas: pestañas Activas/Saldadas/Pausadas, tarjeta Deuda Foco con estrategias Bola de Nieve/Avalancha, modal de abono rápido amortizado en `Libro_Diario`. | `ObligacionesScreen.kt`, `ObligacionesViewModel.kt`, `ObligacionDao.kt` |
+| **Capacidad de Pago** | `CapacidadPagoScreen` / `CapacidadPagoViewModel` | Proyector de capacidad de pago con semáforo de viabilidad (Superávit, Ajustado, Déficit), sliders de abono mensual y soporte de imprevistos/gastos ad-hoc. | `CapacidadPagoScreen.kt`, `CapacidadPagoViewModel.kt` |
+| **Avisos Contables** | `AvisosScreen` / `AvisosViewModel` | Registro y consulta de hitos y recordatorios contables en `avisos.json` con días restantes y alarmas locales periódicas. | `AvisosScreen.kt`, `AlarmaAvisosWorker.kt`, `AvisoDao.kt` |
+| **Asistencia Laboral** | `AsistenciaScreen` / `AsistenciaViewModel` | Reloj biométrico de control laboral: marcación de entrada/salida, materias dictadas, periodos mensuales, analíticas y exportación de reportes PDF/Excel. | `AsistenciaScreen.kt`, `AsistenciaViewModel.kt` |
+| **Cierres Históricos** | `HistorialCierresScreen` / `CierresViewModel` | Visualización del historial de balances consolidados mensuales (Contable y Laboral) y descarga/apertura de comprobantes PDF desde caché local. | `HistorialCierresScreen.kt`, `CierresViewModel.kt`, `CierreDao.kt` |
+| **Soporte & Feedback** | `TicketsScreen` / `TicketsViewModel` | Registro y seguimiento de tickets de incidencia (`TCK-xxx`) con prioridades, estados y trazabilidad. | `TicketsScreen.kt`, `TicketsViewModel.kt` |
+| **Sistema & Logs** | `SistemaScreen` / `SistemaViewModel` | Configuración dinámica de URL de API y API Key con `EncryptedSharedPreferences`, diagnóstico de salud y visualizador de logs en vivo (`AppLogBuffer`). | `SistemaScreen.kt`, `SistemaViewModel.kt`, `AppLogBuffer.kt` |
+| **Auto-Update** | `GitHubReleaseApi` / `InAppUpdate` | Comprobación semver directa contra GitHub Releases y descarga de APK oficial en segundo plano con notificación. | `GitHubReleaseApi.kt`, `UpdateReceiver.kt` |
+
+---
+
+## 3. Invariantes Críticos No Negociables (*Invariants*)
+
+Los siguientes principios operativos y contratos técnicos tienen **prohibido ser alterados o vulnerados** en cualquier refactorización o nueva característica:
+
+* **[#INV-01] Localización Monetaria Guaraní (PYG / ₲):**  
+  Todos los montos en moneda son enteros sin decimales (`Long` en Kotlin, `int` en JSON). Los formatos visuales deben usar separador de miles con punto (`#.##0 ₲`), renderizado monolínea (`maxLines = 1, softWrap = false`) y alineación simétrica para prevenir desbordamientos o wrap de texto.
+
+* **[#INV-02] Autoridad de Estado Real de Obligaciones:**  
+  La clasificación de una obligación en las pestañas `Activas`, `Saldadas` o `Pausadas` está gobernada por `estadoReal` (evaluado defensivamente ante desfasajes de columnas de Google Sheets), nunca por un saldo cero espurio proveniente de lectura corrupta.
+
+* **[#INV-03] Resolución Global de Deuda Foco:**  
+  El lookup de la obligación al accionar *"Abonar Cuota"* o *"Pausar este mes"* en la tarjeta de Deuda Foco debe realizarse sobre la colección completa (`todasLasObligaciones`), sin depender de la pestaña de filtro que se encuentre activa en ese momento.
+
+* **[#INV-04] Zona Horaria Oficial `America/Asuncion`:**  
+  Toda fecha, marca temporal, cálculo de días restantes o alerta debe procesarse bajo la zona horaria paraguaya oficial (UTC-3 / UTC-4).
+
+* **[#INV-05] Resiliencia Offline-First (SSOT en Room):**  
+  Toda pantalla debe leer primariamente desde Room Database. Los fallos o caídas de red nunca deben vaciar ni resetear los datos locales cacheados (prohibido el *destructive loading*).
+
+* **[#INV-06] Inmutabilidad Criptográfica de Distribución:**  
+  Los workflows de release en CI/CD (`release.yml`) exigen verificación criptográfica obligatoria con `apksigner verify --verbose --print-certs` contra la huella SHA-256 oficial (`2db8d51c88ad21c640a3bffb9fe04c50603e81182f8e1b7e54b3a568a580ffe7`). Queda estrictamente prohibido usar debug keystores o firmas efímeras como fallback.
+
+* **[#INV-07] Seguridad de Credenciales y Secretos:**  
+  La `X-API-KEY` y las configuraciones de red dinámicas se almacenan exclusivamente en `EncryptedSharedPreferences` mediante `MasterKey` AES-256. Ninguna clave ni contraseña debe versionarse en Git ni mostrarse en logs de producción.
+
+---
+
+## 4. Archivos Ancla y Suites de Prueba
+
+Las suites de pruebas que custodian estos invariantes y deben ejecutarse obligatoriamente con `./gradlew testDebugUnitTest` son:
+
+| Invariante Custodiado | Archivos Ancla de Código | Suite de Prueba Asociada |
+|---|---|---|
+| [#INV-01] Localización Monetaria | `FormatUtils.kt`, `TransaccionesScreen.kt` | `FormatUtilsTest.kt` |
+| [#INV-02] Integridad de Deudas | `Models.kt`, `ObligacionesViewModel.kt` | `ObligacionesViewModelTest.kt` |
+| [#INV-03] Deuda Foco Global | `ObligacionesScreen.kt`, `ObligacionesViewModel.kt` | `ObligacionesViewModelTest.kt` |
+| [#INV-04] Zona Horaria Asunción | `DateUtils.kt`, `AvisoUiMapper.kt` | `DateUtilsTest.kt`, `AvisosViewModelTest.kt` |
+| [#INV-05] Resiliencia Room | `GammaDatabase.kt`, `*RepositoryImpl.kt` | `RoomDatabaseTest.kt`, `*RepositoryTest.kt` |
+| [#INV-06] CI/CD Criptográfico | `.github/workflows/release.yml`, `app/build.gradle.kts` | Workflow Validation, `apksigner` check |
+| [#INV-07] Seguridad Credenciales | `SecureStorageRepositoryImpl.kt`, `ApiKeyInterceptor.kt` | `SecureStorageTest.kt`, `NetworkModuleTest.kt` |
+
+---
+*Fin del Mapeo del Sistema Gamma Mobile.*

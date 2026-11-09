@@ -9,7 +9,7 @@
 ## 1. Estado actual
 
 - **Hidratación Global Atómica (Bootstrap):** Consumo del endpoint `GET /api/v1/bootstrap` implementado en `BootstrapRepositoryImpl`, hidratando de forma atómica y no destructiva el resumen financiero, avisos y periodo contable en `DashboardViewModel`.
-- **Proyección de Flujo de Caja 30D y Clima Offline-First:** Persistencia en Room (Database v6 con `MIGRATION_5_6`) con tablas `flujo_caja` y `clima_cache`. Componentes `ClimaHeaderWidget` (con alerta de paraguas $\ge 35\%$) y `FlujoCajaCard` (semáforo de liquidez con días críticos y proyección de 30 días) integrados en `DashboardScreen`.
+- **Flujo de Caja 30D y Clima Offline-First:** Persistencia Room v6 (`MIGRATION_5_6`). Componentes `ClimaHeaderWidget` (alerta lluvia $\ge 35\%$) y `FlujoCajaCard` (semáforo de liquidez y proyección 30 días) en `DashboardScreen`.
 - **Inteligencia Financiera Híbrida (NLP Backend v2 + Gemini On-Device):** Botón dual en `NuevaTransaccionScreen` ("⚡ Rápido (NLP)" vía `POST /api/v1/movimientos/parse-nlp` y "✨ Gemini IA" vía on-device).
 - **Integración SIFEN KuDE:** Resolución y autocompletado de Razón Social de proveedores a partir de RUC (`POST /api/v1/sifen/consultar-ruc`) en `NuevaTransaccionViewModel`, `SifenScannerViewModel` y `SifenConfirmBottomSheet`.
 - **Resiliencia e Idempotencia de Red:** Interceptores OkHttp `IdempotencyInterceptor` (`X-Client-Id` único por sesión), `RateLimitInterceptor` (gestión de 429 con `Retry-After`) y `PayloadSizeGuardInterceptor` (prevención de desbordamiento >64KB).

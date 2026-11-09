@@ -1,0 +1,1 @@
+{"id":"phase:01M70XMXGKD0HP5KNPP0NZBNCZ","ts":"2026-11-09T19:48:02.195311+00:00","surface":"phase","kind":"phase_closed","summary":"Integracion global Backend v2: Bootstrap atomico, flujo caja 30D, clima, NLP hibrido, SIFEN KuDE, interceptores y Room v6","refs":["test:testDebugUnitTest","commit:318e0cf"],"phase":"v0.0.13"}

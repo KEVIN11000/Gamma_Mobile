@@ -47,6 +47,7 @@ enum class Screen {
     NuevaTransaccion,
     SifenScanner,
     Compromisos,
+    Presupuesto,
     HistorialCierres,
     CapacidadPago,
     Sistema
@@ -210,6 +211,14 @@ fun GammaApp() {
                     val capacidadViewModel: com.gamma.mobile.presentation.capacidad.CapacidadPagoViewModel = androidx.hilt.navigation.compose.hiltViewModel()
                     com.gamma.mobile.presentation.capacidad.CapacidadPagoScreen(
                         viewModel = capacidadViewModel,
+                        onBack = navigateBack
+                    )
+                }
+                Screen.Presupuesto -> {
+                    val presupuestoViewModel: com.gamma.mobile.presentation.presupuesto.PresupuestoViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+                    com.gamma.mobile.presentation.presupuesto.PresupuestoScreen(
+                        viewModel = presupuestoViewModel,
+                        showTopBar = true,
                         onBack = navigateBack
                     )
                 }

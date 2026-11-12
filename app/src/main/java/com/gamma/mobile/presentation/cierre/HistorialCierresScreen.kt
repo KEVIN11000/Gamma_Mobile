@@ -257,7 +257,7 @@ fun CierreHistorialCard(
             ) {
                 if (esContable) {
                     Text(
-                        text = "Total Neto:",
+                        text = "Total Facturado / Ingresos:",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

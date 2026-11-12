@@ -91,6 +91,18 @@ abstract class AppModule {
         impl: com.gamma.mobile.data.repository.ClimaRepositoryImpl
     ): com.gamma.mobile.domain.repository.ClimaRepository
 
+    @Binds
+    @Singleton
+    abstract fun bindCapacidadesRepository(
+        impl: com.gamma.mobile.data.repository.CapacidadesRepositoryImpl
+    ): com.gamma.mobile.domain.repository.CapacidadesRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindPresupuestoRepository(
+        impl: com.gamma.mobile.data.repository.PresupuestoRepositoryImpl
+    ): com.gamma.mobile.domain.repository.PresupuestoRepository
+
     companion object {
         @Provides
         @Singleton

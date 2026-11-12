@@ -278,4 +278,51 @@ class ObligacionesViewModel @Inject constructor(
             loadDeudaFoco()
         }
     }
+
+    fun actualizarObligacion(
+        id: String,
+        nombre: String? = null,
+        entidad: String? = null,
+        saldoActual: Long? = null,
+        cuotaReferenciaGs: Long? = null,
+        cuotasTotales: Int? = null,
+        cuotasRestantes: Int? = null,
+        diaVencimiento: Int? = null,
+        estado: String? = null,
+        observaciones: String? = null
+    ) {
+        val existing = todasLasObligaciones.find { it.id == id } ?: return
+        val nuevoEstado = estado ?: if ((saldoActual ?: existing.saldoActual) <= 0L) "Saldada" else existing.estado
+        val actualizada = existing.copy(
+            nombre = nombre?.takeIf { it.isNotBlank() } ?: existing.nombre,
+            entidad = entidad?.takeIf { it.isNotBlank() } ?: existing.entidad,
+            saldoActual = saldoActual ?: existing.saldoActual,
+            cuotaReferenciaGs = cuotaReferenciaGs ?: existing.cuotaReferenciaGs,
+            cuotasTotales = cuotasTotales ?: existing.cuotasTotales,
+            cuotasRestantes = cuotasRestantes ?: existing.cuotasRestantes,
+            diaVencimiento = diaVencimiento ?: existing.diaVencimiento,
+            estado = nuevoEstado,
+            observaciones = observaciones ?: existing.observaciones
+        )
+        val updateDto = com.gamma.mobile.data.remote.dto.ObligacionUpdateDto(
+            nombre = actualizada.nombre,
+            entidad = actualizada.entidad,
+            saldoActual = actualizada.saldoActual,
+            cuotaReferenciaGs = actualizada.cuotaReferenciaGs,
+            cuotasTotales = actualizada.cuotasTotales,
+            cuotasRestantes = actualizada.cuotasRestantes,
+            diaVencimiento = actualizada.diaVencimiento,
+            estado = actualizada.estado,
+            observaciones = actualizada.observaciones
+        )
+
+        todasLasObligaciones = todasLasObligaciones.map { if (it.id == actualizada.id) actualizada else it }
+        emitFilteredState()
+
+        viewModelScope.launch {
+            repository.updateObligacion(id, updateDto)
+            loadCronograma(true)
+            loadDeudaFoco()
+        }
+    }
 }

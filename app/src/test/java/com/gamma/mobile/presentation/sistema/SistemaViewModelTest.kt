@@ -100,7 +100,7 @@ class FakeSistemaRepository : SistemaRepository {
 
 class FakeSistemaSecureStorage : SecureStorageRepository {
     var savedKey: String? = null
-    var savedUrl: String = "https://kevin11000.pythonanywhere.com/api/v1/"
+    var savedUrl: String = com.gamma.mobile.data.repository.SecureStorageRepositoryImpl.DEFAULT_BASE_URL
 
     override fun saveApiKey(key: String) { savedKey = key }
     override fun getApiKey(): String? = savedKey
@@ -156,7 +156,7 @@ class SistemaViewModelTest {
         assertEquals("TCK-001", state.tickets[0].id)
         assertEquals(1, state.logs.size)
         assertEquals("Test log", state.logs[0].mensaje)
-        assertEquals("https://kevin11000.pythonanywhere.com/api/v1/", state.baseUrl)
+        assertEquals(com.gamma.mobile.data.repository.SecureStorageRepositoryImpl.DEFAULT_BASE_URL, state.baseUrl)
     }
 
     @Test
@@ -363,7 +363,7 @@ class SistemaViewModelTest {
         assertTrue(state.cierreMensaje?.startsWith("✅") == true)
 
         val fullPdf = viewModel.obtenerUrlAbsolutaPdf(state.cierreContable?.pdfUrl)
-        assertEquals("https://kevin11000.pythonanywhere.com/api/v1/api/v1/cierres/reportes/test.pdf", fullPdf)
+        assertEquals("${com.gamma.mobile.data.repository.SecureStorageRepositoryImpl.DEFAULT_BASE_URL}api/v1/cierres/reportes/test.pdf", fullPdf)
     }
 
     @Test
@@ -407,7 +407,7 @@ class SistemaViewModelTest {
         assertEquals(null, viewModel.obtenerUrlAbsolutaPdf(""))
         assertEquals("https://external.com/doc.pdf", viewModel.obtenerUrlAbsolutaPdf("https://external.com/doc.pdf"))
         assertEquals("http://external.com/doc.pdf", viewModel.obtenerUrlAbsolutaPdf("http://external.com/doc.pdf"))
-        assertEquals("https://kevin11000.pythonanywhere.com/api/v1/reporte.pdf", viewModel.obtenerUrlAbsolutaPdf("/reporte.pdf"))
+        assertEquals("${com.gamma.mobile.data.repository.SecureStorageRepositoryImpl.DEFAULT_BASE_URL}reporte.pdf", viewModel.obtenerUrlAbsolutaPdf("/reporte.pdf"))
     }
 
     @Test

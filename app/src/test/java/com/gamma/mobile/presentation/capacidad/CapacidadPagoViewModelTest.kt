@@ -461,6 +461,7 @@ class FakeCapacidadObligacionRepo : ObligacionRepository {
 
     override suspend fun createObligacion(obligacion: Obligacion): NetworkResult<Unit> = NetworkResult.Success(Unit)
     override suspend fun updateObligacion(obligacion: Obligacion): NetworkResult<Unit> = NetworkResult.Success(Unit)
+    override suspend fun updateObligacion(id: String, updateDto: com.gamma.mobile.data.remote.dto.ObligacionUpdateDto): NetworkResult<Unit> = NetworkResult.Success(Unit)
     override suspend fun deleteObligacion(id: String): NetworkResult<Unit> = NetworkResult.Success(Unit)
     override suspend fun abonarObligacion(idObligacion: String, monto: Long): NetworkResult<Unit> = NetworkResult.Success(Unit)
     override suspend fun getCronogramaVencimientos(forceRefresh: Boolean): NetworkResult<List<com.gamma.mobile.domain.model.VencimientoCronogramaItem>> = NetworkResult.Success(emptyList())

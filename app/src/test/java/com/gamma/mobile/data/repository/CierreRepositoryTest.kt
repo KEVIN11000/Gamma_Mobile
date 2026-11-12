@@ -4,6 +4,7 @@ import com.gamma.mobile.data.local.dao.CierreDao
 import com.gamma.mobile.data.local.dao.SyncStateDao
 import com.gamma.mobile.data.local.entity.CierreEntity
 import com.gamma.mobile.data.local.entity.SyncStateEntity
+import com.gamma.mobile.data.remote.BaseFakeGammaApi
 import com.gamma.mobile.data.remote.GammaApi
 import com.gamma.mobile.data.remote.IaTextRequest
 import com.gamma.mobile.data.remote.NetworkResult
@@ -187,7 +188,7 @@ class FakeSyncStateDaoForCierre : SyncStateDao {
     }
 }
 
-class FakeApiForCierreRepo : GammaApi {
+class FakeApiForCierreRepo : BaseFakeGammaApi() {
     var shouldThrow = false
     var cierresResponse: Response<List<CierreHistorialItem>> = Response.success(emptyList())
     var reporteResponse: Response<okhttp3.ResponseBody> = Response.success("".toResponseBody())

@@ -13,6 +13,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -448,16 +449,17 @@ class ObligacionesViewModelTest {
     }
 
     @Test
-    fun `deuda with Saldada estado is classified as Saldada even if saldoActual is positive`() = runTest {
+    fun `deuda with Saldada estado but positive saldoActual is guarded and classified as Activa`() = runTest {
         val o = Obligacion(
             id = "d2",
-            nombre = "Préstamo Pagado",
+            nombre = "Préstamo con saldo pendiente",
             montoInicial = 5000000,
             saldoActual = 100000,
             estado = "Saldada"
         )
-        assertTrue(o.esSaldada)
-        assertFalse(o.esActiva)
+        assertFalse(o.esSaldada)
+        assertTrue(o.esActiva)
+        assertEquals(100000L, o.saldoReal)
     }
 
     @Test
@@ -547,6 +549,41 @@ class ObligacionesViewModelTest {
         assertEquals(250000L, tcMonk.cuotaReal)
         assertEquals(16102026L, tcMonk.saldoReal)
     }
+
+    @Test
+    fun `actualizarObligacion updates state and calls repository updateObligacion with DTO`() = runTest(testDispatcher) {
+        val gnb = Obligacion(
+            id = "gnb_edit",
+            nombre = "Préstamo GNB",
+            montoInicial = 16421684L,
+            saldoActual = 15531684L,
+            cuotaReferenciaGs = 890000L,
+            cuotasTotales = 24,
+            cuotasRestantes = 23,
+            estado = "Saldada"
+        )
+        fakeRepo.data = listOf(gnb)
+        viewModel = ObligacionesViewModel(fakeRepo, fakeDashboardRepo)
+        advanceUntilIdle()
+
+        viewModel.actualizarObligacion(
+            id = "gnb_edit",
+            nombre = "Préstamo GNB Actualizado",
+            saldoActual = 14641684L,
+            cuotasRestantes = 22,
+            estado = "Activo"
+        )
+        advanceUntilIdle()
+
+        val updated = viewModel.todasLasObligaciones.find { it.id == "gnb_edit" }
+        assertNotNull(updated)
+        assertEquals("Préstamo GNB Actualizado", updated?.nombre)
+        assertEquals(14641684L, updated?.saldoActual)
+        assertEquals(22, updated?.cuotasRestantes)
+        assertEquals("Activo", updated?.estado)
+        assertTrue(fakeRepo.updatedDtoMap.containsKey("gnb_edit"))
+        assertEquals(14641684L, fakeRepo.updatedDtoMap["gnb_edit"]?.saldoActual)
+    }
 }
 
 class FakeDashboardRepository : com.gamma.mobile.domain.repository.DashboardRepository {
@@ -566,6 +603,7 @@ class FakeObligacionRepository : ObligacionRepository {
     val deudaFocoMap = mutableMapOf<String, com.gamma.mobile.domain.model.DeudaFocoResponse>()
     val createdList = mutableListOf<Obligacion>()
     val updatedList = mutableListOf<Obligacion>()
+    val updatedDtoMap = mutableMapOf<String, com.gamma.mobile.data.remote.dto.ObligacionUpdateDto>()
     val deletedIds = mutableListOf<String>()
     val abonosList = mutableListOf<Pair<String, Long>>()
 
@@ -580,6 +618,11 @@ class FakeObligacionRepository : ObligacionRepository {
 
     override suspend fun updateObligacion(obligacion: Obligacion): NetworkResult<Unit> {
         updatedList.add(obligacion)
+        return NetworkResult.Success(Unit)
+    }
+
+    override suspend fun updateObligacion(id: String, updateDto: com.gamma.mobile.data.remote.dto.ObligacionUpdateDto): NetworkResult<Unit> {
+        updatedDtoMap[id] = updateDto
         return NetworkResult.Success(Unit)
     }
 

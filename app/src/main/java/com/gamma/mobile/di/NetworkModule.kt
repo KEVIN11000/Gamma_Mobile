@@ -87,7 +87,7 @@ object NetworkModule {
     @Singleton
     fun provideRetrofit(okHttpClient: OkHttpClient): Retrofit {
         return Retrofit.Builder()
-            .baseUrl("https://kevin11000.pythonanywhere.com/api/v1/")
+            .baseUrl(com.gamma.mobile.data.repository.SecureStorageRepositoryImpl.DEFAULT_BASE_URL)
             .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create())
             .build()

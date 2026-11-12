@@ -11,6 +11,9 @@ interface ObligacionDao {
     @Query("SELECT * FROM obligaciones")
     suspend fun getAll(): List<ObligacionEntity>
 
+    @Query("SELECT * FROM obligaciones WHERE id = :id LIMIT 1")
+    suspend fun getById(id: String): ObligacionEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(obligaciones: List<ObligacionEntity>)
 

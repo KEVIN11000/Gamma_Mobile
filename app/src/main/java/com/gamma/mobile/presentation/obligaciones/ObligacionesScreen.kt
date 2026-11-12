@@ -21,7 +21,9 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Cancel
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Warning
@@ -55,6 +57,7 @@ fun ObligacionesScreen(
     var initialCrearObligacionData by remember { mutableStateOf<Obligacion?>(null) }
     var selectedObligacionToAbonar by remember { mutableStateOf<Obligacion?>(null) }
     var obligacionToDelete by remember { mutableStateOf<Obligacion?>(null) }
+    var obligacionToEdit by remember { mutableStateOf<Obligacion?>(null) }
 
     val uiState by viewModel.uiState.collectAsState()
     val filtroActual by viewModel.filtroActual.collectAsState()
@@ -217,6 +220,7 @@ fun ObligacionesScreen(
                                         onAprobar = { viewModel.aprobarObligacion(obligacion) },
                                         onCancelarSimulada = { viewModel.cancelarObligacionSimulada(obligacion) },
                                         onAbonarClick = { selectedObligacionToAbonar = obligacion },
+                                        onEditClick = { obligacionToEdit = obligacion },
                                         onDeleteClick = { obligacionToDelete = obligacion },
                                         onPausarClick = { viewModel.pausarObligacion(obligacion) },
                                         onReanudarClick = { viewModel.reanudarObligacion(obligacion) }
@@ -281,6 +285,28 @@ fun ObligacionesScreen(
         )
     }
 
+    if (obligacionToEdit != null) {
+        EditarObligacionDialog(
+            obligacion = obligacionToEdit!!,
+            onDismiss = { obligacionToEdit = null },
+            onGuardar = { id, nombre, entidad, saldo, cuotaRef, cuotasTot, cuotasRest, diaVenc, estado, obs ->
+                viewModel.actualizarObligacion(
+                    id = id,
+                    nombre = nombre,
+                    entidad = entidad,
+                    saldoActual = saldo,
+                    cuotaReferenciaGs = cuotaRef,
+                    cuotasTotales = cuotasTot,
+                    cuotasRestantes = cuotasRest,
+                    diaVencimiento = diaVenc,
+                    estado = estado,
+                    observaciones = obs
+                )
+                obligacionToEdit = null
+            }
+        )
+    }
+
     if (showSimulador) {
         SimuladorCuotasModal(
             simulacionResult = simulacionResult,
@@ -306,6 +332,7 @@ fun ObligacionItem(
     onCancelarSimulada: () -> Unit,
     onAbonarClick: () -> Unit,
     onDeleteClick: () -> Unit,
+    onEditClick: () -> Unit = {},
     onPausarClick: () -> Unit = {},
     onReanudarClick: () -> Unit = {}
 ) {
@@ -357,6 +384,16 @@ fun ObligacionItem(
                         Text(obligacion.estadoReal, style = MaterialTheme.typography.labelSmall, color = textColor, fontWeight = FontWeight.Bold)
                     }
 
+                    // Botón Editar para deudas
+                    IconButton(onClick = onEditClick, modifier = Modifier.size(36.dp)) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = "Editar deuda",
+                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
                     // Botón Eliminar para deudas
                     IconButton(onClick = onDeleteClick, modifier = Modifier.size(36.dp)) {
                         Icon(
@@ -379,7 +416,7 @@ fun ObligacionItem(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 if (obligacion.cuotasTotales > 0) {
-                    val pagadas = (obligacion.cuotasTotales - obligacion.cuotasRestantes).coerceAtLeast(0)
+                    val pagadas = obligacion.cuotasPagadasReal
                     Text(
                         "Cuotas: $pagadas / ${obligacion.cuotasTotales} (${formatGuaranies(obligacion.cuotaReal)}/mes)",
                         style = MaterialTheme.typography.bodySmall,
@@ -425,7 +462,7 @@ fun ObligacionItem(
             
             Spacer(modifier = Modifier.height(10.dp))
             
-            val abonado = (obligacion.montoInicialReal - obligacion.saldoReal).coerceAtLeast(0L)
+            val abonado = obligacion.montoAbonadoReal
             val progress = if (obligacion.montoInicialReal > 0) abonado.toFloat() / obligacion.montoInicialReal else 0f
             
             LinearProgressIndicator(
@@ -1372,4 +1409,169 @@ fun ObligacionItemPreview() {
             )
         }
     }
+}
+
+@Composable
+fun EditarObligacionDialog(
+    obligacion: Obligacion,
+    onDismiss: () -> Unit,
+    onGuardar: (
+        id: String,
+        nombre: String,
+        entidad: String,
+        saldo: Long,
+        cuotaRef: Long,
+        cuotasTotales: Int,
+        cuotasRestantes: Int,
+        diaVencimiento: Int,
+        estado: String,
+        observaciones: String
+    ) -> Unit
+) {
+    var nombre by remember { mutableStateOf(obligacion.nombre) }
+    var entidad by remember { mutableStateOf(obligacion.entidadLimpia.ifBlank { obligacion.entidad }) }
+    var saldo by remember { mutableStateOf(obligacion.saldoReal.toString()) }
+    var cuotaRef by remember { mutableStateOf(obligacion.cuotaReal.toString()) }
+    var cuotasTotales by remember { mutableStateOf(obligacion.cuotasTotales.toString()) }
+    var cuotasRestantes by remember { mutableStateOf(obligacion.cuotasRestantesReal.toString()) }
+    var diaVencimiento by remember { mutableStateOf(obligacion.diaVencimiento.toString()) }
+    var estado by remember { mutableStateOf(obligacion.estadoReal) }
+    var observaciones by remember { mutableStateOf(obligacion.observaciones) }
+
+    val estadosDisponibles = listOf("Activo", "Pausada", "Saldada")
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Edit, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Editar Obligación", style = MaterialTheme.typography.titleLarge)
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                OutlinedTextField(
+                    value = nombre,
+                    onValueChange = { nombre = it },
+                    label = { Text("Nombre de la Deuda / Compromiso*") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                OutlinedTextField(
+                    value = entidad,
+                    onValueChange = { entidad = it },
+                    label = { Text("Entidad / Acreedor") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = saldo,
+                        onValueChange = { if (it.all { c -> c.isDigit() }) saldo = it },
+                        label = { Text("Saldo Actual (₲)*") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedTextField(
+                        value = cuotaRef,
+                        onValueChange = { if (it.all { c -> c.isDigit() }) cuotaRef = it },
+                        label = { Text("Cuota (₲/mes)*") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = cuotasTotales,
+                        onValueChange = { if (it.all { c -> c.isDigit() }) cuotasTotales = it },
+                        label = { Text("Cuotas Totales") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedTextField(
+                        value = cuotasRestantes,
+                        onValueChange = { if (it.all { c -> c.isDigit() }) cuotasRestantes = it },
+                        label = { Text("Cuotas Rest.") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                OutlinedTextField(
+                    value = diaVencimiento,
+                    onValueChange = { if (it.all { c -> c.isDigit() }) diaVencimiento = it },
+                    label = { Text("Día de Vencimiento (1-31)") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Text("Estado:", style = MaterialTheme.typography.labelMedium)
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    estadosDisponibles.forEach { est ->
+                        val isSelected = estado.equals(est, ignoreCase = true)
+                        FilterChip(
+                            selected = isSelected,
+                            onClick = { estado = est },
+                            label = { Text(est) },
+                            leadingIcon = if (isSelected) {
+                                { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                            } else null
+                        )
+                    }
+                }
+
+                OutlinedTextField(
+                    value = observaciones,
+                    onValueChange = { observaciones = it },
+                    label = { Text("Observaciones") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val s = saldo.toLongOrNull() ?: 0L
+                    val c = cuotaRef.toLongOrNull() ?: 0L
+                    val tot = cuotasTotales.toIntOrNull() ?: 1
+                    val rest = cuotasRestantes.toIntOrNull() ?: 1
+                    val dia = diaVencimiento.toIntOrNull() ?: 0
+                    onGuardar(
+                        obligacion.id,
+                        nombre.trim(),
+                        entidad.trim(),
+                        s,
+                        c,
+                        tot,
+                        rest,
+                        dia,
+                        estado,
+                        observaciones.trim()
+                    )
+                },
+                enabled = nombre.isNotBlank() && saldo.isNotBlank()
+            ) {
+                Text("Guardar Cambios")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancelar")
+            }
+        }
+    )
 }

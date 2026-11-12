@@ -1,5 +1,6 @@
 package com.gamma.mobile.presentation.onboarding
 
+import com.gamma.mobile.data.remote.BaseFakeGammaApi
 import com.gamma.mobile.data.remote.GammaApi
 import com.gamma.mobile.domain.repository.SecureStorageRepository
 import kotlinx.coroutines.Dispatchers
@@ -73,7 +74,7 @@ class OnboardingViewModelTest {
     }
 }
 
-class FakeGammaApi : GammaApi {
+class FakeGammaApi : BaseFakeGammaApi() {
     var healthResponse: Response<Unit>? = null
     var shouldThrowException = false
 
@@ -129,7 +130,7 @@ class FakeGammaApi : GammaApi {
 
 class FakeSecureStorageRepository : SecureStorageRepository {
     private var key: String? = null
-    private var baseUrl: String = "https://kevin11000.pythonanywhere.com/api/v1/"
+    private var baseUrl: String = com.gamma.mobile.data.repository.SecureStorageRepositoryImpl.DEFAULT_BASE_URL
 
     override fun saveApiKey(key: String) {
         this.key = key

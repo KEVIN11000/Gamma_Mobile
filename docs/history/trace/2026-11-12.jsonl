@@ -1,0 +1,1 @@
+{"id":"phase:01M78FNF4H0TCQ4M8NF3NN063C","ts":"2026-11-12T18:17:35.633086+00:00","surface":"phase","kind":"phase_closed","summary":"Release v0.0.14 preparado: refinamiento contable, Presupuesto Base, auto-descubrimiento y remediacion de seguridad CWE-200/798","refs":["test:testDebugUnitTest","bug:seguridad-gamma-mobile"],"phase":"v0.0.14"}

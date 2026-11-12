@@ -127,12 +127,17 @@ data class Obligacion(
         }
 
     val esDefinitivamenteSaldada: Boolean
-        get() = estado.trim().lowercase() in listOf("saldado", "saldada")
+        get() {
+            // INVARIANTE: Si saldoActual > 0L, la deuda está VIVA independientemente de etiquetas textuales en planilla. Ref: SYSTEM_MAP #INV-02
+            if (saldoActual > 0L) return false
+            val raw = estado.trim().lowercase()
+            return raw in listOf("saldado", "saldada")
+        }
 
     val saldoReal: Long
         get() {
-            if (esDefinitivamenteSaldada) return 0L
             if (saldoActual > 0L) return saldoActual
+            if (esDefinitivamenteSaldada) return 0L
             // Desplazamiento de columnas: si saldoActual vino 0 pero cuotaReferenciaGs contiene el saldo total
             if (cuotaReferenciaGs > 0L) return cuotaReferenciaGs
             return 0L
@@ -149,7 +154,7 @@ data class Obligacion(
         get() {
             // Si estado tiene la cuota desplazada (ej: 400.000 para Kari):
             val cEstado = cuotaDesdeEstado
-            if (cEstado != null && cEstado > 0L) return cEstado
+            if (cEstado != null && cEstado > 0L && (saldoReal <= 0L || cEstado < saldoReal)) return cEstado
 
             // Si entidad tiene la cuota desplazada (ej: 250.000 para Monkinovia):
             val cEntidad = cuotaDesdeEntidad
@@ -171,16 +176,36 @@ data class Obligacion(
     val cuotaMensualEstimada: Long
         get() = cuotaReal
 
+    val montoAbonadoReal: Long
+        get() = (montoInicialReal - saldoReal).coerceAtLeast(0L)
+
+    val cuotasPagadasReal: Int
+        get() {
+            if (cuotasTotales <= 0) return 0
+            if (esDefinitivamenteSaldada) return cuotasTotales
+            if (cuotaReal > 0L && montoAbonadoReal > 0L) {
+                val estimadas = (montoAbonadoReal / cuotaReal).toInt()
+                if (estimadas > 0) return estimadas.coerceIn(0, cuotasTotales)
+            }
+            val desdeColumnas = cuotasTotales - cuotasRestantes
+            return desdeColumnas.coerceIn(0, cuotasTotales)
+        }
+
+    val cuotasRestantesReal: Int
+        get() {
+            if (cuotasTotales <= 0) return 0
+            if (esDefinitivamenteSaldada) return 0
+            return (cuotasTotales - cuotasPagadasReal).coerceAtLeast(0)
+        }
+
     val estadoReal: String
         get() {
-            if (esDefinitivamenteSaldada) return "Saldada"
             val raw = estado.trim().lowercase()
             if (raw in listOf("pausado", "pausada")) return "Pausada"
             if (raw in listOf("simulado", "simulada")) return "Simulado"
-            if (raw in listOf("activo", "activa")) return "Activo"
-            // Si el estado es numérico (cuota desplazada) o no está marcado como saldado y tiene saldo o cuota:
-            if (cuotaDesdeEstado != null && cuotaDesdeEstado!! > 0L) return "Activo"
             if (saldoReal > 0L) return "Activo"
+            if (raw in listOf("activo", "activa")) return "Activo"
+            if (esDefinitivamenteSaldada) return "Saldada"
             return "Saldada"
         }
 
@@ -194,8 +219,9 @@ data class Obligacion(
         get() = when {
             esSimulada || esPausada -> false
             esDefinitivamenteSaldada -> false
+            saldoReal > 0L -> true
             estadoReal.lowercase() in listOf("activo", "activa") -> true
-            else -> saldoReal > 0L
+            else -> false
         }
 
     val esSaldada: Boolean

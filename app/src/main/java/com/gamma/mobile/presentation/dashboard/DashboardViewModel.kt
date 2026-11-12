@@ -10,6 +10,7 @@ import com.gamma.mobile.domain.model.FlujoCaja
 import com.gamma.mobile.domain.repository.AsistenciaRepository
 import com.gamma.mobile.domain.repository.AvisoRepository
 import com.gamma.mobile.domain.repository.BootstrapRepository
+import com.gamma.mobile.domain.repository.CapacidadesRepository
 import com.gamma.mobile.domain.repository.ClimaRepository
 import com.gamma.mobile.domain.repository.DashboardRepository
 import com.gamma.mobile.domain.repository.FlujoCajaRepository
@@ -43,7 +44,8 @@ class DashboardViewModel @Inject constructor(
     private val asistenciaRepository: AsistenciaRepository? = null,
     private val bootstrapRepository: BootstrapRepository? = null,
     private val flujoCajaRepository: FlujoCajaRepository? = null,
-    private val climaRepository: ClimaRepository? = null
+    private val climaRepository: ClimaRepository? = null,
+    private val capacidadesRepository: CapacidadesRepository? = null
 ) : ViewModel() {
 
     // Constructores secundarios para compatibilidad con tests unitarios existentes
@@ -51,14 +53,14 @@ class DashboardViewModel @Inject constructor(
         dashboardRepository: DashboardRepository,
         avisoRepository: AvisoRepository,
         clock: Clock
-    ) : this(dashboardRepository, avisoRepository, clock, null, null, null, null)
+    ) : this(dashboardRepository, avisoRepository, clock, null, null, null, null, null)
 
     constructor(
         dashboardRepository: DashboardRepository,
         avisoRepository: AvisoRepository,
         clock: Clock,
         asistenciaRepository: AsistenciaRepository?
-    ) : this(dashboardRepository, avisoRepository, clock, asistenciaRepository, null, null, null)
+    ) : this(dashboardRepository, avisoRepository, clock, asistenciaRepository, null, null, null, null)
 
     private val _uiState = MutableStateFlow<DashboardUiState>(DashboardUiState.Loading)
     val uiState: StateFlow<DashboardUiState> = _uiState.asStateFlow()
@@ -74,6 +76,12 @@ class DashboardViewModel @Inject constructor(
 
     private val _modoMarcacion = MutableStateFlow(MODO_NORMAL)
     val modoMarcacion: StateFlow<String> = _modoMarcacion.asStateFlow()
+
+    val capacidadesFlow: StateFlow<Map<String, Boolean>>? = capacidadesRepository?.capacidadesFlow
+
+    fun isCapacidadHabilitada(clave: String, defaultSiNoExiste: Boolean = true): Boolean {
+        return capacidadesRepository?.isCapacidadHabilitada(clave, defaultSiNoExiste) ?: defaultSiNoExiste
+    }
 
     private var loadJob: Job? = null
     private var initialLoadDone = false
@@ -121,6 +129,11 @@ class DashboardViewModel @Inject constructor(
         }
 
         loadJob = viewModelScope.launch {
+            // Sincronizar dinámicamente capacidades y feature flags del backend
+            try {
+                capacidadesRepository?.syncCapacidades()
+            } catch (_: Exception) {}
+
             if (bootstrapRepository != null) {
                 cargarConBootstrap(forceRefresh, silent)
             } else {

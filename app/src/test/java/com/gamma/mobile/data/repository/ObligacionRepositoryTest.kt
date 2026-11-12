@@ -4,7 +4,9 @@ import com.gamma.mobile.data.local.dao.ObligacionDao
 import com.gamma.mobile.data.local.dao.SyncStateDao
 import com.gamma.mobile.data.local.entity.ObligacionEntity
 import com.gamma.mobile.data.local.entity.SyncStateEntity
+import com.gamma.mobile.data.remote.BaseFakeGammaApi
 import com.gamma.mobile.data.remote.GammaApi
+import com.gamma.mobile.data.remote.dto.ObligacionUpdateDto
 import com.gamma.mobile.data.remote.IaTextRequest
 import com.gamma.mobile.data.remote.NetworkResult
 import com.gamma.mobile.domain.model.Aviso
@@ -262,15 +264,51 @@ class ObligacionRepositoryTest {
         assertEquals("Pausada", fakeDao.data[0].estado)
         assertEquals("o_update", fakeApi.lastUpdatedId)
     }
+
+    @Test
+    fun `updateObligacion with ObligacionUpdateDto updates Room and calls api`() = runTest(dispatcher) {
+        val initialEntity = ObligacionEntity(
+            id = "gnb_1",
+            nombre = "Préstamo GNB",
+            montoInicial = 16421684L,
+            saldoActual = 15531684L,
+            estado = "Saldada",
+            cuotaReferenciaGs = 890000L,
+            cuotasTotales = 24,
+            cuotasRestantes = 23,
+            tipo = "Deuda"
+        )
+        fakeDao.insertAll(listOf(initialEntity))
+
+        val updateDto = ObligacionUpdateDto(
+            saldoActual = 14641684L,
+            cuotasRestantes = 22,
+            estado = "Activo"
+        )
+        fakeApi.updateObligacionResponse = Response.success(Unit)
+
+        val result = repository.updateObligacion("gnb_1", updateDto)
+
+        assertTrue(result is NetworkResult.Success)
+        val updated = fakeDao.getById("gnb_1")
+        assertNotNull(updated)
+        assertEquals(14641684L, updated?.saldoActual)
+        assertEquals(22, updated?.cuotasRestantes)
+        assertEquals("Activo", updated?.estado)
+        assertEquals("Préstamo GNB", updated?.nombre)
+        assertEquals("gnb_1", fakeApi.lastUpdatedId)
+        assertEquals(14641684L, fakeApi.lastUpdatedDto?.saldoActual)
+    }
 }
 
-class FakeApiForObligacionRepo : GammaApi {
+class FakeApiForObligacionRepo : BaseFakeGammaApi() {
     var shouldThrow = false
     var cronogramaResponse: Response<List<VencimientoCronogramaItem>> = Response.success(emptyList())
     var focoResponse: Response<DeudaFocoResponse> = Response.success(DeudaFocoResponse())
     var proyectarResponse: Response<CapacidadPagoResponse> = Response.success(CapacidadPagoResponse())
     var updateObligacionResponse: Response<Unit> = Response.success(Unit)
     var lastUpdatedId: String? = null
+    var lastUpdatedDto: ObligacionUpdateDto? = null
 
     override suspend fun getCronogramaVencimientos(): Response<List<VencimientoCronogramaItem>> {
         if (shouldThrow) throw java.io.IOException("Network unreachable")
@@ -290,6 +328,13 @@ class FakeApiForObligacionRepo : GammaApi {
     override suspend fun updateObligacion(id: String, obligacion: Obligacion): Response<Unit> {
         if (shouldThrow) throw java.io.IOException("Network unreachable")
         lastUpdatedId = id
+        return updateObligacionResponse
+    }
+
+    override suspend fun updateObligacionParcial(id: String, updateDto: ObligacionUpdateDto): Response<Unit> {
+        if (shouldThrow) throw java.io.IOException("Network unreachable")
+        lastUpdatedId = id
+        lastUpdatedDto = updateDto
         return updateObligacionResponse
     }
 
@@ -337,6 +382,8 @@ class FakeObligacionDao : ObligacionDao {
     val data = mutableListOf<ObligacionEntity>()
 
     override suspend fun getAll(): List<ObligacionEntity> = data
+
+    override suspend fun getById(id: String): ObligacionEntity? = data.find { it.id == id }
 
     override suspend fun insertAll(obligaciones: List<ObligacionEntity>) {
         data.removeAll { entity -> obligaciones.any { it.id == entity.id } }

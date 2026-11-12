@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -36,6 +38,20 @@ fun getAppVersion(): String {
     }
 }
 
+val localProperties = Properties()
+val localPropertiesFile = rootProject.file("local.properties")
+if (localPropertiesFile.exists()) {
+    localPropertiesFile.inputStream().use { localProperties.load(it) }
+}
+
+val rawServerBaseUrl: String = (
+    localProperties.getProperty("GAMMA_API_BASE_URL")
+        ?: localProperties.getProperty("gamma.api.base_url")
+        ?: System.getenv("GAMMA_API_BASE_URL")
+        ?: "https://api.gamma.example.com/api/v1/"
+).trim()
+val serverBaseUrl: String = if (rawServerBaseUrl.endsWith("/")) rawServerBaseUrl else "$rawServerBaseUrl/"
+
 android {
     namespace = "com.gamma.mobile"
     compileSdk = 34
@@ -49,6 +65,8 @@ android {
         versionCode = getGitCommitCount()
         versionName = "$appVersion+${getGitCommitHash()}"
 
+        buildConfigField("String", "DEFAULT_BASE_URL", "\"$serverBaseUrl\"")
+
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
             useSupportLibrary = true
@@ -58,13 +76,13 @@ android {
     signingConfigs {
         create("release") {
             val userHome = System.getProperty("user.home")
-            val keystoreEnv = System.getenv("KEYSTORE_FILE")
+            val keystoreEnv = System.getenv("KEYSTORE_FILE") ?: localProperties.getProperty("KEYSTORE_FILE")
             val keystoreFile = if (!keystoreEnv.isNullOrBlank()) file(keystoreEnv) else file("$userHome/.android/gamma_release.jks")
             if (keystoreFile.exists()) {
                 storeFile = keystoreFile
-                storePassword = System.getenv("KEYSTORE_PASSWORD") ?: "gamma2026release"
-                keyAlias = System.getenv("KEY_ALIAS") ?: "gamma_key"
-                keyPassword = System.getenv("KEY_PASSWORD") ?: "gamma2026release"
+                storePassword = System.getenv("KEYSTORE_PASSWORD") ?: localProperties.getProperty("KEYSTORE_PASSWORD", "")
+                keyAlias = System.getenv("KEY_ALIAS") ?: localProperties.getProperty("KEY_ALIAS", "gamma_key")
+                keyPassword = System.getenv("KEY_PASSWORD") ?: localProperties.getProperty("KEY_PASSWORD", "")
             }
         }
     }

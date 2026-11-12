@@ -43,6 +43,7 @@ fun SistemaScreen(
     val scrollState = rememberScrollState()
     var showNewTicketDialog by remember { mutableStateOf(false) }
     var isTicketsExpanded by remember { mutableStateOf(false) }
+    var isLogsExpanded by remember { mutableStateOf(false) }
     var selectedTicketDetail by remember { mutableStateOf<TicketItem?>(null) }
 
     // Estado de configuración y seguridad
@@ -560,11 +561,25 @@ fun SistemaScreen(
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { isLogsExpanded = !isLogsExpanded },
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("Registros y Logs", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    "Registros y Logs (${uiState.logs.size})",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Icon(
+                                    imageVector = if (isLogsExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                    contentDescription = if (isLogsExpanded) "Plegar logs" else "Desplegar logs",
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
                             IconButton(
                                 onClick = { viewModel.recargarLogs() },
                                 enabled = !uiState.isLogsRefreshing
@@ -577,45 +592,47 @@ fun SistemaScreen(
                             }
                         }
 
-                        if (uiState.logs.isEmpty()) {
-                            Text("Sin logs recientes.", style = MaterialTheme.typography.bodySmall)
-                        } else {
-                            Column(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                uiState.logs.take(15).forEach { log ->
-                                    val nivelColor = when (log.nivel.uppercase()) {
-                                        "ERROR" -> MaterialTheme.colorScheme.error
-                                        "WARN" -> MaterialTheme.colorScheme.tertiary
-                                        else -> MaterialTheme.colorScheme.primary
-                                    }
+                        AnimatedVisibility(visible = isLogsExpanded) {
+                            if (uiState.logs.isEmpty()) {
+                                Text("Sin logs recientes.", style = MaterialTheme.typography.bodySmall)
+                            } else {
+                                Column(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    uiState.logs.take(15).forEach { log ->
+                                        val nivelColor = when (log.nivel.uppercase()) {
+                                            "ERROR" -> MaterialTheme.colorScheme.error
+                                            "WARN" -> MaterialTheme.colorScheme.tertiary
+                                            else -> MaterialTheme.colorScheme.primary
+                                        }
 
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                        verticalAlignment = Alignment.Top
-                                    ) {
-                                        if (log.timestamp.isNotBlank()) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                            verticalAlignment = Alignment.Top
+                                        ) {
+                                            if (log.timestamp.isNotBlank()) {
+                                                Text(
+                                                    log.timestamp,
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.outline,
+                                                    fontFamily = FontFamily.Monospace
+                                                )
+                                            }
                                             Text(
-                                                log.timestamp,
+                                                "[${log.nivel}]",
+                                                fontWeight = FontWeight.Bold,
                                                 style = MaterialTheme.typography.labelSmall,
-                                                color = MaterialTheme.colorScheme.outline,
+                                                color = nivelColor,
                                                 fontFamily = FontFamily.Monospace
                                             )
+                                            Text(
+                                                log.mensaje,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                modifier = Modifier.weight(1f)
+                                            )
                                         }
-                                        Text(
-                                            "[${log.nivel}]",
-                                            fontWeight = FontWeight.Bold,
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = nivelColor,
-                                            fontFamily = FontFamily.Monospace
-                                        )
-                                        Text(
-                                            log.mensaje,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            modifier = Modifier.weight(1f)
-                                        )
                                     }
                                 }
                             }

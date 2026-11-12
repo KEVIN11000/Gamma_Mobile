@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Notifications
@@ -69,6 +70,12 @@ fun CompromisosScreen(
                 text = { Text("Asistencia") },
                 icon = { Icon(Icons.Default.DateRange, contentDescription = "Asistencia") }
             )
+            Tab(
+                selected = selectedTab == 3,
+                onClick = { selectedTab = 3 },
+                text = { Text("Presupuesto") },
+                icon = { Icon(Icons.Default.AccountBalance, contentDescription = "Presupuesto") }
+            )
         }
         Box(
             modifier = Modifier
@@ -91,6 +98,13 @@ fun CompromisosScreen(
                 2 -> {
                     val asistenciaViewModel: AsistenciaViewModel = hiltViewModel()
                     AsistenciaScreen(viewModel = asistenciaViewModel, showTopBar = false)
+                }
+                3 -> {
+                    val presupuestoViewModel: com.gamma.mobile.presentation.presupuesto.PresupuestoViewModel = hiltViewModel()
+                    com.gamma.mobile.presentation.presupuesto.PresupuestoScreen(
+                        viewModel = presupuestoViewModel,
+                        showTopBar = false
+                    )
                 }
             }
         }

@@ -279,13 +279,25 @@ fun FilterTabs(
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         filters.forEach { (filtro, title) ->
+            val isSelected = selectedFiltro == filtro
             FilterChip(
-                selected = selectedFiltro == filtro,
+                selected = isSelected,
                 onClick = { onFilterSelected(filtro) },
-                label = { Text(title, fontWeight = if (selectedFiltro == filtro) FontWeight.Bold else FontWeight.Normal) },
-                leadingIcon = if (selectedFiltro == filtro) {
+                label = { Text(title, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
+                leadingIcon = if (isSelected) {
                     { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
-                } else null
+                } else null,
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    selectedLeadingIconColor = MaterialTheme.colorScheme.primary
+                ),
+                border = FilterChipDefaults.filterChipBorder(
+                    enabled = true,
+                    selected = isSelected,
+                    selectedBorderColor = MaterialTheme.colorScheme.primary,
+                    selectedBorderWidth = 1.5.dp
+                )
             )
         }
     }

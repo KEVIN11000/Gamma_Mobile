@@ -297,16 +297,46 @@ fun DashboardContent(
                             color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
                             modifier = Modifier.padding(end = 8.dp)
                         )
+                        val isNormalSelected = modoMarcacion == DashboardViewModel.MODO_NORMAL
                         FilterChip(
-                            selected = modoMarcacion == DashboardViewModel.MODO_NORMAL,
+                            selected = isNormalSelected,
                             onClick = { onModoMarcacionChange(DashboardViewModel.MODO_NORMAL) },
-                            label = { Text("Normal", style = MaterialTheme.typography.labelSmall) },
+                            label = { Text("Normal", style = MaterialTheme.typography.labelSmall, fontWeight = if (isNormalSelected) FontWeight.Bold else FontWeight.Normal) },
+                            leadingIcon = if (isNormalSelected) {
+                                { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                            } else null,
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                selectedLeadingIconColor = MaterialTheme.colorScheme.primary
+                            ),
+                            border = FilterChipDefaults.filterChipBorder(
+                                enabled = true,
+                                selected = isNormalSelected,
+                                selectedBorderColor = MaterialTheme.colorScheme.primary,
+                                selectedBorderWidth = 1.5.dp
+                            ),
                             modifier = Modifier.padding(end = 6.dp)
                         )
+                        val isDirectoSelected = modoMarcacion == DashboardViewModel.MODO_DIRECTO
                         FilterChip(
-                            selected = modoMarcacion == DashboardViewModel.MODO_DIRECTO,
+                            selected = isDirectoSelected,
                             onClick = { onModoMarcacionChange(DashboardViewModel.MODO_DIRECTO) },
-                            label = { Text("Directo", style = MaterialTheme.typography.labelSmall) }
+                            label = { Text("Directo", style = MaterialTheme.typography.labelSmall, fontWeight = if (isDirectoSelected) FontWeight.Bold else FontWeight.Normal) },
+                            leadingIcon = if (isDirectoSelected) {
+                                { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                            } else null,
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                selectedLeadingIconColor = MaterialTheme.colorScheme.primary
+                            ),
+                            border = FilterChipDefaults.filterChipBorder(
+                                enabled = true,
+                                selected = isDirectoSelected,
+                                selectedBorderColor = MaterialTheme.colorScheme.primary,
+                                selectedBorderWidth = 1.5.dp
+                            )
                         )
                     }
 

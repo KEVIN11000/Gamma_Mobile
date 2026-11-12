@@ -7,6 +7,7 @@ import com.gamma.mobile.data.local.entity.toDomain
 import com.gamma.mobile.data.local.entity.toEntity
 import com.gamma.mobile.data.remote.GammaApi
 import com.gamma.mobile.data.remote.NetworkResult
+import com.gamma.mobile.data.remote.dto.ObligacionUpdateDto
 import com.gamma.mobile.data.remote.safeApiCall
 import com.gamma.mobile.domain.model.Obligacion
 import com.gamma.mobile.domain.model.VencimientoCronogramaItem
@@ -64,6 +65,31 @@ class ObligacionRepositoryImpl @Inject constructor(
         // Persistencia local en Room y sincronización con PUT /obligaciones/{id}
         obligacionDao.insertAll(listOf(obligacion.toEntity()))
         return safeApiCall(dispatcher) { api.updateObligacion(obligacion.id, obligacion) }
+    }
+
+    override suspend fun updateObligacion(id: String, updateDto: ObligacionUpdateDto): NetworkResult<Unit> {
+        val result = safeApiCall(dispatcher) { api.updateObligacionParcial(id, updateDto) }
+        if (result is NetworkResult.Success) {
+            val existing = obligacionDao.getById(id)
+            if (existing != null) {
+                val updated = existing.copy(
+                    nombre = updateDto.nombre ?: existing.nombre,
+                    entidad = updateDto.entidad ?: existing.entidad,
+                    tipo = updateDto.tipo ?: existing.tipo,
+                    montoInicial = updateDto.montoInicial ?: existing.montoInicial,
+                    saldoActual = updateDto.saldoActual ?: existing.saldoActual,
+                    cuotasTotales = updateDto.cuotasTotales ?: existing.cuotasTotales,
+                    cuotasRestantes = updateDto.cuotasRestantes ?: existing.cuotasRestantes,
+                    cuotaReferenciaGs = updateDto.cuotaReferenciaGs ?: existing.cuotaReferenciaGs,
+                    diaVencimiento = updateDto.diaVencimiento ?: existing.diaVencimiento,
+                    fechaInicio = updateDto.fechaInicio ?: existing.fechaInicio,
+                    estado = updateDto.estado ?: existing.estado,
+                    observaciones = updateDto.observaciones ?: existing.observaciones
+                )
+                obligacionDao.insertAll(listOf(updated))
+            }
+        }
+        return result
     }
 
     override suspend fun deleteObligacion(id: String): NetworkResult<Unit> {

@@ -192,4 +192,142 @@ class DtoSerializationTest {
         assertTrue(responseDto.registrado)
         assertEquals(2, responseDto.dispositivosActivos)
     }
+
+    @Test
+    fun testBootstrapResponseDtoWithResumenFinancieroKey() {
+        val json = """
+            {
+                "status": "ok",
+                "resumen_financiero": {
+                    "margen_libre": 4200000,
+                    "saldo_acumulado": 5100000,
+                    "posicion_iva": 250000,
+                    "es_debito_fiscal": true
+                },
+                "periodo_actual": "Noviembre 2026"
+            }
+        """.trimIndent()
+
+        val dto = gson.fromJson(json, BootstrapResponseDto::class.java)
+        assertEquals("ok", dto.status)
+        assertNotNull(dto.summary)
+        assertEquals(4200000L, dto.summary?.margenLibreDisponible)
+        assertEquals(5100000L, dto.summary?.saldoAcumulado)
+        assertEquals(250000L, dto.summary?.posicionIva)
+        assertEquals(true, dto.summary?.esDebitoFiscal)
+    }
+
+    @Test
+    fun testCapacidadesResponseDtoDeserialization() {
+        val json = """
+            {
+                "version_api": "2.1.4",
+                "total_rutas": 42,
+                "modulos": ["presupuesto", "obligaciones", "asistencia"],
+                "capacidades_clave": {
+                    "presupuesto_fijos_delete": true,
+                    "presupuesto_techos_put": true,
+                    "asistencia_excel_export": true
+                },
+                "rutas": [
+                    {
+                        "modulo": "presupuesto",
+                        "ruta": "/api/v1/presupuesto/fijos",
+                        "metodos": ["GET", "POST"],
+                        "nombre_endpoint": "presupuesto_v1.get_gastos_fijos",
+                        "descripcion": "Retorna el salario base y el desglose de gastos fijos por categoría.",
+                        "autenticacion": true,
+                        "parametros": []
+                    }
+                ]
+            }
+        """.trimIndent()
+
+        val dto = gson.fromJson(json, CapacidadesResponseDto::class.java)
+        assertEquals("2.1.4", dto.versionApi)
+        assertEquals(42, dto.totalRutas)
+        assertEquals(3, dto.modulos.size)
+        assertTrue(dto.capacidadesClave["presupuesto_fijos_delete"] == true)
+        assertEquals(1, dto.rutas.size)
+        assertEquals("presupuesto", dto.rutas[0].modulo)
+        assertEquals(listOf("GET", "POST"), dto.rutas[0].metodos)
+        assertEquals("presupuesto_v1.get_gastos_fijos", dto.rutas[0].nombreEndpoint)
+    }
+
+    @Test
+    fun testPresupuestoFijosResponseDtoDeserialization() {
+        val json = """
+            {
+                "salario_base": 7500000,
+                "total_gastos_fijos": 2300000,
+                "categorias": {
+                    "Vivienda": [
+                        {
+                            "concepto": "Alquiler",
+                            "monto": 1500000,
+                            "concepto_id": "Alquiler"
+                        }
+                    ],
+                    "Servicios": [
+                        {
+                            "concepto": "Internet Fibra",
+                            "monto": 180000
+                        }
+                    ]
+                }
+            }
+        """.trimIndent()
+
+        val dto = gson.fromJson(json, PresupuestoFijosResponseDto::class.java)
+        assertEquals(7500000L, dto.salarioBase)
+        assertEquals(2300000L, dto.totalGastosFijos)
+        assertEquals(2, dto.categorias.size)
+        assertEquals(1, dto.categorias["Vivienda"]?.size)
+        assertEquals("Alquiler", dto.categorias["Vivienda"]?.first()?.concepto)
+        assertEquals(1500000L, dto.categorias["Vivienda"]?.first()?.monto)
+    }
+
+    @Test
+    fun testTechoPresupuestarioItemDtoDeserialization() {
+        val json = """
+            {
+                "categoria": "Supermercado",
+                "limite_mensual": 1200000,
+                "consumido": 950000,
+                "porcentaje": 79.2,
+                "umbral_alerta": 80,
+                "alerta_emitida": false,
+                "estado": "NORMAL",
+                "mensaje": "Consumo dentro de lo proyectado"
+            }
+        """.trimIndent()
+
+        val dto = gson.fromJson(json, TechoPresupuestarioItemDto::class.java)
+        assertEquals("Supermercado", dto.categoria)
+        assertEquals(1200000L, dto.limiteMensual)
+        assertEquals(950000L, dto.consumido)
+        assertEquals(79.2, dto.porcentaje, 0.01)
+        assertEquals(80, dto.umbralAlerta)
+        assertEquals(false, dto.alertaEmitida)
+        assertEquals("NORMAL", dto.estado)
+    }
+
+    @Test
+    fun testObligacionUpdateDtoSerialization() {
+        val updateDto = ObligacionUpdateDto(
+            nombre = "Préstamo GNB Refinanciado",
+            saldoActual = 14500000L,
+            cuotasRestantes = 20,
+            cuotaReferenciaGs = 890000L,
+            estado = "Activo",
+            esGastoFijo = true
+        )
+        val json = gson.toJson(updateDto)
+        assertTrue(json.contains("Préstamo GNB Refinanciado"))
+        assertTrue(json.contains("\"saldo_actual\":14500000"))
+        assertTrue(json.contains("\"cuotas_restantes\":20"))
+        assertTrue(json.contains("\"cuota_referencia_gs\":890000"))
+        assertTrue(json.contains("\"estado\":\"Activo\""))
+        assertTrue(json.contains("\"es_gasto_fijo\":true"))
+    }
 }

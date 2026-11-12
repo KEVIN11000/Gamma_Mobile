@@ -141,10 +141,10 @@ GammaMobile/
    * Abre la carpeta raíz del proyecto. Espera a que Gradle finalice la sincronización inicial de dependencias.
 
 3. **Configuración de variables locales:**
-   * En caso de requerir personalización del endpoint o llaves de desarrollo, configura tu archivo `local.properties`:
+   * En caso de requerir personalización del endpoint o llaves de desarrollo, configura tu archivo `local.properties` (ignorado en Git):
      ```properties
      sdk.dir=/ruta/a/tu/Android/sdk
-     gamma.api.base_url=https://kevin11000.pythonanywhere.com/
+     GAMMA_API_BASE_URL=https://tu-instancia.pythonanywhere.com/api/v1/
      ```
 
 ---

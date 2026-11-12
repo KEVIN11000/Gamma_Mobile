@@ -1,14 +1,23 @@
 package com.gamma.mobile.data.remote
 
 import com.gamma.mobile.data.remote.dto.BootstrapResponseDto
+import com.gamma.mobile.data.remote.dto.CapacidadesResponseDto
 import com.gamma.mobile.data.remote.dto.ClimaResponseDto
 import com.gamma.mobile.data.remote.dto.DispositivoCreateDto
 import com.gamma.mobile.data.remote.dto.DispositivoResponseDto
 import com.gamma.mobile.data.remote.dto.FlujoCajaResponseDto
+import com.gamma.mobile.data.remote.dto.GastoFijoCreateDto
+import com.gamma.mobile.data.remote.dto.GastoFijoUpdateDto
+import com.gamma.mobile.data.remote.dto.ObligacionUpdateDto
 import com.gamma.mobile.data.remote.dto.ParseMovementRequestDto
 import com.gamma.mobile.data.remote.dto.ParsedMovementDto
+import com.gamma.mobile.data.remote.dto.PresupuestoAccionResponseDto
+import com.gamma.mobile.data.remote.dto.PresupuestoFijosResponseDto
+import com.gamma.mobile.data.remote.dto.SalarioBaseUpdateDto
 import com.gamma.mobile.data.remote.dto.SifenRucRequestDto
 import com.gamma.mobile.data.remote.dto.SifenRucResponseDto
+import com.gamma.mobile.data.remote.dto.TechoPresupuestarioItemDto
+import com.gamma.mobile.data.remote.dto.TechoPresupuestarioUpdateDto
 import com.gamma.mobile.domain.model.Aviso
 import com.gamma.mobile.domain.model.DashboardSummary
 import com.gamma.mobile.domain.model.Movimiento
@@ -193,5 +202,47 @@ interface GammaApi {
     suspend fun getMovimientosDelta(
         @Query("since") since: String
     ): Response<List<Movimiento>>
+
+    @GET("capacidades")
+    suspend fun getCapacidades(): Response<CapacidadesResponseDto>
+
+    @PUT("obligaciones/{id}")
+    suspend fun updateObligacionParcial(
+        @Path("id") id: String,
+        @Body updateDto: ObligacionUpdateDto
+    ): Response<Unit>
+
+    @GET("presupuesto/fijos")
+    suspend fun getGastosFijos(): Response<PresupuestoFijosResponseDto>
+
+    @POST("presupuesto/fijos")
+    suspend fun createGastoFijo(
+        @Body request: GastoFijoCreateDto
+    ): Response<PresupuestoAccionResponseDto>
+
+    @PUT("presupuesto/fijos/{concepto}")
+    suspend fun updateGastoFijo(
+        @Path("concepto") concepto: String,
+        @Body request: GastoFijoUpdateDto
+    ): Response<PresupuestoAccionResponseDto>
+
+    @DELETE("presupuesto/fijos/{concepto}")
+    suspend fun deleteGastoFijo(
+        @Path("concepto") concepto: String
+    ): Response<PresupuestoAccionResponseDto>
+
+    @PUT("presupuesto/salario-base")
+    suspend fun updateSalarioBase(
+        @Body request: SalarioBaseUpdateDto
+    ): Response<PresupuestoAccionResponseDto>
+
+    @GET("presupuesto/techos")
+    suspend fun getTechosPresupuestarios(): Response<List<TechoPresupuestarioItemDto>>
+
+    @PUT("presupuesto/techos/{categoria}")
+    suspend fun updateTechoPresupuestario(
+        @Path("categoria") categoria: String,
+        @Body request: TechoPresupuestarioUpdateDto
+    ): Response<PresupuestoAccionResponseDto>
 }
 

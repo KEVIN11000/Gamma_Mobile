@@ -4,7 +4,7 @@
 **Fecha:** Noviembre 2026  
 **Cliente:** Android (`GammaMobile` — Jetpack Compose, Retrofit, Kotlinx Coroutines, Room, WorkManager)  
 **Servidor:** Python / Flask (`Gamma_bot` — Blueprints, Pydantic, GSpread / Google Sheets, SQLite)  
-**Host de Producción:** `https://kevin11000.pythonanywhere.com/api/v1/`
+**Host de Producción:** `<GAMMA_API_BASE_URL>` (inyectado vía `BuildConfig.DEFAULT_BASE_URL` desde `local.properties`)
 
 ---
 
@@ -12,7 +12,7 @@
 
 ### 1.1 Protocolo y Convenciones
 - **Protocolo:** HTTPS / REST sobre JSON.
-- **Base URL:** `https://kevin11000.pythonanywhere.com/api/v1/` (configurable dinámicamente en tiempo de ejecución vía `DynamicBaseUrlInterceptor`).
+- **Base URL:** `<GAMMA_API_BASE_URL>` (por defecto `https://api.gamma.example.com/api/v1/` en código público, inyectado desde `local.properties` en tiempo de compilación y configurable dinámicamente en tiempo de ejecución vía `DynamicBaseUrlInterceptor`).
 - **Autenticación:** Header estándar `X-API-KEY: <token>` inyectado por `ApiKeyInterceptor`.
 - **Moneda:** Guaraní Paraguayo (₲ / PYG). Todos los importes monetarios se manejan como **enteros sin decimales** (`Long` en Kotlin, `int` en Python).
 - **Zonas Horarias:** Todas las marcas temporales de eventos y fechas deben expresarse en la zona horaria oficial de Paraguay (`America/Asuncion`, UTC-3 o UTC-4 según horario de verano/invierno).
@@ -401,7 +401,7 @@
 ```json
 {
   "resumen": "Cierre laboral de Octubre completado. Total: 168.0 horas trabajadas.",
-  "pdf_url": "https://kevin11000.pythonanywhere.com/api/v1/cierres/reportes/cierre_octubre_2026.pdf",
+  "pdf_url": "/api/v1/cierres/reportes/cierre_octubre_2026.pdf",
   "total_horas": 168.0,
   "total_monto": 5880000,
   "tipo": "horas"
@@ -421,7 +421,7 @@
     "total_monto": 5880000,
     "total_horas": 168.0,
     "resumen": "Período cerrado exitosamente",
-    "pdf_url": "https://kevin11000.pythonanywhere.com/api/v1/cierres/reportes/cierre_octubre_2026.pdf",
+    "pdf_url": "/api/v1/cierres/reportes/cierre_octubre_2026.pdf",
     "pdf_disponible": true
   }
 ]

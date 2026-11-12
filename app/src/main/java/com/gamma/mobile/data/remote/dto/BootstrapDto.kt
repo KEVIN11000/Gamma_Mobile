@@ -11,7 +11,7 @@ data class BootstrapResponseDto(
     val status: String = "ok",
     @SerializedName("health")
     val health: HealthStatus? = null,
-    @SerializedName("summary")
+    @SerializedName(value = "resumen_financiero", alternate = ["summary", "resumenFinanciero"])
     val summary: DashboardSummary? = null,
     @SerializedName(value = "proximos_avisos", alternate = ["avisos", "proximosAvisos"])
     val proximosAvisos: List<Aviso> = emptyList(),

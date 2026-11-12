@@ -1,67 +1,62 @@
 # HANDOFF — Gamma Mobile
 
-**Fase cerrada:** Backend v2 Integración Global (v0.0.13-backend-v2-integracion-global)
-**Fecha de cierre:** 2026-11-09
-**Estado del build/tests:** ✅ pasando — Suite completa de pruebas unitarias (`.\gradlew.bat testDebugUnitTest`) y `assembleRelease` completados con éxito.
+**Fase cerrada:** Release v0.0.14 y Remediación de Seguridad (`seguridad-gamma-mobile`)
+**Fecha de cierre:** 2026-11-12
+**Estado del build/tests:** ✅ pasando — Suite completa `.\gradlew.bat testDebugUnitTest`, compilación `assembleRelease` y auditoría `apksigner` v2 verificadas tras los últimos cambios.
 
 ---
 
 ## 1. Estado actual
 
-- **Hidratación Global Atómica (Bootstrap):** Consumo del endpoint `GET /api/v1/bootstrap` implementado en `BootstrapRepositoryImpl`, hidratando de forma atómica y no destructiva el resumen financiero, avisos y periodo contable en `DashboardViewModel`.
-- **Flujo de Caja 30D y Clima Offline-First:** Persistencia Room v6 (`MIGRATION_5_6`). Componentes `ClimaHeaderWidget` (alerta lluvia $\ge 35\%$) y `FlujoCajaCard` (semáforo de liquidez y proyección 30 días) en `DashboardScreen`.
-- **Inteligencia Financiera Híbrida (NLP Backend v2 + Gemini On-Device):** Botón dual en `NuevaTransaccionScreen` ("⚡ Rápido (NLP)" vía `POST /api/v1/movimientos/parse-nlp` y "✨ Gemini IA" vía on-device).
-- **Integración SIFEN KuDE:** Resolución y autocompletado de Razón Social de proveedores a partir de RUC (`POST /api/v1/sifen/consultar-ruc`) en `NuevaTransaccionViewModel`, `SifenScannerViewModel` y `SifenConfirmBottomSheet`.
-- **Resiliencia e Idempotencia de Red:** Interceptores OkHttp `IdempotencyInterceptor` (`X-Client-Id` único por sesión), `RateLimitInterceptor` (gestión de 429 con `Retry-After`) y `PayloadSizeGuardInterceptor` (prevención de desbordamiento >64KB).
-- **Invariantes Arquitecturales:** Preservación estricta de invariantes `[#INV-01]` a `[#INV-07]` de `docs/SYSTEM_MAP.md` (montos enteros `Long` en Guaraníes `formatGuaranies()`, no destructive loading, resolución local offline-first).
+- **Refinamiento Contable y Auto-descubrimiento (`v0.0.14`):** `CapacidadesRepositoryImpl` (`/api/v1/capacidades`) con caché offline, alias en `BootstrapDto`, blindaje `saldoActual > 0L` en `Models.kt` y `PUT /api/v1/obligaciones/{id}` (`ObligacionModelTest`).
+- **Módulo Presupuesto Base:** `PresupuestoScreen` y `PresupuestoViewModel` operativos para salario base, gastos fijos por categoría y techos variables con semáforos, cubiertos por `PresupuestoRepositoryTest` y `PresupuestoViewModelTest`.
+- **Remediación de Seguridad (`CWE-200` / `CWE-798`):** `DEFAULT_BASE_URL` y firma local desacoplados vía `BuildConfig` + `local.properties`/CI, `allowBackup="false"` en `AndroidManifest.xml` y tests sanitizados (`SecureStorageTest`).
+- **Release `v0.0.14` empaquetado localmente:** Binario `app/build/outputs/apk/release/gamma-mobile-v0.0.14-release.apk` compilado y verificado criptográficamente con el certificado oficial (`SHA-256: 2db8d51c88ad21c640a3bffb9fe04c50603e81182f8e1b7e54b3a568a580ffe7`).
 
 ## 2. Decisiones tomadas en esta fase
 
-- **Decisión:** Mantener arquitectura de parsing dual en `NuevaTransaccionScreen` (NLP Backend v2 + Gemini on-device).
-  **Por qué:** Asegura máxima velocidad de respuesta y economía de batería en el camino primario (NLP Backend), preservando capacidad funcional offline mediante Gemini on-device (`#INV-06`).
-- **Decisión:** Implementar migración incremental de Room `MIGRATION_5_6` (creación de tablas `flujo_caja` y `clima_cache`).
-  **Por qué:** Evitar pérdida de datos locales preexistentes en dispositivos de producción al elevar a Room DB v6.
-- **Decisión:** Filtrar actualizaciones nulas en `DashboardViewModel.observeAuxiliaryData()`.
-  **Por qué:** Respetar el principio de carga no destructiva (`#INV-04`): el Dashboard nunca borra el contenido visible ante flows iniciales vacíos o retrasos de red.
-- **Decisión:** Autocompletar razón social vía `ConsultarRucSifenUseCase` preservando edición manual.
-  **Por qué:** Agilizar la carga contable KuDE sin bloquear al usuario si el RUC no se encuentra en la base del backend o no hay conexión inmediata.
+- **Decisión:** Desacoplar `DEFAULT_BASE_URL` vía `BuildConfig` leyendo `GAMMA_API_BASE_URL` desde `local.properties` / CI con fallback `"https://api.gamma.example.com/api/v1/"`.
+  **Por qué:** Mitiga `CWE-200` sin volver privado el repositorio GitHub, preservando el Auto-Update público sin token (`GitHubReleaseApi`).
+  **Evidencia (`ref`):** `test:SecureStorageTest`, `invariant:SYSTEM_MAP#INV-07`
+  **Alternativas descartadas:** Pasar el repo a privado solamente (rompe `GET /repos/.../releases/latest` sin token).
+- **Decisión:** Deshabilitar `android:allowBackup="false"` en `AndroidManifest.xml` y eliminar contraseñas fallback de `app/build.gradle.kts`.
+  **Por qué:** Evita extracción ADB de Room (`gamma_db`) y remueve literales de firma (`CWE-798`) del build script.
+  **Evidencia (`ref`):** `bug:seguridad-gamma-mobile`, `invariant:SYSTEM_MAP#INV-07`
+- **Decisión:** Priorizar `saldoActual > 0L` como autoridad contable en `Models.kt` sobre el texto `estado` de Google Sheets.
+  **Por qué:** Evita que desfasajes en planillas oculten deudas vivas en la pestaña `Saldadas`.
+  **Evidencia (`ref`):** `spec:v014-refinamiento-contable-ux/spec.md`, `test:ObligacionModelTest`, `invariant:SYSTEM_MAP#INV-02`
 
 ## 3. Archivos y módulos clave tocados
 
-| Módulo / Archivo | Cambio |
+| Archivo | Cambio |
 |---|---|
-| `VERSION` | Bump de versión oficial a `0.0.13`. |
-| `data/remote/dto/BackendV2Dtos.kt` | DTOs de Backend v2 (`BootstrapDto`, `FlujoCajaDto`, `ClimaDto`, `ParsedMovementDto`, `SifenDto`, etc.). |
-| `data/remote/GammaApi.kt` | Endpoints backend v2 (`/bootstrap`, `/flujo-caja/30d`, `/clima/actual`, `/movimientos/parse-nlp`, `/sifen/consultar-ruc`). |
-| `data/remote/interceptor/*` | Interceptores `IdempotencyInterceptor`, `RateLimitInterceptor` y `PayloadSizeGuardInterceptor`. |
-| `data/local/entity/*` y `dao/*` | Entidades y DAOs Room `FlujoCajaEntity`, `ClimaEntity`, `FlujoCajaDao`, `ClimaDao`. |
-| `data/local/GammaDatabase.kt` | Elevación a DB v6 con migración `MIGRATION_5_6`. |
-| `domain/repository/*` e `impl/*` | `BootstrapRepository`, `FlujoCajaRepository`, `ClimaRepository`. |
-| `domain/usecase/*` | `ParseMovimientoNlpUseCase` y `ConsultarRucSifenUseCase`. |
-| `presentation/dashboard/*` | Hidratación bootstrap y widgets `ClimaHeaderWidget` y `FlujoCajaCard`. |
-| `presentation/transacciones/*` y `sifen/*` | Integración de botón NLP backend y autocompletado KuDE SIFEN por RUC. |
-| `docs/SYSTEM_MAP.md` | Mapeo documental vivo actualizado con dominios, módulos e invariantes `[#INV-01]` - `[#INV-07]`. |
-| `docs/specs/v013-backend-v2-integracion-global/*` | Especificación, plan arquitectónico y checklist de tareas de la versión 0.0.13. |
+| `app/build.gradle.kts` | Inyección de `BuildConfig.DEFAULT_BASE_URL` y lectura de firma desde `local.properties` / env vars |
+| `app/src/main/java/com/gamma/mobile/data/repository/SecureStorageRepositoryImpl.kt` | `DEFAULT_BASE_URL` consumido desde `BuildConfig.DEFAULT_BASE_URL` (`#INV-07`) |
+| `app/src/main/java/com/gamma/mobile/di/NetworkModule.kt` | `provideRetrofit` usa `SecureStorageRepositoryImpl.DEFAULT_BASE_URL` |
+| `app/src/main/AndroidManifest.xml` | `android:allowBackup="false"` para proteger base de datos financiera local |
+| `.github/workflows/release.yml` | Inyección de `secrets.GAMMA_API_BASE_URL` en `Build Release APK` |
+| `app/src/test/java/com/gamma/mobile/data/repository/SecureStorageTest.kt` | Nuevo test de contrato para `BuildConfig.DEFAULT_BASE_URL` |
+| `docs/SYSTEM_MAP.md`, `README.md`, `docs/ESPECIFICACIONES_API_MOBILE.md` | Actualización de `#INV-07` y sanitización de URLs de producción |
+| `docs/specs/v014-refinamiento-contable-ux/*`, `presentation/presupuesto/*` | Feature completo `v0.0.14` (Presupuesto Base, Capacidades, Blindaje de Deudas) |
 
 ## 4. Pendientes explícitos para la próxima fase
 
-- [ ] Descargar e instalar el APK Release `v0.0.13` en el dispositivo físico de producción (HONOR Magic6 Lite).
-- [ ] Validar en vivo la sincronización con el backend v2 (`kevin11000.pythonanywhere.com`): hidratación bootstrap, clima y proyección de flujo de caja 30D.
-- [ ] Probar en dispositivo el botón "⚡ Rápido (NLP)" en `NuevaTransaccionScreen` con transacciones reales en guaraníes.
-- [ ] Verificar el autocompletado de Razón Social por RUC en el escáner KuDE SIFEN contra la base unificada.
+- [ ] Autorizar y ejecutar `git push origin main` y `git push origin v0.0.14` tras aprobar el Gate de Despliegue para disparar `.github/workflows/release.yml` en GitHub Actions.
+- [ ] Configurar el secreto `GAMMA_API_BASE_URL` en *GitHub Repository Settings > Secrets and variables > Actions* antes de publicar releases desde CI.
+- [ ] Instalar `gamma-mobile-v0.0.14-release.apk` en el dispositivo físico (HONOR Magic6 Lite) y validar `/capacidades`, Presupuesto Base y edición de deudas en vivo.
 
 ## 5. Riesgos / deuda técnica conocida
 
-- **Riesgo:** Cuotas de API externa de clima en el backend.
-  **Mitigación:** Room actúa como cache offline-first con política de TTL en backend; la app móvil nunca falla si el clima no está disponible.
-- **Riesgo:** RUC KuDE no registrado en la base unificada de SIFEN.
-  **Mitigación:** La UI mantiene el campo de Razón Social siempre editable para que el usuario complete o ajuste el nombre manualmente.
+- **Riesgo:** Si no se configura `GAMMA_API_BASE_URL` en GitHub Secrets, el APK generado por CI usará el placeholder neutro `https://api.gamma.example.com/api/v1/` hasta que el usuario configure la URL en `SistemaScreen`.
+  **Impacto:** Requiere ingreso manual de URL en primera instalación de APKs generados por CI (los compilados localmente con `local.properties` ya incluyen la URL real).
+  **Mitigación sugerida:** Registrar `GAMMA_API_BASE_URL` en GitHub Secrets.
 
 ## 6. Cómo verificar que este handoff sigue vigente
 
-```bash
+```powershell
 .\gradlew.bat testDebugUnitTest
 .\gradlew.bat assembleRelease
+& "$env:LOCALAPPDATA\Android\Sdk\build-tools\34.0.0\apksigner.bat" verify --verbose --print-certs app/build/outputs/apk/release/gamma-mobile-v0.0.14-release.apk
 git status
 ```
 

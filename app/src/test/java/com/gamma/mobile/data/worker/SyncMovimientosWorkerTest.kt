@@ -6,6 +6,7 @@ import androidx.work.ListenableWorker
 import androidx.work.testing.TestListenableWorkerBuilder
 import com.gamma.mobile.data.local.dao.MovimientoDao
 import com.gamma.mobile.data.local.entity.MovimientoEntity
+import com.gamma.mobile.data.remote.BaseFakeGammaApi
 import com.gamma.mobile.data.remote.GammaApi
 import com.gamma.mobile.domain.model.Movimiento
 import kotlinx.coroutines.runBlocking
@@ -145,7 +146,7 @@ class FakeWorkerDao : MovimientoDao {
     }
 }
 
-open class FakeWorkerApi : GammaApi {
+open class FakeWorkerApi : BaseFakeGammaApi() {
     var shouldSucceed = true
     var callCount = 0
 

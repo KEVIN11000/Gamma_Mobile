@@ -52,7 +52,8 @@ class SecureStorageRepositoryImpl @Inject constructor(
     companion object {
         private const val KEY_API = "X-API-KEY-SECURE"
         private const val KEY_BASE_URL = "BASE_URL_SECURE"
-        const val DEFAULT_BASE_URL = "https://kevin11000.pythonanywhere.com/api/v1/"
+        // INVARIANT: DEFAULT_BASE_URL is injected via BuildConfig from local.properties / CI env to avoid CWE-200 exposure. Ref: SYSTEM_MAP #INV-07
+        val DEFAULT_BASE_URL: String = com.gamma.mobile.BuildConfig.DEFAULT_BASE_URL
 
         private fun createEncryptedSharedPreferences(context: Context): SharedPreferences {
             val masterKey = MasterKey.Builder(context)

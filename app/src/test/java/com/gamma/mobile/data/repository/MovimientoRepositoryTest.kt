@@ -4,6 +4,7 @@ import com.gamma.mobile.data.local.dao.MovimientoDao
 import com.gamma.mobile.data.local.dao.SyncStateDao
 import com.gamma.mobile.data.local.entity.MovimientoEntity
 import com.gamma.mobile.data.local.entity.SyncStateEntity
+import com.gamma.mobile.data.remote.BaseFakeGammaApi
 import com.gamma.mobile.data.remote.GammaApi
 import com.gamma.mobile.data.remote.NetworkResult
 import com.gamma.mobile.domain.model.Aviso
@@ -111,7 +112,7 @@ class MovimientoRepositoryTest {
     }
 }
 
-class FakeApiForRepo : GammaApi {
+class FakeApiForRepo : BaseFakeGammaApi() {
     var movimientosResponse: Response<List<Movimiento>>? = null
     var shouldThrow = false
 

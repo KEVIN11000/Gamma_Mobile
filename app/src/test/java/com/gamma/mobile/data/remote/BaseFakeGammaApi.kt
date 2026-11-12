@@ -1,14 +1,23 @@
 package com.gamma.mobile.data.remote
 
 import com.gamma.mobile.data.remote.dto.BootstrapResponseDto
+import com.gamma.mobile.data.remote.dto.CapacidadesResponseDto
 import com.gamma.mobile.data.remote.dto.ClimaResponseDto
 import com.gamma.mobile.data.remote.dto.DispositivoCreateDto
 import com.gamma.mobile.data.remote.dto.DispositivoResponseDto
 import com.gamma.mobile.data.remote.dto.FlujoCajaResponseDto
+import com.gamma.mobile.data.remote.dto.GastoFijoCreateDto
+import com.gamma.mobile.data.remote.dto.GastoFijoUpdateDto
+import com.gamma.mobile.data.remote.dto.ObligacionUpdateDto
 import com.gamma.mobile.data.remote.dto.ParseMovementRequestDto
 import com.gamma.mobile.data.remote.dto.ParsedMovementDto
+import com.gamma.mobile.data.remote.dto.PresupuestoAccionResponseDto
+import com.gamma.mobile.data.remote.dto.PresupuestoFijosResponseDto
+import com.gamma.mobile.data.remote.dto.SalarioBaseUpdateDto
 import com.gamma.mobile.data.remote.dto.SifenRucRequestDto
 import com.gamma.mobile.data.remote.dto.SifenRucResponseDto
+import com.gamma.mobile.data.remote.dto.TechoPresupuestarioItemDto
+import com.gamma.mobile.data.remote.dto.TechoPresupuestarioUpdateDto
 import com.gamma.mobile.domain.model.*
 import okhttp3.MultipartBody
 import okhttp3.ResponseBody
@@ -60,4 +69,13 @@ open class BaseFakeGammaApi : GammaApi {
     override suspend fun registrarDispositivo(request: DispositivoCreateDto): Response<DispositivoResponseDto> = throw NotImplementedError()
     override suspend fun consultarRucSifen(request: SifenRucRequestDto): Response<SifenRucResponseDto> = throw NotImplementedError()
     override suspend fun getMovimientosDelta(since: String): Response<List<Movimiento>> = throw NotImplementedError()
+    override suspend fun getCapacidades(): Response<CapacidadesResponseDto> = throw NotImplementedError()
+    override suspend fun updateObligacionParcial(id: String, updateDto: ObligacionUpdateDto): Response<Unit> = throw NotImplementedError()
+    override suspend fun getGastosFijos(): Response<PresupuestoFijosResponseDto> = throw NotImplementedError()
+    override suspend fun createGastoFijo(request: GastoFijoCreateDto): Response<PresupuestoAccionResponseDto> = throw NotImplementedError()
+    override suspend fun updateGastoFijo(concepto: String, request: GastoFijoUpdateDto): Response<PresupuestoAccionResponseDto> = throw NotImplementedError()
+    override suspend fun deleteGastoFijo(concepto: String): Response<PresupuestoAccionResponseDto> = throw NotImplementedError()
+    override suspend fun updateSalarioBase(request: SalarioBaseUpdateDto): Response<PresupuestoAccionResponseDto> = throw NotImplementedError()
+    override suspend fun getTechosPresupuestarios(): Response<List<TechoPresupuestarioItemDto>> = throw NotImplementedError()
+    override suspend fun updateTechoPresupuestario(categoria: String, request: TechoPresupuestarioUpdateDto): Response<PresupuestoAccionResponseDto> = throw NotImplementedError()
 }

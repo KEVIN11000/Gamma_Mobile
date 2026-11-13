@@ -31,6 +31,8 @@ jobs:
         run: chmod +x gradlew
 
       - name: Run Unit Tests
+        env:
+          GAMMA_API_BASE_URL: ${{ secrets.GAMMA_API_BASE_URL }}
         run: ./gradlew testDebugUnitTest
 
       - name: Verify and Decode Official Keystore

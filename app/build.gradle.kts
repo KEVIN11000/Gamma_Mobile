@@ -44,12 +44,14 @@ if (localPropertiesFile.exists()) {
     localPropertiesFile.inputStream().use { localProperties.load(it) }
 }
 
-val rawServerBaseUrl: String = (
-    localProperties.getProperty("GAMMA_API_BASE_URL")
-        ?: localProperties.getProperty("gamma.api.base_url")
-        ?: System.getenv("GAMMA_API_BASE_URL")
-        ?: "https://api.gamma.example.com/api/v1/"
-).trim()
+val rawServerBaseUrl: String = listOf(
+    localProperties.getProperty("GAMMA_API_BASE_URL"),
+    localProperties.getProperty("gamma.api.base_url"),
+    System.getenv("GAMMA_API_BASE_URL")
+)
+    .mapNotNull { it?.trim()?.takeIf { value -> value.isNotEmpty() } }
+    .firstOrNull { it.startsWith("http://") || it.startsWith("https://") }
+    ?: "https://api.gamma.example.com/api/v1/"
 val serverBaseUrl: String = if (rawServerBaseUrl.endsWith("/")) rawServerBaseUrl else "$rawServerBaseUrl/"
 
 android {

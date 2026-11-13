@@ -54,6 +54,9 @@ class SecureStorageRepositoryImpl @Inject constructor(
         private const val KEY_BASE_URL = "BASE_URL_SECURE"
         // INVARIANT: DEFAULT_BASE_URL is injected via BuildConfig from local.properties / CI env to avoid CWE-200 exposure. Ref: SYSTEM_MAP #INV-07
         val DEFAULT_BASE_URL: String = com.gamma.mobile.BuildConfig.DEFAULT_BASE_URL
+            .trim()
+            .takeIf { it.startsWith("http://") || it.startsWith("https://") }
+            ?: "https://api.gamma.example.com/api/v1/"
 
         private fun createEncryptedSharedPreferences(context: Context): SharedPreferences {
             val masterKey = MasterKey.Builder(context)
